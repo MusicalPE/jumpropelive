@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 판정기 v0.8.2 · 카메라로 진짜 뛰는지 보기</title>
+<title>줄넘기 판정기 v0.8.3 · 카메라로 진짜 뛰는지 보기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -206,7 +206,7 @@
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
     <div class="titles">
-      <h1>줄넘기 판정기<span class="ver">v0.8.2</span></h1>
+      <h1>줄넘기 판정기<span class="ver">v0.8.3</span></h1>
       <span class="sub">머리부터 발까지 보이게 서서, 몸이 뜨고 팔이 돌 때만 1회로 세요</span>
     </div>
     <div class="who" id="who"></div>
@@ -387,7 +387,7 @@ const $=id=>document.getElementById(id);
 const video=$('video'), cv=$('overlay'), cx=cv.getContext('2d');
 let landmarker=null, stream=null, facing='user', running=false, t0=0, raf=0, lastVideoT=-1, frames=0, fpsT=0;
 /* ---------- 앱 연동: 체육교사 보조 프로그램의 줄넘기 화면에서 열리면 ?app=앱주소&t=학생표&kind=종류 가 붙어 와요 ---------- */
-const VER='0.8.2';
+const VER='0.8.3';
 const Q=new URLSearchParams(location.search);
 const LINK={ app:Q.get('app')||'', t:Q.get('t')||'', kind:Q.get('kind')||'', sens:+(Q.get('sens')||0)||0, target:(Q.get('target')==='fit'?'fit':'rope'), who:null, saved:null,
   // mode=post : 오프라인판(파일로 여는 프로그램)이 연 창. 서버 대신 window.opener.postMessage 로 결과를 돌려준다.
@@ -672,17 +672,29 @@ function onControl(c){
 }
 function liveConnectedPill(){ const m=LIVE.me; livePill(m?`선생님 화면에 연결됨 · ${m.g}학년 ${m.c}반 ${m.n}번${LIVE.picked?' <u style="cursor:pointer">번호 바꾸기</u>':''}`:'번호를 골라 주세요'); }
 // 번호 고르기 (QR로 바로 들어온 학생) — 이름은 선생님 현황판에만 있고, 여기서는 번호만 고름
-async function livePick(){
+// 반 고르기 → 번호 고르기. 여러 반이 함께 수업하는 방(5·6학년 등)이면 반부터 고름
+async function livePick(grp){
   const meta=LIVE.meta; if(!meta||running||(LIVE.ctlRun&&LIVE.cdTimer)) return;
   let box=$('pickModal');
-  if(!box){ box=document.createElement('div'); box.id='pickModal'; box.className='modal'; box.innerHTML='<div class="box" style="max-width:720px"><h3 id="pkTitle"></h3><p id="pkNote">내 번호를 눌러요</p><div id="pkGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:8px;max-height:60vh;overflow:auto"></div></div>'; document.body.appendChild(box); }
-  $('pkTitle').textContent=`${meta.g}학년 ${meta.c}반`;
-  const taken=new Set((await LIVE.T.taken()).filter(d=>d.g===meta.g&&d.c===meta.c&&!(LIVE.me&&d.n===LIVE.me.n)).map(d=>d.n));
+  if(!box){ box=document.createElement('div'); box.id='pickModal'; box.className='modal'; box.innerHTML='<div class="box" style="max-width:720px"><h3 id="pkTitle"></h3><p id="pkNote">내 번호를 눌러요</p><div id="pkGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:8px;max-height:60vh;overflow:auto"></div><div id="pkBack"></div></div>'; document.body.appendChild(box); }
+  const gs=meta.groups; $('pkBack').innerHTML='';
+  if(!grp&&gs.length===1) grp=gs[0];
+  if(!grp){
+    $('pkTitle').textContent='내 반을 눌러요'; $('pkNote').textContent='여러 반이 함께 뛰어요';
+    $('pkGrid').style.gridTemplateColumns='repeat(auto-fill,minmax(150px,1fr))'; $('pkGrid').innerHTML='';
+    gs.forEach(x=>{ const b=document.createElement('button'); b.textContent=`${x.g}학년 ${x.c}반`; b.style.cssText='font-size:24px;font-weight:800;min-height:80px';
+      b.onclick=()=>livePick(x); $('pkGrid').appendChild(b); });
+    box.classList.add('on'); return;
+  }
+  $('pkTitle').textContent=`${grp.g}학년 ${grp.c}반`;
+  $('pkGrid').style.gridTemplateColumns='repeat(auto-fill,minmax(64px,1fr))';
+  if(gs.length>1){ const bk=document.createElement('button'); bk.textContent='← 반 다시 고르기'; bk.style.cssText='margin-top:10px;min-height:44px;font-size:15px'; bk.onclick=()=>livePick(); $('pkBack').appendChild(bk); }
+  const taken=new Set((await LIVE.T.taken()).filter(d=>d.g===grp.g&&d.c===grp.c&&!(LIVE.me&&LIVE.me.g===grp.g&&LIVE.me.c===grp.c&&d.n===LIVE.me.n)).map(d=>d.n));
   $('pkGrid').innerHTML='';
-  for(let n=1;n<=meta.max;n++){ const b=document.createElement('button'); b.textContent=n; b.style.cssText='font-size:24px;font-weight:800;min-height:64px;padding:0'+(taken.has(n)?';color:var(--muted);background:var(--soft)':'');
+  for(let n=1;n<=grp.max;n++){ const b=document.createElement('button'); b.textContent=n; b.style.cssText='font-size:24px;font-weight:800;min-height:64px;padding:0'+(taken.has(n)?';color:var(--muted);background:var(--soft)':'');
     if(taken.has(n)) b.title='이미 누가 이 번호로 들어와 있어요';
     b.onclick=()=>{ if(taken.has(n)&&!confirm(n+'번은 이미 누가 들어와 있어요. 그래도 '+n+'번으로 할까요?')) return;
-      LIVE.me={g:meta.g,c:meta.c,n}; LIVE.picked=true; box.classList.remove('on'); liveConnectedPill(); livePush(true); };
+      LIVE.me={g:grp.g,c:grp.c,n}; LIVE.picked=true; box.classList.remove('on'); liveConnectedPill(); livePush(true); };
     $('pkGrid').appendChild(b); }
   $('pkNote').textContent=taken.size?'내 번호를 눌러요 (흐린 번호는 이미 누가 들어와 있어요)':'내 번호를 눌러요';
   box.classList.add('on');
@@ -699,7 +711,10 @@ async function liveInit(){
     LIVE.T.onConnected(c=>{ if(c){ if(LIVE.meta!==null) liveConnectedPill(); LIVE.sent=null; livePush(true); } else livePill('연결이 끊겼어요 — 다시 잇는 중… (세기는 계속돼요)',true); });
     LIVE.T.onMeta(m=>{
       if(!m||!+m.g||!+m.c){ LIVE.meta=null; if(!LIVE.me) livePill('방을 찾지 못했어요 — 선생님 화면의 QR로 다시 들어와요',true); return; }
-      const first=LIVE.meta===undefined||LIVE.meta===null; LIVE.meta={g:+m.g,c:+m.c,max:Math.max(1,Math.min(60,+m.max||30))};
+      const first=LIVE.meta===undefined||LIVE.meta===null, cap=v=>Math.max(1,Math.min(60,+v||30));
+      let groups=[{g:+m.g,c:+m.c,max:cap(m.max)}];
+      if(typeof m.list==='string'&&m.list){ const gl=m.list.split(',').map(x=>/^(\d{1,2})-(\d{1,2}):(\d{1,2})$/.exec(x)).filter(Boolean).map(r=>({g:+r[1],c:+r[2],max:cap(r[3])})); if(gl.length) groups=gl; }
+      LIVE.meta={g:groups[0].g,c:groups[0].c,max:groups[0].max,groups};
       liveConnectedPill();
       if(first&&!LIVE.me) livePick();
     });

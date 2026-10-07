@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.2.2</title>
+<title>점프 라이브 v0.3.0</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -47,6 +47,10 @@
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   .row label{font-weight:700;color:var(--ink2);display:flex;gap:8px;align-items:center}
   .err{color:var(--red);font-weight:700}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 6px}
+  .chip{min-height:44px;padding:8px 16px;border-radius:99px;font-size:16px}
+  .chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .tile .who .gc{font-size:.72em;font-weight:800;color:#fff;background:var(--ink2);border-radius:6px;padding:1px 6px;flex:none}
 
   /* 진행 막대 */
   .bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px}
@@ -130,7 +134,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.2.2</span></h1>
+    <h1>점프 라이브<span class="ver">v0.3.0</span></h1>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <div class="me" id="me" hidden><span id="meName"></span><button id="btnOut">로그아웃</button></div>
@@ -152,13 +156,14 @@
     <div class="card panel">
       <h2>어느 반 수업인가요?</h2>
       <div class="row">
-        <label>학년 <select id="selG"></select></label>
-        <label>반 <select id="selC"></select></label>
+        <label id="gLab">학년 <select id="selG"></select></label>
+        <label id="cLab">반 <select id="selC"></select></label>
         <label id="maxLab">인원 <input type="number" id="inMax" min="1" max="60" value="25" style="width:90px"></label>
         <label id="typeLab" hidden>종류 <select id="selType"></select></label>
       </div>
       <div id="appBox" hidden>
         <p style="margin-bottom:8px"><b>줄넘기 기록 관리 명단</b> · <span id="appInfo"></span></p>
+        <div class="chips" id="clsChips"></div>
         <div class="row" id="pwRow" hidden><input type="password" id="inPw" placeholder="관리자 비밀번호" style="font-size:18px;padding:8px 12px;border-radius:12px;border:1px solid var(--line);background:var(--soft)"><button id="btnPw">확인</button></div>
       </div>
       <div id="rosterBox">
@@ -201,7 +206,7 @@
     <div id="qrImg"></div>
     <div class="qrText">
       <h3 id="qrTitle"></h3>
-      <p>휴대폰·태블릿 <b>카메라</b>로 QR을 찍고,<br>판정기에서 <b>"카메라 켜고 시작하기"</b> →<br><b>내 번호</b>를 눌러요.</p>
+      <p>휴대폰·태블릿 <b>카메라</b>로 QR을 찍고,<br>판정기에서 <b>"카메라 켜고 시작하기"</b> →<br><span id="qrStep">내 번호</span>를 눌러요.</p>
       <code id="qrUrl"></code>
       <div class="row"><button class="primary" id="btnQrClose">다 들어왔어요 · 닫기</button><button id="btnCopy">주소 복사</button></div>
     </div>
@@ -225,7 +230,7 @@
    서버에 올라가는 것: 방 주인(로그인 ID), 학년·반·인원, 시작·끝 신호, 학생 기기별 학년·반·번호·횟수·상태. 이름은 이 컴퓨터에만.
    전송 방식은 BACKEND 하나에 모음 (Firebase / 시험 모드) — 나중에 다른 서버로 바꿀 때 이것만 바꾸면 됨
    ========================================================================================= */
-const VER='0.2.2';
+const VER='0.3.0';
 const FB_CONFIG={ apiKey:'AIzaSyDimPwJ974Pmn9wcgwFZFWUBQPaOra5chQ', authDomain:'jumpropelive.firebaseapp.com',
   databaseURL:'https://jumpropelive-default-rtdb.asia-southeast1.firebasedatabase.app', projectId:'jumpropelive',
   storageBucket:'jumpropelive.firebasestorage.app', messagingSenderId:'727527484238', appId:'1:727527484238:web:aaed6e0585ee7db7228c1f' };
@@ -279,8 +284,10 @@ function demoBackend(){
     now:()=>Date.now(),
     onUser:cb=>setTimeout(()=>cb({uid:'demo',name:'시험 모드'}),0),
     signIn:async()=>{}, signOut:async()=>{},
-    async openRoom(room,m){ meta=m; devs={}; const join=[]; for(let n=1;n<=m.max;n++) if(n!==4&&n!==m.max-1) join.push(n);
-      join.forEach((n,i)=>setTimeout(()=>{ devs['d'+n]={g:m.g,c:m.c,n,cnt:0,rate:0,best:0,st:'ready',run:false,ctl:'',t:Date.now(),_sp:rnd(60,150),_lazy:Math.random()<0.15}; },300+i*120));
+    async openRoom(room,m){ meta=m; devs={}; const join=[];
+      const gs=m.list?m.list.split(',').map(x=>{ const r=/^(\d+)-(\d+):(\d+)$/.exec(x); return {g:+r[1],c:+r[2],max:+r[3]}; }):[{g:m.g,c:m.c,max:m.max}];
+      gs.forEach(x=>{ for(let n=1;n<=x.max;n++) if(!(x===gs[0]&&(n===4||n===x.max-1))) join.push([x.g,x.c,n]); });
+      join.forEach(([g,c,n],i)=>setTimeout(()=>{ devs['d'+g+'_'+c+'_'+n]={g,c,n,cnt:0,rate:0,best:0,st:'ready',run:false,ctl:'',t:Date.now(),_sp:rnd(60,150),_lazy:Math.random()<0.15}; },300+i*120));
       setTimeout(()=>{ devs.dupe={g:m.g,c:m.c,n:7,cnt:0,rate:0,best:0,st:'ready',run:false,ctl:'',t:Date.now(),_sp:90}; },300+join.length*120+400);   // 한 학생이 기기 2대
       setTimeout(()=>{ devs.other={g:m.g,c:m.c%9+1,n:12,cnt:0,rate:0,best:0,st:'ready',run:false,ctl:'',t:Date.now(),_sp:100}; },300+join.length*120+800); // 다른 반
     },
@@ -297,7 +304,7 @@ function demoBackend(){
           else { const add=Math.random()<d._sp/60*0.4?1:0; d.cnt+=add; d._streak+=add; d.best=Math.max(d.best,d._streak); d.st='jump'; d.rate=Math.round(d._sp*rnd(.85,1.1)); } }
         d.t=now;
       });
-      if(devs.d9&&Math.random()<0.002) devs.d9.st='off';
+
       onDevs(JSON.parse(JSON.stringify(devs)));
     },400); },
     async closeRoom(){ clearInterval(tick); devs={}; },
@@ -336,24 +343,37 @@ async function appPw(){
   catch(e){ $('setupErr').textContent=e.message; }
 }
 function appClasses(){
-  const g=$('selG'), c=$('selC'), list=JR.students.filter(x=>+x.grade&&+x.cls&&+x.number);
-  const grades=[...new Set(list.map(x=>+x.grade))].sort((a,b)=>a-b);
-  if(!grades.length){ $('appInfo').textContent='등록된 학생이 없어요 — 줄넘기 기록 관리에서 학생을 먼저 등록해 주세요'; return; }
-  const last=(store.get('jrl_last')||'').split('-');
-  g.innerHTML=''; grades.forEach(v=>g.add(new Option(v+'학년',v))); if(grades.includes(+last[0])) g.value=last[0];
-  const fillC=()=>{ const cs=[...new Set(list.filter(x=>+x.grade===+g.value).map(x=>+x.cls))].sort((a,b)=>a-b); c.innerHTML=''; cs.forEach(v=>c.add(new Option(v+'반',v))); if(cs.includes(+last[1])) c.value=last[1]; appRoster(); };
-  g.onchange=fillC; c.onchange=appRoster; fillC(); $('btnOpen').disabled=false;
+  const list=JR.students.filter(x=>+x.grade&&+x.cls&&+x.number>=1&&+x.number<=60);
+  const cls=[...new Set(list.map(x=>gkey(+x.grade,+x.cls)))].sort((p,q)=>{ const [a1,b1]=p.split('-').map(Number),[a2,b2]=q.split('-').map(Number); return a1-a2||b1-b2; });
+  if(!cls.length){ $('appInfo').textContent='등록된 학생이 없어요 — 줄넘기 기록 관리에서 학생을 먼저 등록해 주세요'; return; }
+  $('gLab').hidden=true; $('cLab').hidden=true;
+  let pick=(store.get('jrl_lastm')||'').split(',').filter(k=>cls.includes(k));
+  if(!pick.length){ const l=(store.get('jrl_last')||''); pick=[cls.includes(l)?l:cls[0]]; }
+  JR.pick=new Set(pick);
+  const box=$('clsChips'); box.innerHTML='';
+  cls.forEach(k=>{ const [g,c]=k.split('-'), n=list.filter(x=>gkey(+x.grade,+x.cls)===k).length;
+    const b=document.createElement('button'); b.type='button'; b.className='chip'+(JR.pick.has(k)?' on':''); b.textContent=`${g}학년 ${c}반 (${n}명)`;
+    b.onclick=()=>{ if(JR.pick.has(k)){ if(JR.pick.size>1) JR.pick.delete(k); } else JR.pick.add(k); b.classList.toggle('on',JR.pick.has(k)); appRoster(); };
+    box.appendChild(b); });
+  appRoster(); $('btnOpen').disabled=false;
 }
 function appRoster(){
-  const gv=+$('selG').value, cv=+$('selC').value, names={}, ids={}; let max=0;
-  JR.students.filter(x=>+x.grade===gv&&+x.cls===cv&&+x.number>=1&&+x.number<=60).forEach(x=>{ const n=+x.number; names[n]=String(x.name||''); ids[n]=String(x.id); max=Math.max(max,n); });
-  JR.cur={names,ids,max};
-  $('appInfo').innerHTML=`${Object.keys(names).length}명 (마지막 번호 ${max}번)`+(JR.live?'':' · <span class="err">이 학교 껍데기는 점프 라이브판이 아니라 결과가 자동 저장되지 않아요</span>');
+  const groups=[...JR.pick].map(k=>{ const [g,c]=k.split('-').map(Number), names={}, ids={}; let max=0;
+    JR.students.filter(x=>+x.grade===g&&+x.cls===c&&+x.number>=1&&+x.number<=60).forEach(x=>{ const n=+x.number; names[n]=String(x.name||''); ids[n]=String(x.id); max=Math.max(max,n); });
+    return {g,c,max,names,ids}; }).sort((a,b)=>a.g-b.g||a.c-b.c);
+  JR.cur=groups;
+  const cnt=groups.reduce((a,x)=>a+Object.keys(x.names).length,0);
+  $('appInfo').innerHTML=(groups.length>1?`${groups.length}개 반 함께 · `:'')+`${cnt}명 — 함께 수업하는 반을 모두 눌러 고르세요`+(JR.live?'':' · <span class="err">이 학교 껍데기는 점프 라이브판이 아니라 결과가 자동 저장되지 않아요</span>');
 }
 
 /* ---------- 화면 상태 ---------- */
 let B=null, USER=null;
-const S={ room:'', g:0, c:0, max:0, names:{}, devs:{}, ctl:{ph:'open'}, sort:'no', lastRun:null, prevCnt:{}, cdShown:null, endShown:'' };
+const S={ room:'', groups:[], devs:{}, ctl:{ph:'open'}, sort:'no', lastRun:null, prevCnt:{}, cdShown:null, endShown:'' };
+// 반 묶음: groups=[{g,c,max,names:{번호:이름},ids:{번호:학생ID}}] — 5·6학년 함께 수업처럼 여러 반을 한 방에
+const gkey=(g,c)=>g+'-'+c, skey=(g,c,n)=>g+'-'+c+'-'+n;
+const multi=()=>S.groups.length>1;
+const clsLabel=gs=>gs.map(x=>`${x.g}학년 ${x.c}반`).join(' · ');
+const totalMax=()=>S.groups.reduce((a,x)=>a+x.max,0);
 function view(v){ ['vLogin','vSetup','vLive'].forEach(id=>$(id).hidden=id!==v); }
 
 function parseRoster(txt){
@@ -377,17 +397,20 @@ function studentUrl(){ const u=new URL('./',location.href); u.search='?room='+S.
 
 async function openRoom(){
   $('setupErr').textContent='';
-  const g=+$('selG').value, c=+$('selC').value, p=APPM?JR.cur:parseRoster($('roster').value);
-  if(APPM&&(!p||!p.max)){ $('setupErr').textContent='이 반에 등록된 학생이 없어요'; return; }
-  const max=Math.max(1,Math.min(60,p.max||+$('inMax').value||25)), type=APPM?$('selType').value:'';
-  if(!APPM) store.set(`jrl_roster_${g}_${c}`,JSON.stringify({text:$('roster').value,max}));
-  store.set('jrl_last',g+'-'+c); if(type) store.set('jrl_type',type);
+  const type=APPM?$('selType').value:'';
+  let groups;
+  if(APPM){ groups=(JR.cur||[]).filter(x=>x.max>0); if(!groups.length){ $('setupErr').textContent='고른 반에 등록된 학생이 없어요'; return; } store.set('jrl_lastm',groups.map(x=>gkey(x.g,x.c)).join(',')); }
+  else { const g=+$('selG').value, c=+$('selC').value, p=parseRoster($('roster').value), max=Math.max(1,Math.min(60,p.max||+$('inMax').value||25));
+    store.set(`jrl_roster_${g}_${c}`,JSON.stringify({text:$('roster').value,max})); groups=[{g,c,max,names:p.names,ids:{}}]; }
+  store.set('jrl_last',gkey(groups[0].g,groups[0].c)); if(type) store.set('jrl_type',type);
+  // 서버에는 학년·반·인원만 (첫 반은 g·c·max — 예전 판정기도 읽게, 여러 반이면 list 에 모두)
+  const meta={g:groups[0].g,c:groups[0].c,max:groups[0].max}; if(groups.length>1) meta.list=groups.map(x=>`${x.g}-${x.c}:${x.max}`).join(',');
   $('btnOpen').disabled=true; $('btnOpen').textContent='방 여는 중…';
   try{
-    const room=genKey(); await B.openRoom(room,{g,c,max});
-    Object.assign(S,{room,g,c,max,names:p.names,ids:p.ids||{},type,devs:{},ctl:{ph:'open'},lastRun:null,prevCnt:{},endShown:''});
-    store.set('jrl_open',JSON.stringify({room,g,c,max,uid:USER.uid,app:APPM?{names:p.names,ids:p.ids,type,s:SHELL}:null}));
-    $('clsName').textContent=`${g}학년 ${c}반`+(type?` · ${type}`:''); view('vLive'); $('vLive').style.display='flex';
+    const room=genKey(); await B.openRoom(room,meta);
+    Object.assign(S,{room,groups,type,devs:{},ctl:{ph:'open'},lastRun:null,prevCnt:{},endShown:''});
+    store.set('jrl_open',JSON.stringify({room,groups,type,uid:USER.uid,app:APPM?{s:SHELL}:null}));
+    $('clsName').textContent=clsLabel(groups)+(type?` · ${type}`:''); view('vLive'); $('vLive').style.display='flex';
     B.watch(room,d=>{ S.devs=d; trackRate(d); render(); });
     render(); showQr();
   }catch(e){ console.error(e); $('setupErr').textContent='방을 열지 못했어요: '+(e.message||e); }
@@ -401,10 +424,11 @@ async function closeRoom(){
 
 /* ---------- QR ---------- */
 function showQr(){
-  const url=studentUrl(); $('qrUrl').textContent=url; $('qrTitle').textContent=`${S.g}학년 ${S.c}반 들어와요`;
+  const url=studentUrl(); $('qrUrl').textContent=url; $('qrTitle').textContent=`${clsLabel(S.groups)} 들어와요`;
   const box=$('qrImg'); box.innerHTML='';
   if(window.QRCode) new QRCode(box,{text:url,width:512,height:512,correctLevel:QRCode.CorrectLevel.M});
   else box.textContent='QR을 만들지 못했어요 — 아래 주소를 쓰세요';
+  $('qrStep').innerHTML=multi()?'<b>내 반 → 내 번호</b>':'<b>내 번호</b>';
   $('qr').hidden=false;
 }
 
@@ -423,31 +447,33 @@ function liveDevs(){ // 끊김 판정 포함
   const now=B.now(); return Object.entries(S.devs).map(([id,d])=>Object.assign({id},d,{rate:rateOf(id,d),best:d.best||0,st:(d.st!=='off'&&now-(d.t||0)>STALE_MS)?'off':d.st}));
 }
 function render(){
-  const all=liveDevs(), mine={}, others=[];
-  all.forEach(d=>{ if(d.g===S.g&&d.c===S.c&&d.n>=1&&d.n<=S.max) (mine[d.n]=mine[d.n]||[]).push(d); else others.push(d); });
+  const all=liveDevs(), mine={}, others=[], gs=S.groups, M=multi();
+  const inGroup=d=>gs.some(x=>x.g===d.g&&x.c===d.c&&d.n>=1&&d.n<=x.max);
+  all.forEach(d=>{ if(inGroup(d)) (mine[skey(d.g,d.c,d.n)]=mine[skey(d.g,d.c,d.n)]||[]).push(d); else others.push(d); });
   const runId=S.ctl.ph!=='open'?S.ctl.id:'';
   const rows=[]; let join=0, jump=0, sum=0;
-  for(let n=1;n<=S.max;n++){
-    const list=(mine[n]||[]); const on=list.filter(d=>d.st!=='off');
+  gs.forEach(x=>{ for(let n=1;n<=x.max;n++){
+    const k=skey(x.g,x.c,n), list=(mine[k]||[]), on=list.filter(d=>d.st!=='off');
     // 같은 번호 기기가 여럿이면 지금 이번 회차를 뛰는(또는 횟수가 큰) 기기를 보여 줌
     const pick=(on.length?on:list).slice().sort((a,b)=>((b.ctl===runId)-(a.ctl===runId))||(b.cnt-a.cnt))[0];
     const st=pick?pick.st:'none', cnt=pick&&(!runId||pick.ctl===runId)?pick.cnt:0;
     if(on.length) join++; if(st==='jump') jump++; sum+=cnt;
-    rows.push({n,name:S.names[n]||'',st,cnt,rate:pick&&pick.run?pick.rate:0,best:pick?pick.best:0,dup:on.length,pick});
-  }
-  $('pJoin').textContent=`${join} / ${S.max}`; $('pJump').textContent=jump; $('pSum').textContent=sum.toLocaleString();
-  const order=S.sort==='cnt'?rows.slice().sort((a,b)=>(b.cnt-a.cnt)||((a.st==='none')-(b.st==='none'))||(a.n-b.n)):rows;
+    rows.push({k,g:x.g,c:x.c,n,name:x.names[n]||'',id:x.ids[n]||'',st,cnt,rate:pick&&pick.run?pick.rate:0,best:pick?pick.best:0,dup:on.length,pick});
+  } });
+  const total=rows.length;
+  $('pJoin').textContent=`${join} / ${total}`; $('pJump').textContent=jump; $('pSum').textContent=sum.toLocaleString();
+  const order=S.sort==='cnt'?rows.slice().sort((a,b)=>(b.cnt-a.cnt)||((a.st==='none')-(b.st==='none'))||(a.g-b.g)||(a.c-b.c)||(a.n-b.n)):rows;
   const top=Math.max(0,...rows.map(r=>r.cnt));
   // 화면에 다 들어오게 타일 크기 조절
   const W=$('grid').clientWidth||innerWidth-40, H=innerHeight-$('grid').getBoundingClientRect().top-24;
-  let best=110; for(let w=260;w>=110;w-=6){ const cols=Math.max(1,Math.floor((W+12)/(w+12))), rws=Math.ceil(S.max/cols); if(rws*(w*0.78+12)<=Math.max(H,300)){ best=w; break; } }
+  let best=110; for(let w=260;w>=110;w-=6){ const cols=Math.max(1,Math.floor((W+12)/(w+12))), rws=Math.ceil(total/cols); if(rws*(w*0.78+12)<=Math.max(H,300)){ best=w; break; } }
   $('grid').style.setProperty('--tw',best+'px'); $('grid').style.setProperty('--th',Math.round(best*0.78)+'px'); $('grid').style.setProperty('--nf',Math.round(best/3.6)+'px');
-  const g=$('grid'); const html=order.map(r=>`<div class="tile s-${r.st}${r.cnt&&r.cnt===top&&S.sort==='cnt'?' rank1':''}" data-n="${r.n}">
-      <div class="who"><span class="no">${r.n}</span><span class="nm">${esc(r.name)}</span>${r.dup>1?`<span class="dup" title="같은 번호로 기기 ${r.dup}대가 들어왔어요">⚠<span class="w"> 기기</span> ${r.dup}대</span>`:''}</div>
+  const g=$('grid'); const html=order.map(r=>`<div class="tile s-${r.st}${r.cnt&&r.cnt===top&&S.sort==='cnt'?' rank1':''}" data-k="${r.k}">
+      <div class="who">${M?`<span class="gc">${r.g}-${r.c}</span>`:''}<span class="no">${r.n}</span><span class="nm">${esc(r.name)}</span>${r.dup>1?`<span class="dup" title="같은 번호로 기기 ${r.dup}대가 들어왔어요">⚠<span class="w"> 기기</span> ${r.dup}대</span>`:''}</div>
       <div class="n">${r.st==='none'?'—':r.cnt}${r.st==='none'?'':'<small>회</small>'}</div>
       <div class="foot"><span class="st">${LBL[r.st]||r.st}</span>${r.rate?`<span class="rt">분당 ${r.rate}</span>`:''}</div></div>`).join('');
   g.innerHTML=html;
-  rows.forEach(r=>{ if(S.prevCnt[r.n]!==undefined&&r.cnt>S.prevCnt[r.n]){ const t=g.querySelector(`[data-n="${r.n}"]`); if(t) t.classList.add('bump'); } S.prevCnt[r.n]=r.cnt; });
+  rows.forEach(r=>{ if(S.prevCnt[r.k]!==undefined&&r.cnt>S.prevCnt[r.k]){ const t=g.querySelector(`[data-k="${r.k}"]`); if(t) t.classList.add('bump'); } S.prevCnt[r.k]=r.cnt; });
   const ot=others.filter(d=>d.st!=='off');
   $('others').hidden=!ot.length;
   $('others').innerHTML=ot.length?`<b>⚠ 다른 반·명단 밖 접속 ${ot.length}대</b>`+ot.map(d=>`<span>${d.g}학년 ${d.c}반 ${d.n}번 · ${d.cnt}회</span>`).join(''):'';
@@ -472,7 +498,7 @@ async function end(){
 function finish(){ // 학생 기기가 마지막 숫자를 보낼 시간을 2초 주고 결과
   if(S.endShown===S.lastRun.id) return; S.endShown=S.lastRun.id;
   beep(440,.3,.25); big('끝!');
-  setTimeout(()=>{ render(); showResult(); $('btnResult').disabled=false; if(APPM&&S.ids&&Object.keys(S.ids).length) saveResult(); },2000);
+  setTimeout(()=>{ render(); showResult(); $('btnResult').disabled=false; if(APPM&&S.groups.some(x=>Object.keys(x.ids||{}).length)) saveResult(); },2000);
 }
 function clockTick(){
   if(!S.room){ return; }
@@ -495,22 +521,22 @@ function clockTick(){
 
 /* ---------- 결과 ---------- */
 function resultRows(){
-  return (S.rows||[]).filter(r=>r.pick&&r.pick.ctl===S.lastRun.id).sort((a,b)=>(b.cnt-a.cnt)||(a.n-b.n));
+  return (S.rows||[]).filter(r=>r.pick&&r.pick.ctl===S.lastRun.id).sort((a,b)=>(b.cnt-a.cnt)||(a.g-b.g)||(a.c-b.c)||(a.n-b.n));
 }
 function showResult(){
   const rows=resultRows(), dur=S.lastRun.dur;
   let rank=0, prev=-1;
-  $('resBody').innerHTML=rows.map((r,i)=>{ if(r.cnt!==prev){ rank=i+1; prev=r.cnt; } return `<tr class="${rank<=3?'top':''}"><td>${rank}</td><td>${r.n}</td><td>${esc(r.name)}</td><td class="c">${r.cnt}</td><td>${r.best}</td></tr>`; }).join('')
+  $('resBody').innerHTML=rows.map((r,i)=>{ if(r.cnt!==prev){ rank=i+1; prev=r.cnt; } return `<tr class="${rank<=3?'top':''}"><td>${rank}</td><td>${multi()?r.g+'-'+r.c+' · ':''}${r.n}</td><td>${esc(r.name)}</td><td class="c">${r.cnt}</td><td>${r.best}</td></tr>`; }).join('')
     || '<tr><td colspan="5" style="color:var(--muted)">이번 회차에 뛴 학생이 없어요</td></tr>';
-  const missing=[]; for(let n=1;n<=S.max;n++) if(!rows.some(r=>r.n===n)) missing.push(n);
-  $('resTitle').textContent=`${S.g}학년 ${S.c}반 · ${dur?(dur>=60?dur/60+'분':dur+'초'):'제한 없음'} 결과`;
+  const got=new Set(rows.map(r=>r.k)), missing=(S.rows||[]).filter(r=>!got.has(r.k)).map(r=>multi()?`${r.g}-${r.c} ${r.n}`:r.n);
+  $('resTitle').textContent=`${clsLabel(S.groups)} · ${dur?(dur>=60?dur/60+'분':dur+'초'):'제한 없음'} 결과`;
   $('resNote').textContent=`${rows.length}명 · 합계 ${rows.reduce((s,r)=>s+r.cnt,0).toLocaleString()}회`+(missing.length?` · 기록 없음: ${missing.join(', ')}번`:'')+(APPM?'':' · 결과 복사로 시트에 옮겨 주세요');
   $('resSaveRow').hidden=!APPM; if(APPM) resSaveUi();
   $('resMsg').textContent=''; $('resModal').classList.add('on');
 }
 async function copyResult(){
-  const rows=resultRows().slice().sort((a,b)=>a.n-b.n);
-  const tsv=['번호\t이름\t횟수\t최고연속',...rows.map(r=>`${r.n}\t${r.name}\t${r.cnt}\t${r.best}`)].join('\n');
+  const rows=resultRows().slice().sort((a,b)=>(a.g-b.g)||(a.c-b.c)||(a.n-b.n));
+  const tsv=['학년\t반\t번호\t이름\t횟수\t최고연속',...rows.map(r=>`${r.g}\t${r.c}\t${r.n}\t${r.name}\t${r.cnt}\t${r.best}`)].join('\n');
   try{ await navigator.clipboard.writeText(tsv); $('resMsg').textContent='복사했어요 — 시트의 칸을 누르고 붙여 넣기 (번호순)'; }
   catch(e){ $('resMsg').textContent='복사하지 못했어요'; }
 }
@@ -527,7 +553,7 @@ async function saveResult(){
   const id=S.lastRun&&S.lastRun.id; if(!id) return;
   if(!JR.live) return resSaveUi('자동 저장이 안 돼요 — 이 학교 껍데기가 점프 라이브판이 아니에요. 결과 복사로 옮겨 주세요',true);
   if(savedRuns()[id]) return resSaveUi();
-  const rows=resultRows().filter(r=>S.ids[r.n]&&r.cnt>0).map(r=>({id:S.ids[r.n],count:r.cnt}));
+  const rows=resultRows().filter(r=>r.id&&r.cnt>0).map(r=>({id:r.id,count:r.cnt}));
   if(!rows.length) return resSaveUi('저장할 기록이 없어요',true);
   const tok=JR.admin||sessGet();
   if(!tok) return resSaveUi('관리자 로그인이 끝났어요 — 비밀번호를 넣고 저장해 주세요',true,true);
@@ -574,10 +600,12 @@ setInterval(()=>{ if(S.room) render(); },3000);   // 신호가 끊긴 기기를 
     const prev=JSON.parse(store.get('jrl_open')||'null');
     try{ await B.cleanup(prev&&prev.uid===u.uid?prev.room:''); }catch(e){ console.warn(e); }
     if(prev&&prev.uid===u.uid&&prev.room&&!DEMO){
-      const p=JSON.parse(store.get(`jrl_roster_${prev.g}_${prev.c}`)||'null'), a=prev.app;
-      Object.assign(S,{room:prev.room,g:prev.g,c:prev.c,max:prev.max,names:a?a.names:(p?parseRoster(p.text).names:{}),ids:a?a.ids:{},type:a?a.type:'',devs:{},ctl:{ph:'open'}});
+      let groups=prev.groups, a=prev.app;
+      if(!groups){ const p=JSON.parse(store.get(`jrl_roster_${prev.g}_${prev.c}`)||'null');   // v0.2 이전에 열어 둔 방
+        groups=[{g:prev.g,c:prev.c,max:prev.max,names:a&&a.names?a.names:(p?parseRoster(p.text).names:{}),ids:a&&a.ids?a.ids:{}}]; }
+      Object.assign(S,{room:prev.room,groups,type:prev.type||(a&&a.type)||'',devs:{},ctl:{ph:'open'}});
       if(a&&APPM){ JR.admin=sessGet(); rpc('ping').then(x=>{ JR.live=!!(x&&x.live); }).catch(()=>{}); }
-      $('clsName').textContent=`${S.g}학년 ${S.c}반`+(S.type?` · ${S.type}`:''); view('vLive'); $('vLive').style.display='flex';
+      $('clsName').textContent=clsLabel(S.groups)+(S.type?` · ${S.type}`:''); view('vLive'); $('vLive').style.display='flex';
       B.watch(S.room,d=>{ S.devs=d; trackRate(d); render(); }); render(); return;
     }
     view('vSetup'); $('vLive').style.display='none';

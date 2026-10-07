@@ -24,6 +24,7 @@
           "c": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 30" },
           "max": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 60" },
           "at": { ".validate": "newData.isNumber()" },
+          "list": { ".validate": "newData.isString() && newData.val().length <= 200 && newData.val().matches(/^[0-9]{1,2}-[0-9]{1,2}:[0-9]{1,2}(,[0-9]{1,2}-[0-9]{1,2}:[0-9]{1,2})*$/)" },
           "$other": { ".validate": false }
         },
         "control": {
