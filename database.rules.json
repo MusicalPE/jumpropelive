@@ -1,10 +1,33 @@
 {
   "rules": {
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid",
+        "rooms": {
+          "$room": { ".validate": "newData.isNumber() && $room.matches(/^[A-Za-z0-9_-]{20,64}$/)" }
+        },
+        "$other": { ".validate": false }
+      }
+    },
     "rooms": {
       "$room": {
         ".read": "$room.matches(/^[A-Za-z0-9_-]{20,64}$/)",
+        "owner": {
+          ".write": "auth != null && $room.matches(/^[A-Za-z0-9_-]{20,64}$/) && ((!data.exists() && newData.val() == auth.uid) || (data.val() == auth.uid && !newData.exists() && !newData.parent().child('control').exists()))",
+          ".validate": "newData.isString()"
+        },
+        "meta": {
+          ".write": "auth != null && newData.parent().child('owner').val() == auth.uid",
+          ".validate": "newData.hasChildren(['g', 'c', 'max'])",
+          "g": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 6" },
+          "c": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 30" },
+          "max": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 60" },
+          "at": { ".validate": "newData.isNumber()" },
+          "$other": { ".validate": false }
+        },
         "control": {
-          ".write": "$room.matches(/^[A-Za-z0-9_-]{20,64}$/)",
+          ".write": "auth != null && newData.parent().child('owner').val() == auth.uid",
           ".validate": "newData.hasChildren(['ph'])",
           "ph": { ".validate": "newData.isString() && newData.val().matches(/^(open|go|end)$/)" },
           "id": { ".validate": "newData.isString() && newData.val().length <= 32" },
@@ -13,9 +36,9 @@
           "$other": { ".validate": false }
         },
         "devs": {
-          ".write": "!newData.exists()",
+          ".write": "!newData.exists() && auth != null && data.parent().child('owner').val() == auth.uid",
           "$dev": {
-            ".write": "$dev.matches(/^[a-z0-9]{8,16}$/) && (root.child('rooms').child($room).child('control').exists() || !newData.exists())",
+            ".write": "$dev.matches(/^[a-z0-9]{8,16}$/) && ((newData.exists() && root.child('rooms').child($room).child('control').exists()) || (!newData.exists() && auth != null && root.child('rooms').child($room).child('owner').val() == auth.uid))",
             ".validate": "newData.hasChildren(['g', 'c', 'n', 'cnt', 'st', 'run', 't'])",
             "g": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 6" },
             "c": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 30" },

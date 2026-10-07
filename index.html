@@ -573,7 +573,7 @@ const FB_CONFIG={ apiKey:'AIzaSyDimPwJ974Pmn9wcgwFZFWUBQPaOra5chQ', authDomain:'
   storageBucket:'jumpropelive.firebasestorage.app', messagingSenderId:'727527484238', appId:'1:727527484238:web:aaed6e0585ee7db7228c1f' };
 const FB_SDK='https://www.gstatic.com/firebasejs/10.14.1';
 const LIVE={ room:'', on:false, ok:false, dev:'', me:null, T:null, last:{cnt:-1,st:''}, lastSend:0, timer:0, beat:0,
-  ctl:null, ctlRun:'', ctlEnd:0, cdTimer:0, wake:null, hidden:false };
+  ctl:null, ctlRun:'', ctlEnd:0, cdTimer:0, wake:null, hidden:false, meta:undefined, picked:false };
 { const r=Q.get('room')||''; if(/^[A-Za-z0-9_-]{20,64}$/.test(r)){ LIVE.room=r; LIVE.on=true; } }
 // 전송 방식 (Firebase Realtime Database). connect → {send, offOnDisconnect, onControl, now}
 async function LIVE_T(room, dev){
@@ -585,7 +585,9 @@ async function LIVE_T(room, dev){
   return {
     send:(data)=>D.update(me,Object.assign({},data,{t:D.serverTimestamp()})),
     onControl:(cb)=>D.onValue(D.ref(db,`rooms/${room}/control`),s=>cb(s.val()),e=>cb(null,e)),
-    onConnected:(cb)=>{ onConn=cb; cb(conn); },
+    onConnected:(cb)=>{ onConn=cb; if(conn) cb(true); },
+    onMeta:(cb)=>D.onValue(D.ref(db,`rooms/${room}/meta`),s=>cb(s.val()),e=>cb(null,e)),
+    taken:async()=>{ try{ const v=(await D.get(D.ref(db,`rooms/${room}/devs`))).val()||{}; return Object.values(v).filter(d=>d.st!=='off'); }catch(e){ return []; } },
     now:()=>Date.now()+off
   };
 }
@@ -603,7 +605,7 @@ function liveState(st,t,seen){
   return 'stop';
 }
 function livePush(force){
-  if(!LIVE.ok) return;
+  if(!LIVE.ok||!LIVE.me) return;
   const st=det.state(), t=(performance.now()-t0)/1000;
   const s=liveState(st,t,det.visible), now=performance.now();
   const changed=st.count!==LIVE.last.cnt||s!==LIVE.last.st;
@@ -656,21 +658,44 @@ function onControl(c){
     },100);
   } else if(c.ph==='end'&&LIVE.ctlRun&&(!c.id||String(c.id)===LIVE.ctlRun)){ if(running) runEnd(); else { if(LIVE.cdTimer){ clearInterval(LIVE.cdTimer); LIVE.cdTimer=0; } $('btnStart').disabled=false; $('btnReset').disabled=false; $('btnStart').textContent='시작'; } }
 }
+function liveConnectedPill(){ const m=LIVE.me; livePill(m?`선생님 화면에 연결됨 · ${m.g}학년 ${m.c}반 ${m.n}번${LIVE.picked?' <u style="cursor:pointer">번호 바꾸기</u>':''}`:'번호를 골라 주세요'); }
+// 번호 고르기 (QR로 바로 들어온 학생) — 이름은 선생님 현황판에만 있고, 여기서는 번호만 고름
+async function livePick(){
+  const meta=LIVE.meta; if(!meta||running||(LIVE.ctlRun&&LIVE.cdTimer)) return;
+  let box=$('pickModal');
+  if(!box){ box=document.createElement('div'); box.id='pickModal'; box.className='modal'; box.innerHTML='<div class="box" style="max-width:720px"><h3 id="pkTitle"></h3><p id="pkNote">내 번호를 눌러요</p><div id="pkGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:8px;max-height:60vh;overflow:auto"></div></div>'; document.body.appendChild(box); }
+  $('pkTitle').textContent=`${meta.g}학년 ${meta.c}반`;
+  const taken=new Set((await LIVE.T.taken()).filter(d=>d.g===meta.g&&d.c===meta.c&&!(LIVE.me&&d.n===LIVE.me.n)).map(d=>d.n));
+  $('pkGrid').innerHTML='';
+  for(let n=1;n<=meta.max;n++){ const b=document.createElement('button'); b.textContent=n; b.style.cssText='font-size:24px;font-weight:800;min-height:64px;padding:0'+(taken.has(n)?';color:var(--muted);background:var(--soft)':'');
+    if(taken.has(n)) b.title='이미 누가 이 번호로 들어와 있어요';
+    b.onclick=()=>{ if(taken.has(n)&&!confirm(n+'번은 이미 누가 들어와 있어요. 그래도 '+n+'번으로 할까요?')) return;
+      LIVE.me={g:meta.g,c:meta.c,n}; LIVE.picked=true; box.classList.remove('on'); liveConnectedPill(); livePush(true); };
+    $('pkGrid').appendChild(b); }
+  $('pkNote').textContent=taken.size?'내 번호를 눌러요 (흐린 번호는 이미 누가 들어와 있어요)':'내 번호를 눌러요';
+  box.classList.add('on');
+}
 async function liveInit(){
-  // 누구인지: 앱에서 열었으면 앱이 알려 준 학년·반·번호, 시험용으로 &me=3-2-15 도 받음
+  // 누구인지: 앱에서 열었으면 앱이 알려 준 학년·반·번호 / 아니면 방 정보(학년·반·인원)를 받아 번호를 고르게 함 / 시험용 &me=3-2-15
   const w=LINK.who; let me=null;
   if(w&&+w.학년&&+w.반&&+w.번호) me={g:+w.학년,c:+w.반,n:+w.번호};
   else { const m=/^(\d{1,2})-(\d{1,2})-(\d{1,2})$/.exec(Q.get('me')||''); if(m) me={g:+m[1],c:+m[2],n:+m[3]}; }
-  if(!me){ livePill('선생님 화면에 연결하려면 앱의 "카메라로 뛰기"로 열어 주세요',true); return; }
   LIVE.me=me; LIVE.dev=Array.from(crypto.getRandomValues(new Uint8Array(6)),b=>b.toString(36).padStart(2,'0')).join('').slice(0,12);
   livePill('선생님 화면에 연결하는 중…');
   try{
     LIVE.T=await LIVE_T(LIVE.room, LIVE.dev); LIVE.ok=true;
-    LIVE.T.onConnected(c=>{ if(c){ livePill(`선생님 화면에 연결됨 · ${me.g}학년 ${me.c}반 ${me.n}번`); livePush(true); } else livePill('연결이 끊겼어요 — 다시 잇는 중… (세기는 계속돼요)',true); });
+    LIVE.T.onConnected(c=>{ if(c){ if(LIVE.meta!==null) liveConnectedPill(); livePush(true); } else livePill('연결이 끊겼어요 — 다시 잇는 중… (세기는 계속돼요)',true); });
+    LIVE.T.onMeta(m=>{
+      if(!m||!+m.g||!+m.c){ LIVE.meta=null; if(!LIVE.me) livePill('방을 찾지 못했어요 — 선생님 화면의 QR로 다시 들어와요',true); return; }
+      const first=LIVE.meta===undefined||LIVE.meta===null; LIVE.meta={g:+m.g,c:+m.c,max:Math.max(1,Math.min(60,+m.max||30))};
+      liveConnectedPill();
+      if(first&&!LIVE.me) livePick();
+    });
     LIVE.T.onControl(onControl);
     LIVE.beat=setInterval(()=>livePush(),1000);
     wakeOn();
     document.addEventListener('visibilitychange',()=>{ LIVE.hidden=document.visibilityState!=='visible'; livePush(true); if(!LIVE.hidden) wakeOn(); });
+    document.addEventListener('click',e=>{ if(e.target.closest&&e.target.closest('#livePill u')) livePick(); });
   }catch(e){ console.error(e); LIVE.ok=false; livePill('선생님 화면에 연결하지 못했어요 — 혼자 세기는 돼요',true); }
 }
 
