@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>시험용 방 · 줄넘기 실시간</title>
+<style>
+  :root{--bg:#F3F4F6;--card:#fff;--line:#E7E9EE;--ink:#1F2430;--muted:#7A8190;--accent:#FF6B5B;--mint:#2BB3A3;--red:#E5484D}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Pretendard Variable",Pretendard,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;padding:16px}
+  .wrap{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+  h1{font-size:22px;margin:0} p{margin:6px 0;color:var(--muted);line-height:1.6}
+  button{font:inherit;font-weight:700;border-radius:12px;padding:10px 16px;border:1px solid var(--line);background:#fff;cursor:pointer;min-height:44px}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  code{display:block;word-break:break-all;background:#F8F9FB;border:1px solid var(--line);border-radius:10px;padding:10px;font-size:13px}
+  table{width:100%;border-collapse:collapse;font-size:15px} th,td{padding:8px;border-bottom:1px solid var(--line);text-align:left} th{color:var(--muted);font-weight:600}
+  td.n{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+  .st-jump{color:var(--mint);font-weight:700} .st-off,.st-away,.st-hidden{color:var(--red);font-weight:700} .st-hand{color:#C77A12;font-weight:700}
+  #msg{font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>시험용 방 (3단계 확인용)</h1>
+    <p>판정기가 횟수를 제대로 보내는지 확인하는 임시 화면이에요. 진짜 현황판(monitor.html)이 생기면 지웁니다.</p>
+    <div class="row"><button class="primary" id="open">방 열기</button><button id="close" disabled>방 닫기</button><span id="msg"></span></div>
+  </div>
+  <div class="card" id="links" hidden>
+    <p>학생 기기에서 열 주소 (시험용 신원 <b>me=학년-반-번호</b> — 기기마다 번호를 바꿔 주세요)</p>
+    <code id="link"></code>
+    <div class="row" style="margin-top:8px">
+      <button id="go30" class="primary">5초 뒤 30초 뛰기</button><button id="go0">5초 뒤 시작 (끝은 직접)</button><button id="end">끝</button>
+      <span id="clock" style="font-weight:800;font-size:20px"></span>
+    </div>
+  </div>
+  <div class="card" id="listCard" hidden>
+    <table><thead><tr><th>학년-반-번호</th><th>횟수</th><th>분당</th><th>상태</th><th>달리기</th><th>회차</th><th>마지막 신호</th><th>기기</th></tr></thead><tbody id="list"></tbody></table>
+  </div>
+</div>
+<script type="module">
+const FB_CONFIG={ apiKey:'AIzaSyDimPwJ974Pmn9wcgwFZFWUBQPaOra5chQ', authDomain:'jumpropelive.firebaseapp.com',
+  databaseURL:'https://jumpropelive-default-rtdb.asia-southeast1.firebasedatabase.app', projectId:'jumpropelive',
+  storageBucket:'jumpropelive.firebasestorage.app', messagingSenderId:'727527484238', appId:'1:727527484238:web:aaed6e0585ee7db7228c1f' };
+const SDK='https://www.gstatic.com/firebasejs/10.14.1';
+const A=await import(SDK+'/firebase-app.js'), D=await import(SDK+'/firebase-database.js');
+const db=D.getDatabase(A.initializeApp(FB_CONFIG));
+const $=id=>document.getElementById(id);
+let room='', off=0, ctl=null, unsub=null;
+D.onValue(D.ref(db,'.info/serverTimeOffset'),s=>{ off=s.val()||0; });
+const now=()=>Date.now()+off;
+const msg=(t,bad)=>{ $('msg').textContent=t; $('msg').style.color=bad?'var(--red)':'var(--mint)'; };
+const LBL={ready:'준비',away:'화면 이탈',hand:'팔만 돌림',jump:'뛰는 중',stop:'멈춤',hidden:'다른 화면',off:'끊김'};
+
+$('open').onclick=async()=>{
+  try{
+    room=btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    await D.set(D.ref(db,`rooms/${room}/control`),{ph:'open'});
+    const base=location.href.replace(/test-room\.html.*$/,'');
+    $('link').textContent=`${base}?room=${room}&me=3-2-15`;
+    $('links').hidden=false; $('listCard').hidden=false; $('open').disabled=true; $('close').disabled=false; msg('방을 열었어요');
+    D.onValue(D.ref(db,`rooms/${room}/control`),s=>{ ctl=s.val(); });
+    unsub=D.onValue(D.ref(db,`rooms/${room}/devs`),s=>{
+      const v=s.val()||{}, rows=Object.entries(v).sort((a,b)=>(a[1].n-b[1].n)||(a[0]<b[0]?-1:1));
+      const ids={}; rows.forEach(([,d])=>{ if(d.st!=='off'){ const k=`${d.g}-${d.c}-${d.n}`; ids[k]=(ids[k]||0)+1; } });
+      $('list').innerHTML=rows.map(([id,d])=>{ const k=`${d.g}-${d.c}-${d.n}`, age=Math.round((now()-d.t)/1000);
+        return `<tr><td>${k}${ids[k]>1?' <b style="color:var(--red)">⚠ 기기 '+ids[k]+'대</b>':''}</td><td class="n">${d.cnt}</td><td>${d.rate||0}</td><td class="st-${d.st}">${LBL[d.st]||d.st}</td><td>${d.run?'예':''}</td><td>${d.ctl||''}</td><td>${age}초 전</td><td style="color:var(--muted);font-size:12px">${id}</td></tr>`; }).join('')
+        || '<tr><td colspan="8" style="color:var(--muted)">아직 들어온 기기가 없어요</td></tr>';
+    },e=>msg('읽기 실패: '+e.message,true));
+  }catch(e){ msg('방을 열지 못했어요: '+e.message,true); }
+};
+async function go(dur){
+  try{ await D.set(D.ref(db,`rooms/${room}/control`),{ph:'go',id:'r'+Date.now().toString(36),at:now()+5000,dur}); msg(dur?`5초 뒤 ${dur}초 동안`:'5초 뒤 시작'); }
+  catch(e){ msg('신호를 못 보냈어요: '+e.message,true); }
+}
+$('go30').onclick=()=>go(30); $('go0').onclick=()=>go(0);
+$('end').onclick=async()=>{ try{ await D.set(D.ref(db,`rooms/${room}/control`),{ph:'end',id:(ctl&&ctl.id)||''}); msg('끝 신호를 보냈어요'); }catch(e){ msg('신호를 못 보냈어요: '+e.message,true); } };
+$('close').onclick=async()=>{
+  try{ await D.remove(D.ref(db,`rooms/${room}/control`)); await D.remove(D.ref(db,`rooms/${room}/devs`)); msg('방을 닫고 지웠어요');
+    $('open').disabled=false; $('close').disabled=true; $('links').hidden=true; $('listCard').hidden=true; }
+  catch(e){ msg('닫지 못했어요: '+e.message,true); }
+};
+setInterval(()=>{ if(ctl&&ctl.ph==='go'){ const d=now()-ctl.at; $('clock').textContent=d<0?`${Math.ceil(-d/1000)}초 뒤 시작`:ctl.dur?`남은 ${Math.max(0,Math.ceil(ctl.dur-d/1000))}초`:`${Math.floor(d/1000)}초째`; } else $('clock').textContent=''; },200);
+</script>
+</body>
+</html>

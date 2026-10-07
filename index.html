@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 판정기 v0.7.4 · 카메라로 진짜 뛰는지 보기</title>
+<title>줄넘기 판정기 v0.8.0 · 카메라로 진짜 뛰는지 보기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -206,7 +206,7 @@
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
     <div class="titles">
-      <h1>줄넘기 판정기<span class="ver">v0.7.4</span></h1>
+      <h1>줄넘기 판정기<span class="ver">v0.8.0</span></h1>
       <span class="sub">머리부터 발까지 보이게 서서, 몸이 뜨고 팔이 돌 때만 1회로 세요</span>
     </div>
     <div class="who" id="who"></div>
@@ -387,7 +387,7 @@ const $=id=>document.getElementById(id);
 const video=$('video'), cv=$('overlay'), cx=cv.getContext('2d');
 let landmarker=null, stream=null, facing='user', running=false, t0=0, raf=0, lastVideoT=-1, frames=0, fpsT=0;
 /* ---------- 앱 연동: 체육교사 보조 프로그램의 줄넘기 화면에서 열리면 ?app=앱주소&t=학생표&kind=종류 가 붙어 와요 ---------- */
-const VER='0.7.4';
+const VER='0.8.0';
 const Q=new URLSearchParams(location.search);
 const LINK={ app:Q.get('app')||'', t:Q.get('t')||'', kind:Q.get('kind')||'', sens:+(Q.get('sens')||0)||0, target:(Q.get('target')==='fit'?'fit':'rope'), who:null, saved:null,
   // mode=post : 오프라인판(파일로 여는 프로그램)이 연 창. 서버 대신 window.opener.postMessage 로 결과를 돌려준다.
@@ -536,6 +536,7 @@ function loop(){
   draw(lm, st);
   frames++; if(now-fpsT>1000){ $('fps').textContent=frames+' fps'; frames=0; fpsT=now; }
   if(running) paint(st, t, !!lm);
+  if(LIVE.ok) livePush();
 }
 function paint(st,t,seen){
   if(st.count!==lastCount){ lastCount=st.count; $('count').innerHTML=st.count+'<small>회</small>'; $('count').classList.remove('flash'); void $('count').offsetWidth; $('count').classList.add('flash'); beep(880,0.08,0.15);
@@ -563,9 +564,119 @@ function diff(){
   el.textContent=gap===0?'딱 맞아요!':gap>0?'기계가 '+gap+'회 더 셌어요':'판정기가 '+(-gap)+'회 더 셌어요';
   el.className='diff '+(Math.abs(gap)<=Math.max(2,d*0.1)?'ok':'bad');
 }
+/* ---------- 실시간 현황판 연결 (주소에 &room=방열쇠 가 있을 때만 켜짐 — 없으면 이 부분은 아무 일도 안 함) ----------
+   보내는 것: 학년·반·번호·횟수·분당·상태 (이름·영상은 보내지 않음. 이름은 선생님 현황판이 자기 학교 명단에서 붙임)
+   자리: rooms/{방열쇠}/devs/{기기번호} — 한 학생이 두 기기로 들어오면 현황판이 같은 번호 기기 2개로 알아챔
+   전송 방식은 LIVE_T(아래) 하나에 모아 둠 — 나중에 Firebase 대신 다른 서버로 바꿀 때 이것만 갈아끼우면 됨 */
+const FB_CONFIG={ apiKey:'AIzaSyDimPwJ974Pmn9wcgwFZFWUBQPaOra5chQ', authDomain:'jumpropelive.firebaseapp.com',
+  databaseURL:'https://jumpropelive-default-rtdb.asia-southeast1.firebasedatabase.app', projectId:'jumpropelive',
+  storageBucket:'jumpropelive.firebasestorage.app', messagingSenderId:'727527484238', appId:'1:727527484238:web:aaed6e0585ee7db7228c1f' };
+const FB_SDK='https://www.gstatic.com/firebasejs/10.14.1';
+const LIVE={ room:'', on:false, ok:false, dev:'', me:null, T:null, last:{cnt:-1,st:''}, lastSend:0, timer:0, beat:0,
+  ctl:null, ctlRun:'', ctlEnd:0, cdTimer:0, wake:null, hidden:false };
+{ const r=Q.get('room')||''; if(/^[A-Za-z0-9_-]{20,64}$/.test(r)){ LIVE.room=r; LIVE.on=true; } }
+// 전송 방식 (Firebase Realtime Database). connect → {send, offOnDisconnect, onControl, now}
+async function LIVE_T(room, dev){
+  const A=await import(FB_SDK+'/firebase-app.js'), D=await import(FB_SDK+'/firebase-database.js');
+  const app=A.initializeApp(FB_CONFIG,'jumpropelive'), db=D.getDatabase(app);
+  const me=D.ref(db,`rooms/${room}/devs/${dev}`);
+  let off=0; D.onValue(D.ref(db,'.info/serverTimeOffset'),s=>{ off=s.val()||0; });
+  let conn=false, onConn=()=>{}; D.onValue(D.ref(db,'.info/connected'),s=>{ conn=!!s.val(); if(conn) D.onDisconnect(me).update({st:'off',run:false,t:D.serverTimestamp()}); onConn(conn); });
+  return {
+    send:(data)=>D.update(me,Object.assign({},data,{t:D.serverTimestamp()})),
+    onControl:(cb)=>D.onValue(D.ref(db,`rooms/${room}/control`),s=>cb(s.val()),e=>cb(null,e)),
+    onConnected:(cb)=>{ onConn=cb; cb(conn); },
+    now:()=>Date.now()+off
+  };
+}
+function livePill(text,bad){
+  let p=$('livePill');
+  if(!p){ p=document.createElement('div'); p.id='livePill'; p.className='who on'; p.style.fontSize='13px'; $('who').after(p); }
+  p.innerHTML=(bad?'<span style="color:var(--red)">●</span> ':'<span style="color:var(--mint)">●</span> ')+text;
+}
+function liveState(st,t,seen){
+  if(LIVE.hidden) return 'hidden';
+  if(!running) return 'ready';
+  if(!seen||!st.visible||st.tooClose||!st.full) return 'away';
+  if(st.hand) return 'hand';
+  if(st.air||(st.count>0&&t-det.lastJump<0.6)) return 'jump';
+  return 'stop';
+}
+function livePush(force){
+  if(!LIVE.ok) return;
+  const st=det.state(), t=(performance.now()-t0)/1000;
+  const s=liveState(st,t,det.visible), now=performance.now();
+  const changed=st.count!==LIVE.last.cnt||s!==LIVE.last.st;
+  if(!force&&!changed&&now-LIVE.lastSend<5000) return;      // 바뀐 게 없으면 5초마다 한 번만 (살아 있다는 신호)
+  if(!force&&now-LIVE.lastSend<400){                         // 바뀌어도 0.4초에 한 번까지만
+    if(!LIVE.timer) LIVE.timer=setTimeout(()=>{ LIVE.timer=0; livePush(); },400-(now-LIVE.lastSend)); return; }
+  LIVE.last={cnt:st.count,st:s}; LIVE.lastSend=now;
+  LIVE.T.send({g:LIVE.me.g,c:LIVE.me.c,n:LIVE.me.n,cnt:st.count,rate:Math.min(400,st.rate),best:st.best,st:s,run:running,ctl:LIVE.ctlRun,v:VER})
+    .catch(e=>{ console.warn('live send',e); livePill('선생님 화면에 보내지 못했어요 — 세기는 계속돼요',true); });
+}
+async function wakeOn(){ try{ if(navigator.wakeLock&&!LIVE.wake&&document.visibilityState==='visible'){ LIVE.wake=await navigator.wakeLock.request('screen'); LIVE.wake.addEventListener('release',()=>{ LIVE.wake=null; }); } }catch(e){} }
+function runStart(){ // 시작 버튼을 누른 것과 같은 일 (선생님 신호로 시작할 때)
+  if(running) return; running=true; t0=performance.now(); det.reset(); lastCount=0; $('count').innerHTML='0<small>회</small>'; beep(660,0.1,0.2);
+  $('btnStart').textContent='선생님 신호로 뛰는 중'; $('btnStart').classList.add('warn'); $('btnStart').classList.remove('primary'); $('btnStart').disabled=true; $('btnReset').disabled=true;
+}
+function runEnd(){ // 선생님 신호로 끝 — 기록은 선생님 현황판이 한꺼번에 하므로 여기서는 저장 창을 띄우지 않음
+  if(LIVE.cdTimer){ clearInterval(LIVE.cdTimer); LIVE.cdTimer=0; }
+  const was=running&&LIVE.ctlRun; running=false;
+  $('btnStart').textContent='시작'; $('btnStart').classList.remove('warn'); $('btnStart').classList.add('primary'); $('btnStart').disabled=false; $('btnReset').disabled=false;
+  if(!was){ livePush(true); return; }
+  beep(440,0.15,0.2); $('status').textContent='끝! 선생님 화면을 봐요'; $('status').className='status idle';
+  livePush(true);
+  const st=det.state();
+  $('smTitle').textContent='끝났어요!'; $('smErr').textContent='';
+  $('smCount').innerHTML=st.count+'<small style="font-size:.3em;color:var(--muted)"> 회</small>';
+  $('smNote').textContent=`최고 연속 ${st.best}회 · 기록은 선생님 화면에서 한꺼번에 해요`;
+  $('smBtns').innerHTML='<button class="primary" id="smOk" style="font-size:18px;padding:12px 24px">확인</button>';
+  $('smOk').onclick=()=>$('saveModal').classList.remove('on');
+  $('saveModal').classList.add('on');
+}
+function onControl(c){
+  // c = {ph:'go', id:회차, at:시작시각(서버 ms), dur:초(0=선생님이 끝낼 때까지)} | {ph:'end', id} | {ph:'open'} | null(방 닫힘)
+  LIVE.ctl=c;
+  if(!c){ if(running&&LIVE.ctlRun) runEnd(); LIVE.ctlRun=''; livePill('선생님이 방을 닫았어요 — 혼자 세기는 돼요',true); return; }
+  if(c.ph==='go'&&c.id&&c.id!==LIVE.ctlRun){
+    LIVE.ctlRun=String(c.id); LIVE.ctlEnd=c.dur>0?c.at+c.dur*1000:0;
+    if(LIVE.ctlEnd&&LIVE.T.now()>=LIVE.ctlEnd) return;   // 이미 끝난 회차에 늦게 들어온 경우 — 건드리지 않음
+    $('saveModal').classList.remove('on'); if(running){ running=false; }
+    $('btnStart').disabled=true; $('btnReset').disabled=true; $('btnStart').textContent='곧 시작해요';
+    if(LIVE.cdTimer) clearInterval(LIVE.cdTimer);
+    let shown=null;
+    LIVE.cdTimer=setInterval(()=>{
+      const now=LIVE.T.now();
+      if(!running){
+        const left=Math.ceil((c.at-now)/1000);
+        if(left<=0){ runStart(); const b=$('burst'); b.textContent='시작!'; b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); beep(1046,0.25,0.25); livePush(true); }
+        else if(left!==shown&&left<=5){ shown=left; const b=$('burst'); b.textContent=String(left); b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); beep(660,0.08,0.18); $('status').textContent=left+'초 뒤 시작!'; $('status').className='status idle'; }
+      } else if(LIVE.ctlEnd&&now>=LIVE.ctlEnd){ runEnd(); }
+      else if(LIVE.ctlEnd){ const r=Math.ceil((LIVE.ctlEnd-now)/1000); if(r<=3&&r>0&&r!==shown){ shown=r; beep(990,0.06,0.15); } }
+    },100);
+  } else if(c.ph==='end'&&LIVE.ctlRun&&(!c.id||String(c.id)===LIVE.ctlRun)){ if(running) runEnd(); else { if(LIVE.cdTimer){ clearInterval(LIVE.cdTimer); LIVE.cdTimer=0; } $('btnStart').disabled=false; $('btnReset').disabled=false; $('btnStart').textContent='시작'; } }
+}
+async function liveInit(){
+  // 누구인지: 앱에서 열었으면 앱이 알려 준 학년·반·번호, 시험용으로 &me=3-2-15 도 받음
+  const w=LINK.who; let me=null;
+  if(w&&+w.학년&&+w.반&&+w.번호) me={g:+w.학년,c:+w.반,n:+w.번호};
+  else { const m=/^(\d{1,2})-(\d{1,2})-(\d{1,2})$/.exec(Q.get('me')||''); if(m) me={g:+m[1],c:+m[2],n:+m[3]}; }
+  if(!me){ livePill('선생님 화면에 연결하려면 앱의 "카메라로 뛰기"로 열어 주세요',true); return; }
+  LIVE.me=me; LIVE.dev=Array.from(crypto.getRandomValues(new Uint8Array(6)),b=>b.toString(36).padStart(2,'0')).join('').slice(0,12);
+  livePill('선생님 화면에 연결하는 중…');
+  try{
+    LIVE.T=await LIVE_T(LIVE.room, LIVE.dev); LIVE.ok=true;
+    LIVE.T.onConnected(c=>{ if(c){ livePill(`선생님 화면에 연결됨 · ${me.g}학년 ${me.c}반 ${me.n}번`); livePush(true); } else livePill('연결이 끊겼어요 — 다시 잇는 중… (세기는 계속돼요)',true); });
+    LIVE.T.onControl(onControl);
+    LIVE.beat=setInterval(()=>livePush(),1000);
+    wakeOn();
+    document.addEventListener('visibilitychange',()=>{ LIVE.hidden=document.visibilityState!=='visible'; livePush(true); if(!LIVE.hidden) wakeOn(); });
+  }catch(e){ console.error(e); LIVE.ok=false; livePill('선생님 화면에 연결하지 못했어요 — 혼자 세기는 돼요',true); }
+}
+
 /* ---------- 버튼 ---------- */
 $('btnCam').onclick=async()=>{
-  try{ await loadModel(); $('btnCam').textContent='카메라 켜는 중…'; await openCam(); $('cover').classList.add('hide'); t0=performance.now(); loop(); linkInit(); }
+  try{ await loadModel(); $('btnCam').textContent='카메라 켜는 중…'; await openCam(); $('cover').classList.add('hide'); t0=performance.now(); loop(); if(LIVE.on) linkInit().then(liveInit); else linkInit(); }
   catch(e){ console.error(e); $('coverErr').textContent='시작하지 못했어요: '+(e.message||e)+(location.protocol==='file:'?' — 파일로 열었을 때 카메라가 막히면 크롬에서 열거나, 인터넷에 올린 주소로 열어 보세요.':''); $('btnCam').disabled=false; $('btnCam').textContent='다시 시도'; }
 };
 $('btnStart').onclick=()=>{ running=!running; if(running){ t0=performance.now(); det.reset(); lastCount=0; $('count').innerHTML='0<small>회</small>'; beep(660,0.1,0.2); } else { beep(440,0.15,0.2); $('status').textContent='멈춤 — 시작을 누르면 처음부터 다시 세요'; $('status').className='status idle'; if(LINK.linked) openSaveModal(); }

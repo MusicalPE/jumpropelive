@@ -1,0 +1,37 @@
+{
+  "rules": {
+    "rooms": {
+      "$room": {
+        ".read": "$room.matches(/^[A-Za-z0-9_-]{20,64}$/)",
+        "control": {
+          ".write": "$room.matches(/^[A-Za-z0-9_-]{20,64}$/)",
+          ".validate": "newData.hasChildren(['ph'])",
+          "ph": { ".validate": "newData.isString() && newData.val().matches(/^(open|go|end)$/)" },
+          "id": { ".validate": "newData.isString() && newData.val().length <= 32" },
+          "at": { ".validate": "newData.isNumber()" },
+          "dur": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3600" },
+          "$other": { ".validate": false }
+        },
+        "devs": {
+          ".write": "!newData.exists()",
+          "$dev": {
+            ".write": "$dev.matches(/^[a-z0-9]{8,16}$/) && (root.child('rooms').child($room).child('control').exists() || !newData.exists())",
+            ".validate": "newData.hasChildren(['g', 'c', 'n', 'cnt', 'st', 'run', 't'])",
+            "g": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 6" },
+            "c": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 30" },
+            "n": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 99" },
+            "cnt": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 5000" },
+            "rate": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 400" },
+            "best": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 5000" },
+            "st": { ".validate": "newData.isString() && newData.val().matches(/^(ready|away|hand|jump|stop|hidden|off)$/)" },
+            "run": { ".validate": "newData.isBoolean()" },
+            "ctl": { ".validate": "newData.isString() && newData.val().length <= 32" },
+            "v": { ".validate": "newData.isString() && newData.val().length <= 16" },
+            "t": { ".validate": "newData.isNumber() && newData.val() <= now + 60000" },
+            "$other": { ".validate": false }
+          }
+        }
+      }
+    }
+  }
+}
