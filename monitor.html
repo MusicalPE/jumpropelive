@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.2.1</title>
+<title>점프 라이브 v0.2.2</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -130,7 +130,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.2.1</span></h1>
+    <h1>점프 라이브<span class="ver">v0.2.2</span></h1>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <div class="me" id="me" hidden><span id="meName"></span><button id="btnOut">로그아웃</button></div>
@@ -225,7 +225,7 @@
    서버에 올라가는 것: 방 주인(로그인 ID), 학년·반·인원, 시작·끝 신호, 학생 기기별 학년·반·번호·횟수·상태. 이름은 이 컴퓨터에만.
    전송 방식은 BACKEND 하나에 모음 (Firebase / 시험 모드) — 나중에 다른 서버로 바꿀 때 이것만 바꾸면 됨
    ========================================================================================= */
-const VER='0.2.1';
+const VER='0.2.2';
 const FB_CONFIG={ apiKey:'AIzaSyDimPwJ974Pmn9wcgwFZFWUBQPaOra5chQ', authDomain:'jumpropelive.firebaseapp.com',
   databaseURL:'https://jumpropelive-default-rtdb.asia-southeast1.firebasedatabase.app', projectId:'jumpropelive',
   storageBucket:'jumpropelive.firebasestorage.app', messagingSenderId:'727527484238', appId:'1:727527484238:web:aaed6e0585ee7db7228c1f' };
@@ -481,13 +481,14 @@ function clockTick(){
     const d=now-c.at;
     if(d<0){ const left=Math.ceil(-d/1000); el.textContent=left+''; el.className='clock cd'; if(left!==S.cdShown&&left<=5){ S.cdShown=left; big(left); beep(660,.08,.18); } }
     else{
-      if(S.cdShown!=='go'){ S.cdShown='go'; big('시작!'); beep(1046,.25,.25); }
+      // 시작 표시는 회차마다 한 번만 (끝 카운트다운과 따로 기억 — 같이 쓰면 '시작!'이 되풀이됨)
+      if(S.startShown!==c.id){ S.startShown=c.id; big('시작!'); beep(1046,.25,.25); }
       if(c.dur){ const r=Math.max(0,Math.ceil(c.dur-d/1000)); el.textContent=Math.floor(r/60)+':'+String(r%60).padStart(2,'0'); el.className='clock go';
-        if(r<=3&&r>0&&S.cdShown!=='e'+r){ S.cdShown='e'+r; beep(990,.06,.15); }
+        if(r<=5&&r>0&&S.endCd!==r){ S.endCd=r; big(r); beep(990,.06,.15); }
         if(d>=c.dur*1000){ S.ctl={ph:'end',id:c.id}; B.setControl(S.room,S.ctl).catch(()=>{}); finish(); } }
       else { const s=Math.floor(d/1000); el.textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); el.className='clock go'; }
     }
-  } else { el.textContent=''; el.className='clock'; S.cdShown=null; }
+  } else { el.textContent=''; el.className='clock'; S.cdShown=null; S.endCd=null; }
   const running=c.ph==='go'; $('btnGo').disabled=running; $('btnEnd').disabled=!running; $('selDur').disabled=running; $('btnClose').disabled=running;
   $('btnGo').textContent=running?(now<c.at?'곧 시작':'뛰는 중'):'시작';
 }
