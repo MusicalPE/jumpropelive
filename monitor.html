@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 현황판 v0.1.1</title>
+<title>점프 라이브 v0.2.0</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -130,7 +130,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>줄넘기 현황판<span class="ver">v0.1.1</span></h1>
+    <h1>점프 라이브<span class="ver">v0.2.0</span></h1>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <div class="me" id="me" hidden><span id="meName"></span><button id="btnOut">로그아웃</button></div>
@@ -154,9 +154,14 @@
       <div class="row">
         <label>학년 <select id="selG"></select></label>
         <label>반 <select id="selC"></select></label>
-        <label>인원 <input type="number" id="inMax" min="1" max="60" value="25" style="width:90px"></label>
+        <label id="maxLab">인원 <input type="number" id="inMax" min="1" max="60" value="25" style="width:90px"></label>
+        <label id="typeLab" hidden>종류 <select id="selType"></select></label>
       </div>
-      <div>
+      <div id="appBox" hidden>
+        <p style="margin-bottom:8px"><b>줄넘기 기록 관리 명단</b> · <span id="appInfo"></span></p>
+        <div class="row" id="pwRow" hidden><input type="password" id="inPw" placeholder="관리자 비밀번호" style="font-size:18px;padding:8px 12px;border-radius:12px;border:1px solid var(--line);background:var(--soft)"><button id="btnPw">확인</button></div>
+      </div>
+      <div id="rosterBox">
         <p style="margin-bottom:8px"><b>명단</b> — 한 줄에 "번호 이름". 시트에서 번호·이름 두 칸을 복사해 붙여 넣어도 돼요. 비워 두면 번호만 보여요.</p>
         <textarea id="roster" placeholder="1 김하늘&#10;2 이바다&#10;3 박구름"></textarea>
         <p class="small" id="rosterInfo"></p>
@@ -207,6 +212,7 @@
   <h3 id="resTitle">결과</h3>
   <p class="small" id="resNote" style="margin:0;color:var(--muted)"></p>
   <div class="res"><table><thead><tr><th>순위</th><th>번호</th><th>이름</th><th>횟수</th><th>최고 연속</th></tr></thead><tbody id="resBody"></tbody></table></div>
+  <div class="row" id="resSaveRow" hidden><b id="resSave"></b><input type="password" id="resPw" placeholder="관리자 비밀번호" hidden style="font-size:16px;padding:8px 12px;border-radius:12px;border:1px solid var(--line);background:var(--soft)"><button id="btnResSave" hidden>다시 저장</button></div>
   <div class="row"><button class="primary" id="btnResCopy">결과 복사 (시트에 붙여 넣기)</button><button id="btnResClose">닫기</button><span class="small" id="resMsg"></span></div>
 </div></div>
 <div class="big" id="big"></div>
@@ -219,7 +225,7 @@
    서버에 올라가는 것: 방 주인(로그인 ID), 학년·반·인원, 시작·끝 신호, 학생 기기별 학년·반·번호·횟수·상태. 이름은 이 컴퓨터에만.
    전송 방식은 BACKEND 하나에 모음 (Firebase / 시험 모드) — 나중에 다른 서버로 바꿀 때 이것만 바꾸면 됨
    ========================================================================================= */
-const VER='0.1.1';
+const VER='0.2.0';
 const FB_CONFIG={ apiKey:'AIzaSyDimPwJ974Pmn9wcgwFZFWUBQPaOra5chQ', authDomain:'jumpropelive.firebaseapp.com',
   databaseURL:'https://jumpropelive-default-rtdb.asia-southeast1.firebasedatabase.app', projectId:'jumpropelive',
   storageBucket:'jumpropelive.firebasestorage.app', messagingSenderId:'727527484238', appId:'1:727527484238:web:aaed6e0585ee7db7228c1f' };
@@ -300,6 +306,51 @@ function demoBackend(){
   return B;
 }
 
+/* ---------- 줄넘기 기록 관리와 연결 (관리자 메뉴 "점프 라이브"에서 ?s=껍데기주소 로 열림) ----------
+   명단은 그 학교 시트에서 가져오고, 끝나면 결과를 승인된 카메라 기록으로 한꺼번에 넣음 (점프 라이브판 껍데기 필요)
+   관리자 로그인은 줄넘기 기록 관리와 같은 기기 저장소(jumpropeAdminSession)를 같이 씀 — 같은 musicalpe.github.io 라서 */
+const SHELL=(()=>{ const v=Q.get('s')||''; return /^https:\/\/script\.google(usercontent)?\.com\//.test(v)?v:''; })();
+const APPM=!!SHELL;
+const JR={ students:[], types:[], live:false, admin:null, cur:null };
+function sessGet(){ try{ const v=JSON.parse(localStorage.getItem('jumpropeAdminSession')||'null'); if(v&&v.token&&Date.now()-v.ts<55*60e3) return v.token; }catch(e){} return null; }
+function sessSet(t){ try{ localStorage.setItem('jumpropeAdminSession',JSON.stringify({token:t,ts:Date.now()})); }catch(e){} }
+async function rpc(fn,args){
+  const r=await fetch(SHELL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn,args:args||[]}),redirect:'follow'});
+  if(!r.ok) throw new Error('학교 시트 응답 오류 ('+r.status+')');
+  const j=await r.json(); if(!j.ok) throw new Error(j.error||'요청 실패'); return j.result;
+}
+async function adminLogin(pw){ const r=await rpc('verifyAdminPassword',[pw]); if(!r||!r.ok) throw new Error((r&&r.message)||'비밀번호가 올바르지 않습니다.'); sessSet(r.token); JR.admin=r.token; return r.token; }
+async function appLoad(){
+  $('appBox').hidden=false; $('rosterBox').hidden=true; $('maxLab').hidden=true; $('typeLab').hidden=false;
+  $('appInfo').textContent='학교 시트에서 불러오는 중…'; $('btnOpen').disabled=true;
+  try{ const [p,types]=await Promise.all([rpc('ping'),rpc('getJumpTypes')]); JR.live=!!(p&&p.live); JR.types=types||[];
+    const sel=$('selType'), last=store.get('jrl_type'); sel.innerHTML=''; JR.types.forEach(t=>sel.add(new Option(t,t))); if(last&&JR.types.includes(last)) sel.value=last; }
+  catch(e){ $('appInfo').textContent='학교 시트에 연결하지 못했어요: '+e.message; return; }
+  JR.admin=sessGet();
+  if(JR.admin){ try{ JR.students=await rpc('getAllStudents',[JR.admin]); return appClasses(); }catch(e){ JR.admin=null; } }
+  $('pwRow').hidden=false; $('appInfo').textContent='명단을 가져오려면 관리자 비밀번호를 넣어 주세요'; $('inPw').focus();
+}
+async function appPw(){
+  $('setupErr').textContent='';
+  try{ await adminLogin($('inPw').value); $('inPw').value=''; $('pwRow').hidden=true; JR.students=await rpc('getAllStudents',[JR.admin]); appClasses(); }
+  catch(e){ $('setupErr').textContent=e.message; }
+}
+function appClasses(){
+  const g=$('selG'), c=$('selC'), list=JR.students.filter(x=>+x.grade&&+x.cls&&+x.number);
+  const grades=[...new Set(list.map(x=>+x.grade))].sort((a,b)=>a-b);
+  if(!grades.length){ $('appInfo').textContent='등록된 학생이 없어요 — 줄넘기 기록 관리에서 학생을 먼저 등록해 주세요'; return; }
+  const last=(store.get('jrl_last')||'').split('-');
+  g.innerHTML=''; grades.forEach(v=>g.add(new Option(v+'학년',v))); if(grades.includes(+last[0])) g.value=last[0];
+  const fillC=()=>{ const cs=[...new Set(list.filter(x=>+x.grade===+g.value).map(x=>+x.cls))].sort((a,b)=>a-b); c.innerHTML=''; cs.forEach(v=>c.add(new Option(v+'반',v))); if(cs.includes(+last[1])) c.value=last[1]; appRoster(); };
+  g.onchange=fillC; c.onchange=appRoster; fillC(); $('btnOpen').disabled=false;
+}
+function appRoster(){
+  const gv=+$('selG').value, cv=+$('selC').value, names={}, ids={}; let max=0;
+  JR.students.filter(x=>+x.grade===gv&&+x.cls===cv&&+x.number>=1&&+x.number<=60).forEach(x=>{ const n=+x.number; names[n]=String(x.name||''); ids[n]=String(x.id); max=Math.max(max,n); });
+  JR.cur={names,ids,max};
+  $('appInfo').innerHTML=`${Object.keys(names).length}명 (마지막 번호 ${max}번)`+(JR.live?'':' · <span class="err">이 학교 껍데기는 점프 라이브판이 아니라 결과가 자동 저장되지 않아요</span>');
+}
+
 /* ---------- 화면 상태 ---------- */
 let B=null, USER=null;
 const S={ room:'', g:0, c:0, max:0, names:{}, devs:{}, ctl:{ph:'open'}, sort:'no', lastRun:null, prevCnt:{}, cdShown:null, endShown:'' };
@@ -311,6 +362,7 @@ function parseRoster(txt){
   return {names,max};
 }
 function setupInit(){
+  if(APPM) return appLoad();
   const g=$('selG'), c=$('selC');
   if(!g.options.length){ for(let i=1;i<=6;i++) g.add(new Option(i+'학년',i)); for(let i=1;i<=15;i++) c.add(new Option(i+'반',i)); }
   const last=(store.get('jrl_last')||'').split('-'); if(+last[0]) g.value=last[0]; if(+last[1]) c.value=last[1];
@@ -325,15 +377,17 @@ function studentUrl(){ const u=new URL('./',location.href); u.search='?room='+S.
 
 async function openRoom(){
   $('setupErr').textContent='';
-  const g=+$('selG').value, c=+$('selC').value, p=parseRoster($('roster').value);
-  const max=Math.max(1,Math.min(60,p.max||+$('inMax').value||25));
-  store.set(`jrl_roster_${g}_${c}`,JSON.stringify({text:$('roster').value,max})); store.set('jrl_last',g+'-'+c);
+  const g=+$('selG').value, c=+$('selC').value, p=APPM?JR.cur:parseRoster($('roster').value);
+  if(APPM&&(!p||!p.max)){ $('setupErr').textContent='이 반에 등록된 학생이 없어요'; return; }
+  const max=Math.max(1,Math.min(60,p.max||+$('inMax').value||25)), type=APPM?$('selType').value:'';
+  if(!APPM) store.set(`jrl_roster_${g}_${c}`,JSON.stringify({text:$('roster').value,max}));
+  store.set('jrl_last',g+'-'+c); if(type) store.set('jrl_type',type);
   $('btnOpen').disabled=true; $('btnOpen').textContent='방 여는 중…';
   try{
     const room=genKey(); await B.openRoom(room,{g,c,max});
-    Object.assign(S,{room,g,c,max,names:p.names,devs:{},ctl:{ph:'open'},lastRun:null,prevCnt:{},endShown:''});
-    store.set('jrl_open',JSON.stringify({room,g,c,max,uid:USER.uid}));
-    $('clsName').textContent=`${g}학년 ${c}반`; view('vLive'); $('vLive').style.display='flex';
+    Object.assign(S,{room,g,c,max,names:p.names,ids:p.ids||{},type,devs:{},ctl:{ph:'open'},lastRun:null,prevCnt:{},endShown:''});
+    store.set('jrl_open',JSON.stringify({room,g,c,max,uid:USER.uid,app:APPM?{names:p.names,ids:p.ids,type,s:SHELL}:null}));
+    $('clsName').textContent=`${g}학년 ${c}반`+(type?` · ${type}`:''); view('vLive'); $('vLive').style.display='flex';
     B.watch(room,d=>{ S.devs=d; render(); });
     render(); showQr();
   }catch(e){ console.error(e); $('setupErr').textContent='방을 열지 못했어요: '+(e.message||e); }
@@ -408,7 +462,7 @@ async function end(){
 function finish(){ // 학생 기기가 마지막 숫자를 보낼 시간을 2초 주고 결과
   if(S.endShown===S.lastRun.id) return; S.endShown=S.lastRun.id;
   beep(440,.3,.25); big('끝!');
-  setTimeout(()=>{ render(); showResult(); $('btnResult').disabled=false; },2000);
+  setTimeout(()=>{ render(); showResult(); $('btnResult').disabled=false; if(APPM&&S.ids&&Object.keys(S.ids).length) saveResult(); },2000);
 }
 function clockTick(){
   if(!S.room){ return; }
@@ -439,7 +493,8 @@ function showResult(){
     || '<tr><td colspan="5" style="color:var(--muted)">이번 회차에 뛴 학생이 없어요</td></tr>';
   const missing=[]; for(let n=1;n<=S.max;n++) if(!rows.some(r=>r.n===n)) missing.push(n);
   $('resTitle').textContent=`${S.g}학년 ${S.c}반 · ${dur?(dur>=60?dur/60+'분':dur+'초'):'제한 없음'} 결과`;
-  $('resNote').textContent=`${rows.length}명 · 합계 ${rows.reduce((s,r)=>s+r.cnt,0).toLocaleString()}회`+(missing.length?` · 기록 없음: ${missing.join(', ')}번`:'')+' · 시트 자동 저장은 앱과 연결한 뒤에 붙여요';
+  $('resNote').textContent=`${rows.length}명 · 합계 ${rows.reduce((s,r)=>s+r.cnt,0).toLocaleString()}회`+(missing.length?` · 기록 없음: ${missing.join(', ')}번`:'')+(APPM?'':' · 결과 복사로 시트에 옮겨 주세요');
+  $('resSaveRow').hidden=!APPM; if(APPM) resSaveUi();
   $('resMsg').textContent=''; $('resModal').classList.add('on');
 }
 async function copyResult(){
@@ -448,6 +503,40 @@ async function copyResult(){
   try{ await navigator.clipboard.writeText(tsv); $('resMsg').textContent='복사했어요 — 시트의 칸을 누르고 붙여 넣기 (번호순)'; }
   catch(e){ $('resMsg').textContent='복사하지 못했어요'; }
 }
+
+/* ---------- 결과를 줄넘기 기록 관리 시트에 저장 ---------- */
+function savedRuns(){ try{ return JSON.parse(store.get('jrl_saved')||'{}')||{}; }catch(e){ return {}; } }
+function resSaveUi(msg,bad,needPw,retry){
+  const id=S.lastRun&&S.lastRun.id, done=id&&savedRuns()[id];
+  $('resSave').textContent=msg||(done?`✓ 시트에 ${done}명 기록했어요 (${S.type}, 승인됨)`:'');
+  $('resSave').style.color=bad?'var(--red)':'var(--mint)';
+  $('resPw').hidden=!needPw; $('btnResSave').hidden=!(needPw||retry); $('btnResSave').textContent=needPw?'로그인하고 저장':'다시 저장';
+}
+async function saveResult(){
+  const id=S.lastRun&&S.lastRun.id; if(!id) return;
+  if(!JR.live) return resSaveUi('자동 저장이 안 돼요 — 이 학교 껍데기가 점프 라이브판이 아니에요. 결과 복사로 옮겨 주세요',true);
+  if(savedRuns()[id]) return resSaveUi();
+  const rows=resultRows().filter(r=>S.ids[r.n]&&r.cnt>0).map(r=>({id:S.ids[r.n],count:r.cnt}));
+  if(!rows.length) return resSaveUi('저장할 기록이 없어요',true);
+  const tok=JR.admin||sessGet();
+  if(!tok) return resSaveUi('관리자 로그인이 끝났어요 — 비밀번호를 넣고 저장해 주세요',true,true);
+  resSaveUi('시트에 저장하는 중…'); $('btnResSave').hidden=true;
+  try{
+    const r=await rpc('addLiveRecordsAdmin',[tok,S.type,rows,id]);
+    const m=savedRuns(); m[id]=r.already?rows.length:r.saved; store.set('jrl_saved',JSON.stringify(m));
+    // 줄넘기 기록 관리 창에 알려 점퍼스(전국 현황판)로 바로 보내게 함 — 카메라 인증 기록으로 집계
+    try{ if(window.opener&&!window.opener.closed) window.opener.postMessage({type:'jumplive-saved'},location.origin); }catch(e){}
+    resSaveUi(r.already?'이미 저장한 회차예요':`✓ 시트에 ${r.saved}명 기록했어요 (${S.type}, 승인됨)`+(r.skipped&&r.skipped.length?` · ${r.skipped.length}명은 명단에 없어 뺐어요`:''));
+  }catch(e){
+    if(/권한|로그인/.test(e.message)){ JR.admin=null; resSaveUi('관리자 로그인이 끝났어요 — 비밀번호를 넣고 저장해 주세요',true,true); }
+    else resSaveUi('저장하지 못했어요: '+e.message,true,false,true);
+  }
+}
+$('btnResSave').onclick=async()=>{
+  if(!$('resPw').hidden){ try{ await adminLogin($('resPw').value); $('resPw').value=''; }catch(e){ return resSaveUi(e.message,true,true); } }
+  saveResult();
+};
+$('btnPw').onclick=appPw; $('inPw').onkeydown=e=>{ if(e.key==='Enter') appPw(); };
 
 /* ---------- 시작 ---------- */
 $('btnIn').onclick=async()=>{ $('loginErr').textContent=''; try{ await B.signIn(); }catch(e){ $('loginErr').textContent='로그인하지 못했어요: '+(e.code==='auth/unauthorized-domain'?'Firebase 승인된 도메인에 이 주소가 없어요':(e.code==='auth/operation-not-allowed'||e.code==='auth/configuration-not-found')?'Firebase에서 로그인 기능(Authentication → Google)이 아직 켜져 있지 않아요':e.code==='auth/popup-blocked'?'팝업이 막혔어요 — 주소창 오른쪽에서 팝업을 허용해 주세요':(e.message||e)); } };
@@ -473,9 +562,10 @@ setInterval(()=>{ if(S.room) render(); },3000);   // 신호가 끊긴 기기를 
     const prev=JSON.parse(store.get('jrl_open')||'null');
     try{ await B.cleanup(prev&&prev.uid===u.uid?prev.room:''); }catch(e){ console.warn(e); }
     if(prev&&prev.uid===u.uid&&prev.room&&!DEMO){
-      const p=JSON.parse(store.get(`jrl_roster_${prev.g}_${prev.c}`)||'null');
-      Object.assign(S,{room:prev.room,g:prev.g,c:prev.c,max:prev.max,names:p?parseRoster(p.text).names:{},devs:{},ctl:{ph:'open'}});
-      $('clsName').textContent=`${S.g}학년 ${S.c}반`; view('vLive'); $('vLive').style.display='flex';
+      const p=JSON.parse(store.get(`jrl_roster_${prev.g}_${prev.c}`)||'null'), a=prev.app;
+      Object.assign(S,{room:prev.room,g:prev.g,c:prev.c,max:prev.max,names:a?a.names:(p?parseRoster(p.text).names:{}),ids:a?a.ids:{},type:a?a.type:'',devs:{},ctl:{ph:'open'}});
+      if(a&&APPM){ JR.admin=sessGet(); rpc('ping').then(x=>{ JR.live=!!(x&&x.live); }).catch(()=>{}); }
+      $('clsName').textContent=`${S.g}학년 ${S.c}반`+(S.type?` · ${S.type}`:''); view('vLive'); $('vLive').style.display='flex';
       B.watch(S.room,d=>{ S.devs=d; render(); }); render(); return;
     }
     view('vSetup'); $('vLive').style.display='none';
