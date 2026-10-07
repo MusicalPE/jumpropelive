@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>줄넘기 판정기 v0.7.4 · 카메라로 진짜 뛰는지 보기</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<style>
+  :root{
+    --bg:#F3F4F6; --card:#FFFFFF; --soft:#F8F9FB; --line:#E7E9EE; --ink:#1F2430; --ink2:#3B4252; --muted:#7A8190;
+    --accent:#FF6B5B; --accent-soft:#FFF0EE; --accent-ink:#E2513F;
+    --mint:#2BB3A3; --mint-soft:#E7F7F5; --amber:#F2A33A; --amber-soft:#FFF5E6; --red:#E5484D;
+    --shadow:0 1px 2px rgba(17,24,39,.04),0 8px 28px rgba(17,24,39,.06);
+    --ui:"Pretendard Variable",Pretendard,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  html,body{height:100%;margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--ui);overflow:hidden;word-break:keep-all;-webkit-user-select:none;user-select:none;
+    font-feature-settings:"tnum"; letter-spacing:-.01em}
+
+  button{font:inherit;cursor:pointer;border-radius:14px;padding:12px 20px;font-weight:700;font-size:16px;min-height:50px;
+    color:var(--ink2);background:var(--card);border:1px solid var(--line);box-shadow:0 1px 2px rgba(17,24,39,.04);transition:background .15s,transform .1s;touch-action:manipulation}
+  button:hover{background:var(--soft)}
+  button:active{transform:scale(.97)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 6px 18px rgba(255,107,91,.28)}
+  button.primary:hover{background:var(--accent-ink)}
+  button.warn{background:var(--ink);border-color:var(--ink);color:#fff}
+  button:disabled{opacity:.4;cursor:default}
+  input[type=number]{font:inherit;font-weight:800;font-size:26px;width:120px;padding:6px 10px;border-radius:12px;border:1px solid var(--line);background:var(--soft);color:var(--ink);text-align:center}
+  input[type=number]:focus{outline:2px solid var(--accent);outline-offset:1px}
+  input[type=range]{width:160px;accent-color:var(--accent)}
+  input[type=checkbox]{width:22px;height:22px;accent-color:var(--accent)}
+
+  .screen{position:fixed;inset:0;display:flex;flex-direction:column;gap:16px;padding:max(16px,env(safe-area-inset-top)) 24px max(16px,env(safe-area-inset-bottom))}
+
+  /* 머리글 */
+  header{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .mark{width:46px;height:46px;border-radius:14px;background:var(--accent);display:grid;place-items:center;flex:none}
+  .mark svg{width:26px;height:26px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .titles{display:flex;flex-direction:column;gap:2px}
+  header h1{font-size:clamp(22px,3vh,30px);font-weight:800;margin:0;letter-spacing:-.03em;line-height:1.1}
+  header .sub{font-size:14px;color:var(--muted);font-weight:500}
+  .ver{font-size:12px;font-weight:700;color:var(--accent-ink);background:var(--accent-soft);border-radius:99px;padding:3px 9px;margin-left:8px;vertical-align:3px}
+  header .spacer{flex:1}
+  .hbtn{font-size:15px;padding:10px 16px;min-height:46px}
+  .who{display:none;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:99px;padding:8px 16px;font-weight:700;font-size:15px;box-shadow:var(--shadow)}
+  .who.on{display:flex} .who b{color:var(--accent-ink)} .who small{color:var(--muted);font-weight:500}
+
+  /* 무대 */
+  .stage{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:minmax(0,1fr);gap:20px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:24px;box-shadow:var(--shadow)}
+  .main{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.4vh;padding:3vh 3vw;min-height:0;min-width:0;position:relative}
+  .main .lab{font-size:clamp(15px,2vh,20px);color:var(--muted);font-weight:600;display:flex;align-items:center;gap:8px}
+  .main .lab i{width:8px;height:8px;border-radius:50%;background:var(--accent)}
+  .count{font-weight:800;font-size:clamp(110px,28vh,320px);line-height:.9;letter-spacing:-.06em;color:var(--ink);transition:color .15s}
+  .count small{font-size:.2em;color:var(--muted);font-weight:700;margin-left:.2em;letter-spacing:0}
+  .flash{animation:flash .28s}
+  @keyframes flash{0%{transform:scale(1.08)}100%{transform:scale(1)}}
+
+  .status{display:inline-flex;align-items:center;gap:.5em;font-size:clamp(20px,3.6vh,38px);font-weight:800;letter-spacing:-.03em;line-height:1.2;text-align:center;
+    padding:.45em 1.1em;border-radius:99px;background:var(--soft);color:var(--muted);transition:background .2s,color .2s;max-width:100%;text-wrap:balance}
+  .status::before{content:"";width:.42em;height:.42em;border-radius:50%;background:currentColor;flex:none}
+  .status.jump{background:var(--mint-soft);color:var(--mint)}
+  .status.jump::before{animation:pulse .8s ease-in-out infinite}
+  .status.hand{background:var(--amber-soft);color:#C77A12}
+  @keyframes pulse{50%{transform:scale(1.6);opacity:.5}}
+
+  .meterBox{width:min(100%,620px);display:flex;flex-direction:column;gap:8px}
+  .meter{height:14px;background:#EEF0F3;border-radius:99px;position:relative;overflow:hidden}
+  .meter i{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--accent);border-radius:99px;transition:width .06s}
+  .meter b{position:absolute;top:0;bottom:0;width:3px;background:var(--ink);opacity:.55}
+  .meter-l{font-size:14px;color:var(--muted);display:flex;justify-content:space-between;font-weight:500}
+
+  .compare{display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:center;border-top:1px solid var(--line);padding-top:2vh;width:min(100%,620px);font-weight:600;color:var(--ink2);font-size:16px}
+  .compare .diff{font-weight:800;font-size:20px;color:var(--muted)}
+  .compare .diff.ok{color:var(--mint)} .compare .diff.bad{color:var(--red)}
+
+  /* 카메라 */
+  .camSlot{height:100%;min-height:0;display:flex}
+  .pip{position:relative;height:100%;aspect-ratio:3/4;max-width:40vw;border-radius:24px;overflow:hidden;background:#1E2230;cursor:pointer;box-shadow:var(--shadow);border:8px solid var(--card);outline:1px solid var(--line)}
+  .pip.big{position:fixed;left:50%;top:50%;height:90vh;max-width:none;transform:translate(-50%,-50%);z-index:12;box-shadow:0 0 0 100vmax rgba(31,36,48,.55),0 30px 80px rgba(0,0,0,.3)}
+  .pip video,.pip canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+  .pip .tag{position:absolute;left:12px;top:12px;background:rgba(255,255,255,.92);color:var(--ink);border-radius:99px;padding:5px 12px;font-size:13px;font-weight:700}
+  .pip .fps{position:absolute;right:12px;top:12px;background:rgba(0,0,0,.45);color:#fff;border-radius:99px;padding:5px 10px;font-size:12px}
+  .pip .nocam{position:absolute;inset:0;display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;text-align:center;color:#A9AFBD;padding:20px;font-size:16px;line-height:1.6;font-weight:500}
+  .pip .nocam svg{width:56px;height:56px;stroke:#5B6274;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+
+  /* 기록 */
+  .stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+  .stat{padding:14px 18px;display:flex;flex-direction:column;gap:4px;border-radius:18px}
+  .stat .k{font-size:clamp(12px,1.6vh,14px);color:var(--muted);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stat .v{font-size:clamp(22px,3.4vh,34px);font-weight:800;letter-spacing:-.04em;line-height:1.1;color:var(--ink)}
+  .stat .v small{font-size:.5em;color:var(--muted);font-weight:600;margin-left:3px;letter-spacing:0}
+  .stat.hi .v{color:var(--accent-ink)}
+
+  footer{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  footer label{display:flex;align-items:center;gap:10px;font-size:15px;color:var(--ink2);font-weight:600;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px 14px;min-height:50px}
+  #sensV{color:var(--muted);font-weight:500;min-width:2.5em}
+  #btnStart{font-size:clamp(20px,2.8vh,26px);font-weight:800;padding:12px 44px;min-height:62px;min-width:200px;border-radius:18px}
+  .fspacer{flex:1}
+  .madeby{display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:99px;padding:7px 14px;font-size:13px;color:var(--muted)}
+  .madeby b{color:var(--ink);font-weight:700}
+  .madeby svg{width:14px;height:14px;stroke:var(--accent);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .log{font-size:13px;color:var(--muted);max-width:26vw;line-height:1.4}
+
+  /* 시작 화면 */
+  .cover{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px;z-index:10;overflow:auto}
+  .cover.hide{display:none}
+  .coverCard{width:min(1040px,100%);display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);overflow:hidden}
+  .coverArt{background:var(--accent-soft);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:40px 24px;position:relative}
+  .coverArt svg.hero{width:min(240px,70%)}
+  .hero .kid{animation:hop .6s ease-in-out infinite}
+  .hero .rope{transform-origin:100px 96px;animation:rope .6s ease-in-out infinite}
+  @keyframes hop{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+  @keyframes rope{0%,100%{transform:scaleY(1)}50%{transform:scaleY(-1)}}
+  .hero .shadow{animation:shadow .6s ease-in-out infinite;transform-origin:100px 186px}
+  @keyframes shadow{50%{transform:scaleX(.75);opacity:.5}}
+  .coverArt .quote{font-size:15px;color:var(--accent-ink);font-weight:600;text-align:center;line-height:1.6}
+  .coverBody{padding:44px 44px 40px;display:flex;flex-direction:column;gap:20px}
+  .coverBody .eyebrow{font-size:14px;color:var(--accent-ink);font-weight:700}
+  .coverBody h2{font-size:clamp(32px,5vh,46px);font-weight:800;letter-spacing:-.04em;margin:0;line-height:1.15}
+  .coverBody > p{margin:0;color:var(--ink2);line-height:1.7;font-size:16px}
+  .steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+  .steps li{display:flex;gap:14px;align-items:flex-start;line-height:1.6;font-size:15.5px;color:var(--ink2)}
+  .steps li span{flex:none;width:28px;height:28px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font-size:14px;font-weight:700;margin-top:1px}
+  .steps b{color:var(--ink)}
+  .steps em{font-style:normal;color:var(--accent-ink);font-weight:700}
+  .coverBody .small{font-size:13px;color:var(--muted);line-height:1.6;margin:0;padding-top:14px;border-top:1px solid var(--line)}
+  .cover .err{color:var(--red);font-weight:700}
+  #btnCam{font-size:19px;font-weight:800;padding:16px 28px;min-height:60px;align-self:flex-start;border-radius:16px}
+
+  /* 기록 창 */
+  .modal{position:fixed;inset:0;background:rgba(31,36,48,.45);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;padding:24px;z-index:20}
+  .modal.on{display:flex}
+  .modal .box{background:var(--card);border-radius:28px;padding:34px 34px 28px;max-width:520px;width:100%;display:flex;flex-direction:column;gap:14px;text-align:center;box-shadow:0 30px 80px rgba(17,24,39,.2);animation:pop .25s ease-out}
+  @keyframes pop{0%{transform:translateY(12px);opacity:0}100%{transform:none;opacity:1}}
+  .modal h3{font-size:clamp(24px,4vh,32px);font-weight:800;letter-spacing:-.03em;margin:0}
+  .modal .big{font-size:clamp(70px,14vh,120px);font-weight:800;letter-spacing:-.05em;line-height:1;color:var(--accent)}
+  .modal p{margin:0;color:var(--muted);line-height:1.6;font-size:16px}
+  .modal .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:6px}
+  .modal .err{color:var(--red);font-weight:700}
+
+  /* 10회마다 축하 */
+  #fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:30}
+  .burst{position:fixed;left:50%;top:16%;transform:translate(-50%,-50%);pointer-events:none;z-index:31;opacity:0;white-space:nowrap;
+    background:var(--card);color:var(--accent);font-weight:800;letter-spacing:-.04em;font-size:clamp(44px,9vh,96px);padding:.25em .8em;border-radius:999px;box-shadow:0 20px 60px rgba(255,107,91,.3)}
+  .burst.on{animation:burst 1.4s ease-out}
+  @keyframes burst{0%{opacity:0;transform:translate(-50%,-30%) scale(.9)}18%{opacity:1;transform:translate(-50%,-50%) scale(1)}75%{opacity:1}100%{opacity:0;transform:translate(-50%,-62%)}}
+
+  @media (max-aspect-ratio:1/1){
+    .stage{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}
+    .camSlot{order:-1;height:30vh;justify-content:center}
+    .pip{max-width:none}
+    .stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .coverCard{grid-template-columns:1fr} .coverArt{padding:24px}
+  }
+  @media (max-height:720px){ header .sub{display:none} .stat{padding:8px 14px} .screen{gap:10px} }
+  /* ---------- 세로 화면(핸드폰·세운 태블릿) — 위에서 아래로 흐르고(스크롤), 시작 버튼은 아래에 붙음 ---------- */
+  @media (max-width:1100px) and (orientation:portrait){
+    body{overflow-y:auto}
+    .screen{position:relative;inset:auto;min-height:100%;gap:10px;padding:10px 12px 0}
+    header{gap:8px}
+    .mark{width:36px;height:36px;border-radius:11px} .mark svg{width:20px;height:20px}
+    header h1{font-size:20px} header .sub{display:none} .ver{font-size:11px;margin-left:6px}
+    header .spacer{display:none}
+    .who{order:5;flex:1 1 100%;flex-wrap:wrap;gap:2px 8px;border-radius:14px;font-size:13px;padding:6px 12px}
+    .hbtn{font-size:13px;padding:7px 11px;min-height:38px}
+    #btnFull{display:none}
+    /* 세로 화면: 내 모습(왼쪽)과 횟수(오른쪽)를 한 줄에 — 뛰는 모습을 보며 숫자를 같이 봄 */
+    .stage{flex:none;margin:auto 0;display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto;gap:8px;align-items:stretch}
+    .camSlot{order:-1;height:auto;justify-content:center;align-items:center}
+    .pip{height:auto;width:min(47vw,40vh);max-width:none;border-width:5px;border-radius:18px}
+    .pip .tag,.pip .fps{font-size:11px;padding:3px 8px}
+    .main{padding:12px 8px;gap:8px;justify-content:center}
+    .main .lab{font-size:12px}
+    .count{font-size:min(17vh,23vw)}
+    .status{font-size:min(2.6vh,3.9vw);padding:.5em .7em}
+    .meter-l{display:none}
+    .compare{flex-direction:column;gap:4px;font-size:12px;padding-top:8px} .compare input[type=number]{width:72px;font-size:18px;padding:4px} .compare .diff{font-size:14px}
+    .pip.big{width:92vw;height:auto}
+    .stats{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+    .stat{padding:8px 10px} .stat .v{font-size:22px}
+    footer{position:sticky;bottom:0;z-index:5;background:var(--bg);margin:0 -12px;padding:8px 12px max(10px,env(safe-area-inset-bottom));border-top:1px solid var(--line);gap:8px}
+    #btnStart{order:-2;flex:1 1 100%;min-height:56px}
+    #btnReset{order:-1;min-height:44px;padding:8px 14px;font-size:14px}
+    footer label{min-height:44px;padding:6px 10px;font-size:13px} footer input[type=range]{width:90px}
+    .madeby{padding:5px 10px;font-size:12px}
+    .fspacer,.log{display:none}
+    .madeby{order:9;margin-left:auto}
+    .burst{font-size:40px}
+    .coverBody{padding:24px 20px} .coverArt svg.hero{width:120px}
+  }
+  @media (min-width:600px) and (max-width:1100px) and (orientation:portrait){
+    .pip{width:min(58vw,62vh);border-width:7px;border-radius:22px}
+    .pip .tag,.pip .fps{font-size:13px;padding:4px 10px}
+    .main .lab{font-size:15px}
+    .count{font-size:min(15vh,19vw)}
+    .status{font-size:min(2.6vh,3.4vw)}
+    .compare{font-size:14px}
+  }
+</style>
+</head>
+<body>
+<div class="screen">
+  <header>
+    <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
+    <div class="titles">
+      <h1>줄넘기 판정기<span class="ver">v0.7.4</span></h1>
+      <span class="sub">머리부터 발까지 보이게 서서, 몸이 뜨고 팔이 돌 때만 1회로 세요</span>
+    </div>
+    <div class="who" id="who"></div>
+    <div class="spacer"></div>
+    <button class="hbtn" id="btnFull">전체 화면</button>
+    <button class="hbtn" id="btnBig">내 모습 크게</button>
+    <button class="hbtn" id="btnFlip">카메라 전환</button>
+  </header>
+
+  <main class="stage">
+    <section class="card main">
+      <div class="lab"><i></i>지금까지 뛴 횟수</div>
+      <div class="count" id="count">0<small>회</small></div>
+      <div class="status idle" id="status">시작을 누르고 카메라 앞에 서요</div>
+      <div class="meterBox">
+        <div class="meter"><i id="meter"></i><b id="meterLine"></b></div>
+        <div class="meter-l"><span>몸이 뜬 높이</span><span>선을 넘었다 내려오면 1회</span></div>
+      </div>
+      <div class="compare">
+        <span>전자 줄넘기 숫자</span><input type="number" id="devCount" min="0" placeholder="0">
+        <span class="diff" id="diff">—</span>
+      </div>
+    </section>
+    <aside class="camSlot">
+      <div class="pip" id="pip">
+        <video id="video" playsinline muted autoplay></video>
+        <canvas id="overlay"></canvas>
+        <span class="tag">내 모습</span><span class="fps" id="fps"></span>
+        <div class="nocam" id="nocam"><svg viewBox="0 0 24 24"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.5"/></svg>카메라를 켜면<br>여기에 내 모습이 나와요</div>
+      </div>
+    </aside>
+  </main>
+
+  <div class="stats">
+    <div class="card stat"><span class="k">시간</span><span class="v" id="time">0:00</span></div>
+    <div class="card stat"><span class="k">분당</span><span class="v"><span id="rate">0</span><small>회</small></span></div>
+    <div class="card stat hi"><span class="k">최고 연속</span><span class="v"><span id="streak">0</span><small>회</small></span></div>
+    <div class="card stat"><span class="k">팔만 돌린 시간</span><span class="v"><span id="handSec">0</span><small>초</small></span></div>
+    <div class="card stat" title="몸은 떴지만 팔이 안 돌아간 경우"><span class="k">줄 없이 뛴</span><span class="v"><span id="norope">0</span><small>회</small></span></div>
+    <div class="card stat" title="머리나 허리 한쪽만 움직인 경우"><span class="k">몸 일부만</span><span class="v"><span id="rej">0</span><small>회</small></span></div>
+  </div>
+
+  <footer>
+    <div class="madeby"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6a9 9 0 0 1 12.8 12.8M18.4 5.6a9 9 0 0 1-12.8 12.8"/></svg>Made by <b>음악적체육인</b></div>
+    <div class="log" id="log"></div>
+    <div class="fspacer"></div>
+    <button class="primary" id="btnStart">시작</button>
+    <button id="btnReset">처음부터</button>
+    <label>민감도 <input type="range" id="sens" min="6" max="16" value="10"> <span id="sensV">보통</span></label>
+    <label>소리 <input type="checkbox" id="snd" checked></label>
+  </footer>
+</div>
+
+<canvas id="fx"></canvas>
+<div class="burst" id="burst"></div>
+
+<div class="modal" id="saveModal"><div class="box">
+  <h3 id="smTitle">기록할까요?</h3>
+  <div class="big" id="smCount">0<small style="font-size:.3em;color:var(--muted)"> 회</small></div>
+  <p id="smNote"></p>
+  <div class="err" id="smErr"></div>
+  <div class="row" id="smBtns"><button class="primary" id="smSave" style="font-size:18px;padding:12px 24px">기록하기</button><button id="smAgain">다시 뛰기</button></div>
+</div></div>
+
+<div class="cover" id="cover">
+  <div class="card coverCard">
+    <div class="coverArt">
+      <svg class="hero" viewBox="0 0 200 200" aria-hidden="true">
+        <ellipse class="shadow" cx="100" cy="186" rx="40" ry="6" fill="#FFD3CC"/>
+        <g class="kid" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <path class="rope" d="M52 96 C52 196 148 196 148 96" stroke="#FF6B5B" stroke-width="5"/>
+          <circle cx="100" cy="40" r="17" fill="#1F2430"/>
+          <path d="M100 62v50M100 76l-46 22M100 76l46 22M100 112l-18 44M100 112l18 44" stroke="#1F2430" stroke-width="10"/>
+        </g>
+      </svg>
+      <div class="quote">한 번 한 번, 몸으로 뛴 만큼만 세어요</div>
+    </div>
+    <div class="coverBody">
+      <div class="eyebrow">카메라 줄넘기 판정기</div>
+      <h2>진짜로 뛰었는지<br>같이 확인해 봐요</h2>
+      <p>카메라로 관절 움직임을 읽어 <b>몸이 실제로 뛴 횟수</b>를 세요. 전자 줄넘기 숫자와 나란히 비교할 수 있어요. 영상은 이 기기 안에서만 처리되고 어디에도 저장·전송되지 않아요.</p>
+      <ol class="steps">
+        <li><span>1</span><div>기기(칠판·태블릿)에서 <b>2~3m</b> 떨어져서 <b>머리부터 발까지</b> 화면에 다 들어오게 서요. 옆 친구는 화면 밖으로.</div></li>
+        <li><span>2</span><div>처음 <b>1초</b> 정도 가만히 서 있으면 기준 높이를 잡아요.</div></li>
+        <li><span>3</span><div><b>몸 전체가 뜨고 팔이 돌 때</b>만 1회예요. 팔만 돌리면 <em>"팔만 돌리고 있어요"</em>, 줄 없이 뛰면 <em>"줄을 돌리지 않았어요"</em>가 떠요.</div></li>
+      </ol>
+      <div class="err" id="coverErr"></div>
+      <button class="primary" id="btnCam">카메라 켜고 시작하기</button>
+      <p class="small">처음 열 때는 인터넷이 필요해요(관절 인식 모델 약 6MB). 한 번 받으면 브라우저가 기억해요. 체육교사 보조 프로그램이나 줄넘기 기록 관리 프로그램의 "카메라로 뛰기"로 열었다면 끝낼 때 뛴 횟수가 앱에 바로 기록돼요.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===================== 점프 판정기 (카메라·모델과 무관한 순수 계산 — 시험할 수 있게 따로 둠) =====================
+   landmarks: MediaPipe Pose 33개 (x,y 는 화면 비율 0~1, y 는 아래로 갈수록 큼, visibility 0~1)
+   원리: 엉덩이(23·24) 높이를 몸통 길이(어깨~엉덩이)로 나눠 "몸통 몇 배" 단위로 만든 뒤, 가만히 있을 때의 기준선보다
+         일정 높이 이상 올라갔다 내려오면 1회. 손목(15·16)이 빠르게 도는데 몸은 안 뜨면 "손만 돌림". */
+function JumpDetector(opt){
+  opt=opt||{};
+  this.minAmp=opt.minAmp||0.10;      // 몸통 길이의 몇 배 이상 떠야 1회 (민감도, 0.10 ≈ 4~5cm)
+  this.minGap=opt.minGap||0.18;      // 회와 회 사이 최소 시간(초)
+  this.reset();
+}
+JumpDetector.prototype.reset=function(){
+  this.count=0; this.air=false; this.airT=0; this.lastJump=-9; this.lift=0; this.hipLift=0; this.hipPeak=0; this.headPeak=0; this.hipSeen=false;
+  this.head={s:null,base:null}; this.hip={s:null,base:null}; this.scale=null; this.n=0;
+  this.handSpeed=0; this.prevW=null; this.prevT=null; this.hand=false; this.handSec=0; this.lastArmT=-9;
+  this.streak=0; this.best=0; this.visible=false; this.rateBuf=[]; this.noRope=0; this.partial=0; this.why='';
+  this.ank={s:null,base:null}; this.ankPeak=0; this.full=false; this.tooClose=false;
+};
+// 한 채널(머리·엉덩이)의 높이를 부드럽게 하고 기준선(땅에 있을 때 높이) 대비 얼마나 떴는지
+JumpDetector.prototype.track=function(ch, y){
+  ch.s=ch.s===null?y:ch.s+(y-ch.s)*0.8;
+  if(ch.base===null) ch.base=ch.s;
+  if(ch.s>ch.base) ch.base+=(ch.s-ch.base)*0.35; else ch.base+=(ch.s-ch.base)*0.006;
+  return ch.base-ch.s;
+};
+JumpDetector.prototype.push=function(t, lm){
+  const v=i=>lm[i]&&(lm[i].visibility===undefined||lm[i].visibility>0.35);
+  const headOk=v(0)||(v(7)&&v(8)), shOk=v(11)&&v(12), hipOk=v(23)&&v(24), ankOk=v(27)&&v(28);
+  if(!(headOk&&shOk)){ this.visible=false; this.full=false; this.prevW=null; this.prevT=t; return this.state(); }
+  this.visible=true; this.hipSeen=hipOk; this.full=hipOk&&ankOk; this.n++;
+  const sh={x:(lm[11].x+lm[12].x)/2,y:(lm[11].y+lm[12].y)/2};
+  // 크기 기준: 몸통(어깨~엉덩이) 길이. 팔을 돌리면 어깨가 들썩여 값이 흔들리므로 천천히 평균 낸 값을 씀
+  let raw;
+  if(hipOk){ const hip={x:(lm[23].x+lm[24].x)/2,y:(lm[23].y+lm[24].y)/2}; raw=Math.hypot(sh.x-hip.x,sh.y-hip.y); }
+  else raw=Math.hypot(lm[11].x-lm[12].x,lm[11].y-lm[12].y)*1.6;
+  raw=Math.max(0.02,raw);
+  this.scale=this.scale===null?raw:this.scale+(raw-this.scale)*(this.n<30?0.2:0.02);
+  const scale=this.scale;
+  this.tooClose=hipOk && scale>0.42;   // 몸통이 화면 높이의 40% 넘게 크면 너무 가까움 (앉아서 상체만 보이는 경우)
+  const headY=(v(0)?lm[0].y:(lm[7].y+lm[8].y)/2)/scale;
+  const dt=this.prevT===null?0.033:Math.max(0.001,Math.min(0.2,t-this.prevT));
+  const headLift=this.track(this.head, headY);
+  const hipLift=hipOk?this.track(this.hip,(lm[23].y+lm[24].y)/2/scale):0;
+  const ankLift=ankOk?this.track(this.ank,(lm[27].y+lm[28].y)/2/scale):0;
+  // 주 신호: 엉덩이. 머리부터 발까지 다 보일 때만 셉니다 (상체만 보이면 앉아서 들썩여도 점프처럼 보여요)
+  const lift=hipOk?hipLift:headLift, amp=this.minAmp;
+  this.lift=lift; this.hipLift=hipLift;
+  // 손목 속도 (어깨 기준 상대 위치, 몸통 길이/초) — 줄을 돌리고 있는지
+  if(v(15)&&v(16)){
+    const w={x:((lm[15].x+lm[16].x)/2-sh.x)/scale,y:((lm[15].y+lm[16].y)/2-sh.y)/scale};
+    if(this.prevW){ const sp=Math.hypot(w.x-this.prevW.x,w.y-this.prevW.y)/dt; this.handSpeed+=(sp-this.handSpeed)*0.3; }
+    this.prevW=w;
+  } else { this.prevW=null; this.handSpeed*=0.9; }
+  if(this.handSpeed>0.8) this.lastArmT=t;
+  const armOn=(t-this.lastArmT)<0.7;
+  const countable=this.full && !this.tooClose;
+  if(!this.air){ if(lift>amp && countable){ this.air=true; this.airT=t; this.hipPeak=hipLift; this.headPeak=headLift; this.ankPeak=ankLift; } }
+  else { this.hipPeak=Math.max(this.hipPeak,hipLift); this.headPeak=Math.max(this.headPeak,headLift); this.ankPeak=Math.max(this.ankPeak,ankLift);
+    if(lift<amp*0.5 || !countable){ this.air=false;
+      const airTime=t-this.airT;
+      // 진짜 줄넘기 = 엉덩이·머리·발목이 다 같이 떴고(몸 전체가 공중에) + 팔이 돌고 있고 + 떠 있던 시간이 점프답게 짧음
+      const bodyOk=this.hipPeak>amp && this.headPeak>amp*0.6 && this.ankPeak>amp*0.7;
+      const timeOk=airTime>=0.06 && airTime<=0.9;
+      if(countable && t-this.lastJump>this.minGap && timeOk){
+        if(bodyOk && armOn){ this.count++; this.lastJump=t; this.streak++; this.best=Math.max(this.best,this.streak); this.rateBuf.push(t); this.why=''; }
+        else if(bodyOk && !armOn){ this.noRope++; this.why='norope'; }
+        else { this.partial++; this.why='partial'; } } } }
+  if(t-this.lastJump>2.5 && this.streak) this.streak=0;
+  this.rateBuf=this.rateBuf.filter(x=>t-x<=10);
+  // 손만 돌림: 손목은 빠른데 몸이 1.2초 넘게 안 뜸
+  this.hand=this.handSpeed>1.2 && (t-this.lastJump)>1.2 && !this.air;
+  if(this.hand){ this.handSec+=dt; }
+  this.prevT=t;
+  return this.state();
+};
+JumpDetector.prototype.state=function(){
+  return { count:this.count, air:this.air, lift:this.lift, hipLift:this.hipLift, hand:this.hand, handSec:this.handSec, visible:this.visible, hipSeen:this.hipSeen,
+           streak:this.streak, best:this.best, rate:this.rateBuf.length*6, noRope:this.noRope, partial:this.partial, why:this.why, lastJump:this.lastJump, amp:this.minAmp, full:this.full, tooClose:this.tooClose };
+};
+if(typeof module!=='undefined') module.exports={JumpDetector};
+</script>
+
+<script type="module">
+const $=id=>document.getElementById(id);
+const video=$('video'), cv=$('overlay'), cx=cv.getContext('2d');
+let landmarker=null, stream=null, facing='user', running=false, t0=0, raf=0, lastVideoT=-1, frames=0, fpsT=0;
+/* ---------- 앱 연동: 체육교사 보조 프로그램의 줄넘기 화면에서 열리면 ?app=앱주소&t=학생표&kind=종류 가 붙어 와요 ---------- */
+const VER='0.7.4';
+const Q=new URLSearchParams(location.search);
+const LINK={ app:Q.get('app')||'', t:Q.get('t')||'', kind:Q.get('kind')||'', sens:+(Q.get('sens')||0)||0, target:(Q.get('target')==='fit'?'fit':'rope'), who:null, saved:null,
+  // mode=post : 오프라인판(파일로 여는 프로그램)이 연 창. 서버 대신 window.opener.postMessage 로 결과를 돌려준다.
+  post: Q.get('mode')==='post', label:Q.get('label')||'', today:+(Q.get('today')||0)||0, goal:+(Q.get('goal')||0)||0 };
+LINK.linked = !!(LINK.app&&LINK.t) || LINK.post;
+// target: rope = 줄넘기 모듈 기록, fit = 건강체력교실 "집에서 · 줄넘기" 기록
+async function appApi(name, params){
+  const u=new URL(LINK.app); u.searchParams.set('api',name); u.searchParams.set('t',LINK.t);
+  Object.entries(params||{}).forEach(([k,v])=>u.searchParams.set(k,v));
+  const r=await fetch(u.toString(),{redirect:'follow'});
+  const j=await r.json(); if(!j.ok) throw new Error(j.error||'앱이 거절했어요'); return j.data;
+}
+async function linkInit(){
+  if(LINK.post){
+    const w=$('who'); w.classList.add('on');
+    const sv=Math.max(6,Math.min(16,LINK.sens||10)); det.minAmp=sv/100; $('sens').value=sv; $('sens').dispatchEvent(new Event('input')); $('sens').closest('label').hidden=true;
+    LINK.who={이름:LINK.label, 오늘:LINK.today, 하루목표:LINK.goal, 최소:1};
+    w.innerHTML=`<b>${LINK.label||'학생'}</b><small>${LINK.kind||'줄넘기'} · 오늘 ${LINK.today}회 / 목표 ${LINK.goal}회</small>`;
+    if(!window.opener){ w.innerHTML+=`<small style="color:var(--red)"> · 앱 창을 찾지 못해 세어 보기만 돼요</small>`; }
+    return;
+  }
+  if(!LINK.app||!LINK.t) return;
+  const w=$('who'); w.classList.add('on'); w.innerHTML='앱과 연결하는 중…';
+  // 민감도는 선생님이 앱 설정에서 정한 값으로 고정 (학생이 못 바꿈)
+  const sv=Math.max(6,Math.min(16,LINK.sens||10)); det.minAmp=sv/100; $('sens').value=sv; $('sens').dispatchEvent(new Event('input')); $('sens').closest('label').hidden=true;
+  try{ const d=await appApi(LINK.target+'_x_who'); LINK.who=d;
+    const tag=LINK.target==='fit'?(d.대상||'건강체력교실 줄넘기'):(LINK.kind||'줄넘기');
+    w.innerHTML=`<b>${d.학년}학년 ${d.반}반 ${d.번호}번 ${d.이름}</b><small>${tag} · 오늘 ${d.오늘}회 / ${LINK.target==='fit'?'기준':'목표'} ${d.하루목표}회${d.포인트안내?' · '+d.포인트안내:''}</small>`;
+    $('btnStart').textContent='시작'; }
+  catch(e){ w.innerHTML=`<span style="color:var(--red)">앱 연결 실패: ${e.message}</span><small>세어 보기만 돼요 (앱에서 다시 열어 주세요)</small>`; LINK.app=''; LINK.linked=false; }
+}
+function fmtSec(t){ return Math.floor(t/60)+'분 '+Math.floor(t%60)+'초'; }
+function openSaveModal(){
+  const st=det.state(), sec=Math.round((performance.now()-t0)/1000);
+  $('smCount').innerHTML=st.count+'<small style="font-size:.3em;color:var(--muted)"> 회</small>';
+  $('smTitle').textContent='이만큼 기록할까요?'; $('smErr').textContent='';
+  $('smNote').textContent=`${LINK.who?LINK.who.이름+' · ':''}${fmtSec(sec)}`+(st.handSec>=2?` · 팔만 돌린 ${Math.round(st.handSec)}초는 빠졌어요`:'')+(st.noRope?` · 줄 없이 뛴 ${st.noRope}회는 빠졌어요`:'');
+  $('smBtns').innerHTML='<button class="primary" id="smSave" style="font-size:18px;padding:12px 24px">기록하기</button><button id="smAgain">다시 뛰기</button>';
+  $('smSave').onclick=()=>sendResult(st.count,sec,st); $('smAgain').onclick=()=>{ $('saveModal').classList.remove('on'); $('btnReset').click(); };
+  if(LINK.who && st.count<LINK.who.최소){ $('smErr').textContent=`${LINK.who.최소}회 이상일 때만 기록할 수 있어요. 조금 더 뛰어 봐요!`; $('smSave').disabled=true; }
+  $('saveModal').classList.add('on');
+}
+// 오프라인판: 부모 창(프로그램)에 결과를 보내고, 프로그램이 저장한 뒤 돌려주는 확인 응답을 기다린다
+function postToOpener(payload){
+  return new Promise((resolve,reject)=>{
+    if(!window.opener) return reject(new Error('프로그램 창을 찾지 못했어요. 프로그램의 "카메라로 뛰기" 버튼으로 다시 열어 주세요.'));
+    const id=String(Date.now())+Math.random().toString(36).slice(2,6);
+    let done=false;
+    const onMsg=e=>{ const d=e.data; if(!d||d.type!=='jumprope-ack'||d.id!==id) return; done=true; window.removeEventListener('message',onMsg); if(d.ok) resolve(d.data); else reject(new Error(d.error||'프로그램이 거절했어요')); };
+    window.addEventListener('message',onMsg);
+    try{ window.opener.postMessage(Object.assign({type:'jumprope-result',id},payload),'*'); }catch(e){ window.removeEventListener('message',onMsg); return reject(e); }
+    setTimeout(()=>{ if(done) return; window.removeEventListener('message',onMsg); reject(new Error('프로그램에서 응답이 없어요. 프로그램 창이 열려 있는지 확인하세요.')); },5000);
+  });
+}
+async function sendResult(count,sec,st){
+  const b=$('smSave'); b.disabled=true; b.textContent='보내는 중…'; $('smErr').textContent='';
+  try{ const payload={count,sec,hand:Math.round(st.handSec),norope:st.noRope,kind:LINK.kind,ver:VER};
+    const d=LINK.post ? await postToOpener(payload) : await appApi(LINK.target+'_x_save',payload);
+    LINK.saved=d; $('smTitle').textContent='기록했어요!';
+    $('smNote').textContent=LINK.target==='fit'
+      ? `건강체력교실에 ${d.횟수}회 · ${d.포인트}점으로 기록! 오늘 줄넘기 ${d.오늘}회`+(d.줄넘기도?' (줄넘기 기록에도 함께)':'')+(d.달성?' — 기준 달성! 🎉':'')
+      : `오늘 합계 ${d.오늘}회 / 목표 ${d.하루목표}회`+(d.달성?' — 오늘 목표 달성! 🎉':'');
+    $('smBtns').innerHTML='<button class="primary" id="smMore" style="font-size:18px;padding:12px 24px">한 번 더 뛰기</button><button id="smClose">창 닫기</button>';
+    $('smMore').onclick=()=>{ $('saveModal').classList.remove('on'); $('btnReset').click(); if(LINK.who){ LINK.who.오늘=d.오늘; const sm=$('who').querySelector('small'); if(sm) sm.textContent=sm.textContent.replace(/오늘 \d+회/,'오늘 '+d.오늘+'회'); } };
+    $('smClose').onclick=()=>{ window.close(); setTimeout(()=>{ $('smNote').textContent+=' — 이 창을 닫고 앱으로 돌아가 새로고침하면 기록이 보여요.'; },300); };
+    beep(880,0.1,0.2); setTimeout(()=>beep(1175,0.15,0.2),120);
+    if(d.달성) confetti(80);
+  }catch(e){ $('smErr').textContent='기록하지 못했어요: '+e.message+' — 인터넷을 확인하고 다시 눌러 보세요. 계속 안 되면 이 숫자를 앱에 직접 넣어 주세요.'; b.disabled=false; b.textContent='다시 보내기'; }
+}
+const det=new JumpDetector({minAmp:0.10});
+let ac=null;
+function beep(f,d,vol){ if(!$('snd').checked) return; try{ ac=ac||new (window.AudioContext||window.webkitAudioContext)(); const o=ac.createOscillator(), g=ac.createGain(); o.type='triangle'; o.frequency.value=f; g.gain.setValueAtTime(vol||0.2,ac.currentTime); g.gain.exponentialRampToValueAtTime(0.0001,ac.currentTime+d); o.connect(g).connect(ac.destination); o.start(); o.stop(ac.currentTime+d); }catch(e){} }
+function log(s){ $('log').textContent=s; }
+
+/* ---------- 축하 효과 (10회마다 꽃가루 + 큰 글씨) ---------- */
+const fx=$('fx'), fc=fx.getContext('2d'); let parts=[], fxRaf=0;
+const FXC=['#FF6B5B','#FFB4A9','#2BB3A3','#9ADFD6','#F2A33A','#1F2430'];
+function confetti(n){
+  const dpr=1;   // 꽃가루는 흐릿해도 괜찮음 — 관절 인식이 버벅이지 않게 가볍게
+  fx.width=innerWidth*dpr; fx.height=innerHeight*dpr; fc.setTransform(dpr,0,0,dpr,0,0);
+  for(let i=0;i<n;i++){ const a=-Math.PI/2+(Math.random()-.5)*1.6, sp=8+Math.random()*10;
+    parts.push({x:innerWidth/2+(Math.random()-.5)*200,y:innerHeight*0.45,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,r:Math.random()*6.28,vr:(Math.random()-.5)*0.4,
+      w:8+Math.random()*8,h:5+Math.random()*6,c:FXC[i%FXC.length],life:60+Math.random()*30}); }
+  if(!fxRaf) fxTick();
+}
+function fxTick(){
+  fc.clearRect(0,0,innerWidth,innerHeight);
+  parts.forEach(p=>{ p.vy+=0.32; p.vx*=0.99; p.x+=p.vx; p.y+=p.vy; p.r+=p.vr; p.life--;
+    fc.save(); fc.translate(p.x,p.y); fc.rotate(p.r); fc.globalAlpha=Math.min(1,p.life/30); fc.fillStyle=p.c; fc.fillRect(-p.w/2,-p.h/2,p.w,p.h); fc.restore(); });
+  parts=parts.filter(p=>p.life>0&&p.y<innerHeight+40);
+  fxRaf=parts.length?requestAnimationFrame(fxTick):0;
+  if(!parts.length) fc.clearRect(0,0,innerWidth,innerHeight);
+}
+function celebrate(n){
+  const b=$('burst'); b.textContent=n+'회 돌파!'; b.classList.remove('on'); void b.offsetWidth; b.classList.add('on');
+  confetti(n%50===0?50:26);
+  setTimeout(()=>beep(1046,0.1,0.18),90); setTimeout(()=>beep(1318,0.1,0.18),190); setTimeout(()=>beep(1568,0.18,0.18),290);
+}
+
+/* ---------- 모델 ---------- */
+const CDN='https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
+async function loadModel(){
+  $('coverErr').textContent=''; $('btnCam').disabled=true; $('btnCam').textContent='관절 인식 모델 받는 중…';
+  const mod=await import(CDN+'/vision_bundle.mjs');
+  const vision=await mod.FilesetResolver.forVisionTasks(CDN+'/wasm');
+  let lm;
+  try{ lm=await mod.PoseLandmarker.createFromOptions(vision,{ baseOptions:{ modelAssetPath:'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task', delegate:'GPU' }, runningMode:'VIDEO', numPoses:1 }); }
+  catch(e){ lm=await mod.PoseLandmarker.createFromOptions(vision,{ baseOptions:{ modelAssetPath:'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task', delegate:'CPU' }, runningMode:'VIDEO', numPoses:1 }); }
+  landmarker=lm; window.__pose=mod;
+}
+/* ---------- 카메라 ---------- */
+async function openCam(){
+  if(stream) stream.getTracks().forEach(t=>t.stop());
+  stream=await navigator.mediaDevices.getUserMedia({ video:{ facingMode:facing, width:{ideal:640}, height:{ideal:480}, frameRate:{ideal:30} }, audio:false });
+  video.srcObject=stream; await video.play();
+  $('nocam').hidden=true; $('pip').classList.toggle('mirror',facing==='user');
+  document.querySelectorAll('.pip video,.pip canvas').forEach(el=>el.style.transform=facing==='user'?'scaleX(-1)':'none');
+}
+/* ---------- 뼈대 그리기 ---------- */
+const BONES=[[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28]];
+function draw(lm, st){
+  if(cv.width!==video.videoWidth||cv.height!==video.videoHeight){ cv.width=video.videoWidth||640; cv.height=video.videoHeight||480; }
+  cx.clearRect(0,0,cv.width,cv.height);
+  if(!lm) return;
+  const P=i=>[lm[i].x*cv.width, lm[i].y*cv.height];
+  cx.lineWidth=Math.max(4,cv.width/130); cx.lineCap='round';
+  cx.strokeStyle=st.air?'#FF6B5B':st.hand?'#F2A33A':'rgba(255,255,255,.9)';
+  BONES.forEach(([a,b])=>{ if((lm[a].visibility??1)<0.35||(lm[b].visibility??1)<0.35) return; cx.beginPath(); cx.moveTo(...P(a)); cx.lineTo(...P(b)); cx.stroke(); });
+  cx.fillStyle='#fff';
+  [11,12,15,16,23,24,27,28].forEach(i=>{ if((lm[i].visibility??1)<0.35) return; const [x,y]=P(i); cx.beginPath(); cx.arc(x,y,Math.max(5,cv.width/100),0,Math.PI*2); cx.fill(); });
+  if((lm[0].visibility??1)>=0.35){ const [x,y]=P(0); cx.strokeStyle=st.air?'#FF6B5B':'rgba(255,255,255,.9)'; cx.lineWidth=Math.max(4,cv.width/110); cx.beginPath(); cx.arc(x,y,Math.max(10,cv.width/28),0,Math.PI*2); cx.stroke(); }
+}
+/* ---------- 루프 ---------- */
+let lastCount=0, lastAir=false;
+function loop(){
+  raf=requestAnimationFrame(loop);
+  if(!landmarker||video.readyState<2) return;
+  const now=performance.now();
+  if(video.currentTime===lastVideoT) return; lastVideoT=video.currentTime;
+  const res=landmarker.detectForVideo(video, now);
+  const lm=res.landmarks&&res.landmarks[0];
+  const t=(now-t0)/1000;
+  let st;
+  if(running){ st=lm?det.push(t,lm):det.state(); if(!lm) det.visible=false; }
+  else st=det.state();
+  draw(lm, st);
+  frames++; if(now-fpsT>1000){ $('fps').textContent=frames+' fps'; frames=0; fpsT=now; }
+  if(running) paint(st, t, !!lm);
+}
+function paint(st,t,seen){
+  if(st.count!==lastCount){ lastCount=st.count; $('count').innerHTML=st.count+'<small>회</small>'; $('count').classList.remove('flash'); void $('count').offsetWidth; $('count').classList.add('flash'); beep(880,0.08,0.15);
+    if(st.count>0&&st.count%10===0) celebrate(st.count); }
+  if(st.air&&!lastAir){ $('count').style.color='var(--accent)'; } else if(!st.air&&lastAir){ $('count').style.color=''; } lastAir=st.air;
+  const s=$('status');
+  if(!seen||!st.visible){ s.textContent='머리와 어깨가 보이게 서 주세요'; s.className='status wait'; }
+  else if(st.tooClose){ s.textContent='너무 가까워요 — 발까지 보이게 뒤로 물러서요'; s.className='status wait'; }
+  else if(!st.full){ s.textContent='머리부터 발까지 다 보이게 서 주세요'; s.className='status wait'; }
+  else if(st.hand){ s.textContent='팔만 돌리고 있어요! 몸도 같이 뛰어요'; s.className='status hand'; }
+  else if(st.why==='norope'&&t-det.airT<1.5){ s.textContent='줄을 돌리지 않았어요! 팔도 같이 돌려요'; s.className='status hand'; }
+  else if(st.air||t-det.lastJump<0.6){ s.textContent='뛰고 있어요!'; s.className='status jump'; }
+  else if(st.count===0){ s.textContent='준비됐어요 — 뛰어 봐요!'; s.className='status idle'; }
+  else { s.textContent='멈췄어요'; s.className='status idle'; }
+  const amp=st.amp, w=Math.max(0,Math.min(1,(st.lift+amp*0.5)/(amp*3)));
+  $('meter').style.width=(w*100).toFixed(1)+'%'; $('meterLine').style.left=((amp*1.5)/(amp*3)*100).toFixed(1)+'%';
+  const m=Math.floor(t/60), sec=Math.floor(t%60); $('time').textContent=m+':'+String(sec).padStart(2,'0');
+  $('rate').textContent=st.rate; $('handSec').textContent=Math.round(st.handSec); $('streak').textContent=st.best; $('rej').textContent=st.partial; $('norope').textContent=st.noRope;
+  diff();
+}
+function diff(){
+  const d=$('devCount').value===''?null:+$('devCount').value, el=$('diff');
+  if(d===null){ el.textContent='—'; el.className='diff'; return; }
+  const gap=d-det.count;
+  el.textContent=gap===0?'딱 맞아요!':gap>0?'기계가 '+gap+'회 더 셌어요':'판정기가 '+(-gap)+'회 더 셌어요';
+  el.className='diff '+(Math.abs(gap)<=Math.max(2,d*0.1)?'ok':'bad');
+}
+/* ---------- 버튼 ---------- */
+$('btnCam').onclick=async()=>{
+  try{ await loadModel(); $('btnCam').textContent='카메라 켜는 중…'; await openCam(); $('cover').classList.add('hide'); t0=performance.now(); loop(); linkInit(); }
+  catch(e){ console.error(e); $('coverErr').textContent='시작하지 못했어요: '+(e.message||e)+(location.protocol==='file:'?' — 파일로 열었을 때 카메라가 막히면 크롬에서 열거나, 인터넷에 올린 주소로 열어 보세요.':''); $('btnCam').disabled=false; $('btnCam').textContent='다시 시도'; }
+};
+$('btnStart').onclick=()=>{ running=!running; if(running){ t0=performance.now(); det.reset(); lastCount=0; $('count').innerHTML='0<small>회</small>'; beep(660,0.1,0.2); } else { beep(440,0.15,0.2); $('status').textContent='멈춤 — 시작을 누르면 처음부터 다시 세요'; $('status').className='status idle'; if(LINK.linked) openSaveModal(); }
+  $('btnStart').textContent=running?(LINK.linked?'끝내고 기록하기':'멈춤'):'시작'; $('btnStart').classList.toggle('warn',running); $('btnStart').classList.toggle('primary',!running); };
+$('btnReset').onclick=()=>{ det.reset(); lastCount=0; t0=performance.now(); $('count').innerHTML='0<small>회</small>'; $('devCount').value=''; diff(); $('status').textContent=running?'준비됐어요 — 뛰어 봐요!':'시작을 누르고 카메라 앞에 서요'; };
+$('sens').oninput=()=>{ const v=+$('sens').value; det.minAmp=v/100; $('sensV').textContent=v<=7?'예민 (살짝 떠도 셈)':v<=12?'보통':'둔감 (높이 떠야 셈)'; };
+$('btnFlip').onclick=async()=>{ facing=facing==='user'?'environment':'user'; try{ await openCam(); }catch(e){ log('카메라 전환 실패: '+e.message); } };
+$('btnBig').onclick=()=>{ $('pip').classList.toggle('big'); $('btnBig').textContent=$('pip').classList.contains('big')?'내 모습 작게':'내 모습 크게'; };
+$('pip').onclick=()=>$('btnBig').onclick();
+$('btnFull').onclick=()=>{ try{ if(document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen(); }catch(e){ log('전체 화면을 쓸 수 없어요'); } };
+document.addEventListener('fullscreenchange',()=>{ $('btnFull').textContent=document.fullscreenElement?'⛶ 전체 화면 끄기':'⛶ 전체 화면'; });
+$('devCount').oninput=diff;
+document.addEventListener('keydown',e=>{ if(e.target.tagName==='INPUT'&&e.target.type==='number') return; if(e.code==='Space'){ e.preventDefault(); $('btnStart').click(); } if(e.key==='r'||e.key==='R') $('btnReset').click(); if(e.key==='f'||e.key==='F') $('btnFull').click(); });
+</script>
+</body>
+</html>
