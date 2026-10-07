@@ -450,7 +450,7 @@ async function copyResult(){
 }
 
 /* ---------- 시작 ---------- */
-$('btnIn').onclick=async()=>{ $('loginErr').textContent=''; try{ await B.signIn(); }catch(e){ $('loginErr').textContent='로그인하지 못했어요: '+(e.code==='auth/unauthorized-domain'?'Firebase 승인된 도메인에 이 주소가 없어요':e.code==='auth/operation-not-allowed'?'Firebase에서 Google 로그인이 꺼져 있어요':e.code==='auth/popup-blocked'?'팝업이 막혔어요 — 주소창 오른쪽에서 팝업을 허용해 주세요':(e.message||e)); } };
+$('btnIn').onclick=async()=>{ $('loginErr').textContent=''; try{ await B.signIn(); }catch(e){ $('loginErr').textContent='로그인하지 못했어요: '+(e.code==='auth/unauthorized-domain'?'Firebase 승인된 도메인에 이 주소가 없어요':(e.code==='auth/operation-not-allowed'||e.code==='auth/configuration-not-found')?'Firebase에서 로그인 기능(Authentication → Google)이 아직 켜져 있지 않아요':e.code==='auth/popup-blocked'?'팝업이 막혔어요 — 주소창 오른쪽에서 팝업을 허용해 주세요':(e.message||e)); } };
 $('btnOut').onclick=async()=>{ if(S.room&&!confirm('방이 열려 있어요. 방을 그대로 두고 로그아웃할까요?')) return; await B.signOut(); };
 $('btnOpen').onclick=openRoom; $('btnClose').onclick=closeRoom; $('btnGo').onclick=go; $('btnEnd').onclick=end;
 $('btnSort').onclick=()=>{ S.sort=S.sort==='no'?'cnt':'no'; $('btnSort').textContent=S.sort==='no'?'횟수순':'번호순'; render(); };
