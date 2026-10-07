@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.2.0</title>
+<title>점프 라이브 v0.2.1</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -130,7 +130,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.2.0</span></h1>
+    <h1>점프 라이브<span class="ver">v0.2.1</span></h1>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <div class="me" id="me" hidden><span id="meName"></span><button id="btnOut">로그아웃</button></div>
@@ -225,7 +225,7 @@
    서버에 올라가는 것: 방 주인(로그인 ID), 학년·반·인원, 시작·끝 신호, 학생 기기별 학년·반·번호·횟수·상태. 이름은 이 컴퓨터에만.
    전송 방식은 BACKEND 하나에 모음 (Firebase / 시험 모드) — 나중에 다른 서버로 바꿀 때 이것만 바꾸면 됨
    ========================================================================================= */
-const VER='0.2.0';
+const VER='0.2.1';
 const FB_CONFIG={ apiKey:'AIzaSyDimPwJ974Pmn9wcgwFZFWUBQPaOra5chQ', authDomain:'jumpropelive.firebaseapp.com',
   databaseURL:'https://jumpropelive-default-rtdb.asia-southeast1.firebasedatabase.app', projectId:'jumpropelive',
   storageBucket:'jumpropelive.firebasestorage.app', messagingSenderId:'727527484238', appId:'1:727527484238:web:aaed6e0585ee7db7228c1f' };
@@ -233,7 +233,7 @@ const FB_SDK='https://www.gstatic.com/firebasejs/10.14.1';
 const $=id=>document.getElementById(id);
 const Q=new URLSearchParams(location.search);
 const DEMO=Q.get('demo')==='1';
-const STALE_MS=15000;       // 이 시간 넘게 신호가 없으면 끊긴 것으로 봄
+const STALE_MS=25000;       // 이 시간 넘게 신호가 없으면 끊긴 것으로 봄 (학생 기기는 10초마다 신호)
 const LBL={jump:'뛰는 중',stop:'멈춤',hand:'팔만 돌림',away:'화면 이탈',hidden:'다른 화면',off:'끊김',ready:'준비',none:'안 들어옴'};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const store={ get:k=>{ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set:(k,v)=>{ try{ localStorage.setItem(k,v); }catch(e){} } };
@@ -388,7 +388,7 @@ async function openRoom(){
     Object.assign(S,{room,g,c,max,names:p.names,ids:p.ids||{},type,devs:{},ctl:{ph:'open'},lastRun:null,prevCnt:{},endShown:''});
     store.set('jrl_open',JSON.stringify({room,g,c,max,uid:USER.uid,app:APPM?{names:p.names,ids:p.ids,type,s:SHELL}:null}));
     $('clsName').textContent=`${g}학년 ${c}반`+(type?` · ${type}`:''); view('vLive'); $('vLive').style.display='flex';
-    B.watch(room,d=>{ S.devs=d; render(); });
+    B.watch(room,d=>{ S.devs=d; trackRate(d); render(); });
     render(); showQr();
   }catch(e){ console.error(e); $('setupErr').textContent='방을 열지 못했어요: '+(e.message||e); }
   $('btnOpen').disabled=false; $('btnOpen').textContent='방 열기';
@@ -409,8 +409,18 @@ function showQr(){
 }
 
 /* ---------- 바둑판 ---------- */
+// 분당 횟수: 학생 기기가 보내지 않고(보내는 양 아끼기) 여기서 최근 10초 동안 늘어난 횟수로 계산
+const RATE={};
+function trackRate(devs){
+  const now=Date.now();
+  Object.entries(devs).forEach(([id,d])=>{ const h=RATE[id]=RATE[id]||[]; const last=h[h.length-1];
+    if(!last||last[1]!==d.cnt||last[2]!==d.ctl){ if(last&&(d.cnt<last[1]||last[2]!==d.ctl)) h.length=0; h.push([now,d.cnt,d.ctl]); }
+    while(h.length>1&&now-h[0][0]>10000) h.shift(); });
+}
+function rateOf(id,d){ const h=RATE[id]; if(!h||!h.length||!d.run) return 0; const now=Date.now(), last=h[h.length-1];
+  if(now-last[0]>3000) return 0; const f=h[0], sec=Math.max(3,(now-f[0])/1000); return Math.min(400,Math.round((d.cnt-f[1])/sec*60)); }
 function liveDevs(){ // 끊김 판정 포함
-  const now=B.now(); return Object.entries(S.devs).map(([id,d])=>Object.assign({id},d,{st:(d.st!=='off'&&now-(d.t||0)>STALE_MS)?'off':d.st}));
+  const now=B.now(); return Object.entries(S.devs).map(([id,d])=>Object.assign({id},d,{rate:rateOf(id,d),best:d.best||0,st:(d.st!=='off'&&now-(d.t||0)>STALE_MS)?'off':d.st}));
 }
 function render(){
   const all=liveDevs(), mine={}, others=[];
@@ -551,7 +561,8 @@ setInterval(clockTick,100);
 setInterval(()=>{ if(S.room) render(); },3000);   // 신호가 끊긴 기기를 "끊김"으로 바꾸려고
 
 (async()=>{
-  $('demoTag').hidden=!DEMO;
+  $('demoTag').hidden=!DEMO||Q.get('clean')==='1';   // &clean=1 : 영상 찍을 때 '시험 모드' 표시 숨김
+  if(DEMO&&Q.get('clean')==='1') $('me').style.visibility='hidden';
   try{ B=DEMO?demoBackend():await firebaseBackend(); }
   catch(e){ console.error(e); view('vLogin'); $('loginErr').textContent='Firebase를 불러오지 못했어요 — 인터넷을 확인하세요'; $('btnIn').disabled=true; return; }
   B.onUser(async u=>{
@@ -566,7 +577,7 @@ setInterval(()=>{ if(S.room) render(); },3000);   // 신호가 끊긴 기기를 
       Object.assign(S,{room:prev.room,g:prev.g,c:prev.c,max:prev.max,names:a?a.names:(p?parseRoster(p.text).names:{}),ids:a?a.ids:{},type:a?a.type:'',devs:{},ctl:{ph:'open'}});
       if(a&&APPM){ JR.admin=sessGet(); rpc('ping').then(x=>{ JR.live=!!(x&&x.live); }).catch(()=>{}); }
       $('clsName').textContent=`${S.g}학년 ${S.c}반`+(S.type?` · ${S.type}`:''); view('vLive'); $('vLive').style.display='flex';
-      B.watch(S.room,d=>{ S.devs=d; render(); }); render(); return;
+      B.watch(S.room,d=>{ S.devs=d; trackRate(d); render(); }); render(); return;
     }
     view('vSetup'); $('vLive').style.display='none';
   });
