@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.3.1</title>
+<title>점프 라이브 v0.3.2</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -100,6 +100,14 @@
   .qrText{display:flex;flex-direction:column;gap:14px;max-width:420px}
   .qrText h3{margin:0;font-size:clamp(28px,4vw,46px);letter-spacing:-.04em}
   .qrText p{margin:0;font-size:18px;line-height:1.7;color:var(--ink2)}
+  .qrJoin{background:var(--soft);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+  .qrJoin .qjN{font-size:clamp(26px,3.4vw,38px);font-weight:900;letter-spacing:-.03em;color:var(--ink)}
+  .qrJoin .qjN b{color:var(--accent)}
+  .qrJoin .qjN small{font-size:.5em;color:var(--muted);font-weight:700;margin-left:4px}
+  .qrJoin .qjBar{height:10px;border-radius:6px;background:var(--line);overflow:hidden}
+  .qrJoin .qjBar i{display:block;height:100%;background:var(--accent);border-radius:6px;transition:width .4s}
+  .qrJoin .miss{font-size:15px;color:var(--ink2);line-height:1.6;max-height:5.2em;overflow:auto}
+  .qrJoin .miss b{color:var(--muted);font-weight:700}
   .qrText code{font-size:13px;color:var(--muted);word-break:break-all;background:var(--soft);border-radius:10px;padding:8px}
 
   /* 결과 */
@@ -134,7 +142,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.3.1</span></h1>
+    <h1>점프 라이브<span class="ver">v0.3.2</span></h1>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <div class="me" id="me" hidden><span id="meName"></span><button id="btnOut">로그아웃</button></div>
@@ -207,6 +215,7 @@
     <div class="qrText">
       <h3 id="qrTitle"></h3>
       <p>휴대폰·태블릿 <b>카메라</b>로 QR을 찍고,<br>판정기에서 <b>"카메라 켜고 시작하기"</b> →<br><span id="qrStep">내 번호</span>를 눌러요.</p>
+      <div class="qrJoin"><div class="qjN" id="qjBig"></div><div class="qjBar"><i id="qjBar"></i></div><div class="miss" id="qjMiss"></div></div>
       <code id="qrUrl"></code>
       <div class="row"><button class="primary" id="btnQrClose">다 들어왔어요 · 닫기</button><button id="btnCopy">주소 복사</button></div>
     </div>
@@ -231,7 +240,7 @@
    서버에 올라가는 것: 방 주인(로그인 ID), 학년·반·인원, 시작·끝 신호, 학생 기기별 학년·반·번호·횟수·상태. 이름은 이 컴퓨터에만.
    전송 방식은 BACKEND 하나에 모음 (Firebase / 시험 모드) — 나중에 다른 서버로 바꿀 때 이것만 바꾸면 됨
    ========================================================================================= */
-const VER='0.3.1';
+const VER='0.3.2';
 const FB_CONFIG={ apiKey:'AIzaSyDimPwJ974Pmn9wcgwFZFWUBQPaOra5chQ', authDomain:'jumpropelive.firebaseapp.com',
   databaseURL:'https://jumpropelive-default-rtdb.asia-southeast1.firebasedatabase.app', projectId:'jumpropelive',
   storageBucket:'jumpropelive.firebasestorage.app', messagingSenderId:'727527484238', appId:'1:727527484238:web:aaed6e0585ee7db7228c1f' };
@@ -430,7 +439,7 @@ function showQr(){
   if(window.QRCode) new QRCode(box,{text:url,width:512,height:512,correctLevel:QRCode.CorrectLevel.M});
   else box.textContent='QR을 만들지 못했어요 — 아래 주소를 쓰세요';
   $('qrStep').innerHTML=multi()?'<b>내 반 → 내 번호</b>':'<b>내 번호</b>';
-  $('qr').hidden=false;
+  $('qr').hidden=false; if(S.groups) renderSoon();
 }
 
 /* ---------- 바둑판 ---------- */
@@ -479,6 +488,14 @@ function render(){
   $('others').hidden=!ot.length;
   $('others').innerHTML=ot.length?`<b>⚠ 다른 반·명단 밖 접속 ${ot.length}대</b>`+ot.map(d=>`<span>${d.g}학년 ${d.c}반 ${d.n}번 · ${d.cnt}회</span>`).join(''):'';
   S.rows=rows;
+  // QR 창이 열려 있어도 몇 명 들어왔는지 · 아직 안 들어온 번호
+  if(!$('qr').hidden){
+    $('qjBig').innerHTML=`<b>${join}</b> / ${total}명<small>들어왔어요</small>`;
+    $('qjBar').style.width=(total?Math.round(join/total*100):0)+'%';
+    const miss=gs.map(x=>{ const ns=rows.filter(r=>r.g===x.g&&r.c===x.c&&!r.dup).map(r=>r.n);
+      return ns.length?`${M?`<b>${x.g}-${x.c}</b> `:''}${ns.join(', ')}`:''; }).filter(Boolean);
+    $('qjMiss').innerHTML=join>=total?'모두 들어왔어요!':'<b>아직</b> '+miss.join(' · ');
+  }
 }
 
 /* ---------- 시작·끝 ---------- */
