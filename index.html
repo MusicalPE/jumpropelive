@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 판정기 v0.8.8 · 카메라로 진짜 뛰는지 보기</title>
+<title>줄넘기 판정기 v0.8.9 · 카메라로 진짜 뛰는지 보기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -153,6 +153,26 @@
   .burst.on{animation:burst 1.4s ease-out}
   @keyframes burst{0%{opacity:0;transform:translate(-50%,-30%) scale(.9)}18%{opacity:1;transform:translate(-50%,-50%) scale(1)}75%{opacity:1}100%{opacity:0;transform:translate(-50%,-62%)}}
 
+  /* 기다리는 동안 판정 안내 (선생님 방) */
+  .guide{position:absolute;inset:0;z-index:4;background:var(--card);border-radius:24px;padding:clamp(14px,2.6vh,28px) clamp(14px,2.4vw,32px);display:flex;flex-direction:column;gap:clamp(8px,1.6vh,16px);overflow:auto;text-align:left}
+  .guide[hidden]{display:none}
+  .guide .gh{display:flex;align-items:center;gap:10px}
+  .guide .gh h2{margin:0;font-size:clamp(20px,3.4vh,34px);letter-spacing:-.03em}
+  .guide .gh button{margin-left:auto;min-height:36px;padding:4px 12px;font-size:13px}
+  .guide .chk{display:flex;align-items:center;gap:12px;border-radius:16px;padding:clamp(10px,1.6vh,16px) 16px;font-size:clamp(17px,2.8vh,26px);font-weight:800;background:var(--soft);color:var(--ink2)}
+  .guide .chk b{flex:none;width:1.6em;height:1.6em;border-radius:50%;display:grid;place-items:center;color:#fff;background:var(--muted);font-size:.9em}
+  .guide .chk.ok{background:var(--mint-soft);color:var(--mint)} .guide .chk.ok b{background:var(--mint)}
+  .guide .chk.bad{background:#FDECEC;color:var(--red)} .guide .chk.bad b{background:var(--red)}
+  .guide .rules{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(8px,1.2vw,14px);flex:1;min-height:0}
+  .guide .rule{border:2px solid var(--line);border-radius:18px;padding:clamp(10px,2vh,22px);display:flex;flex-direction:column;justify-content:center;gap:clamp(6px,1.4vh,14px)}
+  .guide .rule svg{flex:none;width:clamp(48px,11vh,120px);height:clamp(48px,11vh,120px)}
+  .guide .rule h3{margin:0;font-size:clamp(19px,3.6vh,34px);letter-spacing:-.03em}
+  .guide .rule p{margin:0;font-size:clamp(14px,2.4vh,22px);line-height:1.5;color:var(--ink2)}
+  .guide .rule .no{color:var(--red);font-weight:700}
+  .guide .gf{font-size:clamp(15px,2.2vh,20px);font-weight:700;color:var(--accent-ink);background:var(--accent-soft);border-radius:14px;padding:10px 14px}
+  .guide.flow{position:static;border:1px solid var(--line);box-shadow:var(--shadow)} .guide.flow .gh h2{font-size:22px} .guide.flow .chk{font-size:18px}
+  body.guiding .stats{display:none}
+  @media (max-width:700px){ .guide .rules{grid-template-columns:1fr} .guide .rule{flex-direction:row;align-items:center;gap:12px} .guide .rule div{display:flex;flex-direction:column;gap:2px} }
   @media (max-aspect-ratio:1/1){
     .stage{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}
     .camSlot{order:-1;height:30vh;justify-content:center}
@@ -211,7 +231,7 @@
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
     <div class="titles">
-      <h1>줄넘기 판정기<span class="ver">v0.8.8</span></h1>
+      <h1>줄넘기 판정기<span class="ver">v0.8.9</span></h1>
       <span class="sub">머리부터 발까지 보이게 서서, 몸이 뜨고 팔이 돌 때만 1회로 세요</span>
     </div>
     <div class="who" id="who"></div>
@@ -229,6 +249,19 @@
       <div class="meterBox">
         <div class="meter"><i id="meter"></i><b id="meterLine"></b></div>
         <div class="meter-l"><span>몸이 뜬 높이</span><span>선을 넘었다 내려오면 1회</span></div>
+      </div>
+      <div class="guide" id="guide" hidden>
+        <div class="gh"><h2>이렇게 뛰어야 1회예요</h2><button id="guideX">숫자 화면 보기</button></div>
+        <div class="chk" id="gChk"><b>?</b><span>카메라 앞에 서 봐요</span></div>
+        <div class="rules">
+          <div class="rule"><svg viewBox="0 0 64 64" fill="none" stroke="#1F2430" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="9" r="5" fill="#1F2430" stroke="none"/><path d="M32 16v18M32 21l-10 8M32 21l10 8M32 34l-6 12M32 34l6 12"/><path d="M14 58h36" stroke="#FF6B5B"/><path d="M24 52l-3 4M40 52l3 4" stroke="#2BB3A3" stroke-width="3"/></svg>
+            <div><h3>몸 전체가 떠요</h3><p>발이 땅에서 떨어져야 해요.<br><span class="no">무릎만 굽혀 들썩이면 안 세요</span></p></div></div>
+          <div class="rule"><svg viewBox="0 0 64 64" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="12" r="5" fill="#1F2430"/><path d="M32 19v18M32 24l-12 10M32 24l12 10M32 37l-6 13M32 37l6 13" stroke="#1F2430" stroke-width="5"/><path d="M20 34C12 62 52 62 44 34" stroke="#FF6B5B" stroke-width="4"/></svg>
+            <div><h3>줄을 돌려요</h3><p>줄이 발밑을 지나야 1회.<br><span class="no">팔만 돌리거나 줄 없이 뛰면 안 세요</span></p></div></div>
+          <div class="rule"><svg viewBox="0 0 64 64" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="52" height="52" rx="8" stroke="#2BB3A3" stroke-width="4" stroke-dasharray="6 5"/><circle cx="32" cy="17" r="4.5" fill="#1F2430"/><path d="M32 23v14M32 27l-8 6M32 27l8 6M32 37l-5 11M32 37l5 11" stroke="#1F2430" stroke-width="4.5"/></svg>
+            <div><h3>머리부터 발끝까지</h3><p>2~3m 떨어져 혼자 화면에.<br><span class="no">옆 친구는 화면 밖으로</span></p></div></div>
+        </div>
+        <div class="gf" id="gFoot">선생님이 시작을 누르면 5초 뒤 다 같이 시작해요. 그동안 카메라 자리를 맞춰요!</div>
       </div>
       <div class="compare">
         <span>전자 줄넘기 숫자</span><input type="number" id="devCount" min="0" placeholder="0">
@@ -423,7 +456,7 @@ const $=id=>document.getElementById(id);
 const video=$('video'), cv=$('overlay'), cx=cv.getContext('2d');
 let landmarker=null, stream=null, facing='user', running=false, t0=0, raf=0, lastVideoT=-1, frames=0, fpsT=0;
 /* ---------- 앱 연동: 체육교사 보조 프로그램의 줄넘기 화면에서 열리면 ?app=앱주소&t=학생표&kind=종류 가 붙어 와요 ---------- */
-const VER='0.8.8';
+const VER='0.8.9';
 const Q=new URLSearchParams(location.search);
 const LINK={ app:Q.get('app')||'', t:Q.get('t')||'', kind:Q.get('kind')||'', sens:+(Q.get('sens')||0)||0, target:(Q.get('target')==='fit'?'fit':'rope'), who:null, saved:null,
   // mode=post : 오프라인판(파일로 여는 프로그램)이 연 창. 서버 대신 window.opener.postMessage 로 결과를 돌려준다.
@@ -628,6 +661,7 @@ function loop(){
   frames++; if(now-fpsT>1000){ $('fps').textContent=frames+' fps'; frames=0; fpsT=now; }
   if(running) paint(st, t, !!lm);
   if(LIVE.ok) livePush();
+  if(!$('guide').hidden&&now-(LIVE.gT||0)>250){ LIVE.gT=now; guideCheck(lm); }
 }
 function paint(st,t,seen){
   if(st.count!==lastCount){ lastCount=st.count; $('count').innerHTML=st.count+'<small>회</small>'; $('count').classList.remove('flash'); void $('count').offsetWidth; $('count').classList.add('flash'); beep(880,0.08,0.15);
@@ -771,11 +805,32 @@ function runEnd(){ // 선생님 신호로 끝 — 기록은 선생님 현황판�
   $('saveModal').classList.add('on');
 }
 // 선생님 방에 들어와 있는 동안은 학생이 혼자 시작 못 함 (선생님 '시작'으로만) — 방이 닫히거나 연결에 실패하면 혼자 세기 가능
+// 선생님 방에서 첫 회차를 기다리는 동안: 판정 조건 안내 + 카메라 자리 확인
+function guideShow(){
+  const g=$('guide'); if(!g) return;
+  const on=LIVE.on&&LIVE.ok&&!LIVE.closed&&!!LIVE.me&&!running&&!LIVE.cdTimer&&!LIVE.didRun&&!LIVE.guideOff;
+  const flow=!!(window.matchMedia&&matchMedia('(max-width:1100px) and (orientation:portrait)').matches);
+  if(flow&&g.parentNode.classList.contains('main')) document.querySelector('.stats').before(g);
+  if(!flow&&!g.parentNode.classList.contains('main')) document.querySelector('.main').appendChild(g);
+  g.classList.toggle('flow',flow); g.hidden=!on; document.body.classList.toggle('guiding',on&&flow);
+}
+function guideCheck(lm){
+  const v=i=>lm&&lm[i]&&(lm[i].visibility===undefined||lm[i].visibility>0.35);
+  let ok=false, t;
+  if(!lm) t='화면에 아무도 안 보여요 — 카메라 앞에 서요';
+  else if(!(v(0)||(v(7)&&v(8)))) t='머리가 잘렸어요 — 조금 뒤로 가요';
+  else if(!(v(27)&&v(28))) t='발이 안 보여요 — 뒤로 물러나거나 기기를 낮게 놓아요';
+  else { const tr=Math.hypot((lm[11].y+lm[12].y)/2-(lm[23].y+lm[24].y)/2,(lm[11].x+lm[12].x)/2-(lm[23].x+lm[24].x)/2);
+    if(tr>0.42) t='너무 가까워요 — 뒤로 가요'; else { ok=true; t='좋아요! 머리부터 발끝까지 다 보여요'; } }
+  const c=$('gChk'); c.className='chk '+(ok?'ok':'bad'); c.innerHTML=`<b>${ok?'✓':'!'}</b><span>${t}</span>`;
+}
+addEventListener('resize',()=>guideShow());
 function liveLocked(){ return LIVE.on&&LIVE.ok&&!LIVE.closed; }
 function liveIdle(){
   const lk=liveLocked();
   $('btnStart').disabled=lk; $('btnReset').disabled=lk; $('btnStart').textContent=lk?'선생님이 시작해요':'시작';
   if(lk&&!running&&!LIVE.cdTimer&&!det.count){ $('status').textContent='선생님이 시작하면 같이 세요'; $('status').className='status idle'; }
+  guideShow();
 }
 function onControl(c){
   // c = {ph:'go', id:회차, at:시작시각(서버 ms), dur:초(0=선생님이 끝낼 때까지)} | {ph:'end', id} | {ph:'open'} | null(방 닫힘)
@@ -788,7 +843,7 @@ function onControl(c){
     LIVE.ctlRun=String(c.id); LIVE.ctlEnd=c.dur>0?c.at+c.dur*1000:0;
     if(LIVE.ctlEnd&&LIVE.T.now()>=LIVE.ctlEnd){ LIVE.resume=null; return; }   // 이미 끝난 회차에 늦게 들어온 경우 — 건드리지 않음
     $('saveModal').classList.remove('on'); if(running){ running=false; }
-    $('btnStart').disabled=true; $('btnReset').disabled=true; $('btnStart').textContent='곧 시작해요';
+    $('btnStart').disabled=true; $('btnReset').disabled=true; $('btnStart').textContent='곧 시작해요'; LIVE.didRun=true; $('guide').hidden=true; document.body.classList.remove('guiding');
     if(LIVE.cdTimer) clearInterval(LIVE.cdTimer);
     let shown=null;
     LIVE.cdTimer=setInterval(()=>{
@@ -826,7 +881,7 @@ async function livePick(grp){
   for(let n=1;n<=grp.max;n++){ const b=document.createElement('button'); b.textContent=n; b.style.cssText='font-size:24px;font-weight:800;min-height:64px;padding:0'+(taken.has(n)?';color:var(--muted);background:var(--soft)':'');
     if(taken.has(n)) b.title='이미 누가 이 번호로 들어와 있어요';
     b.onclick=()=>{ if(taken.has(n)&&!confirm(n+'번은 이미 누가 들어와 있어요. 그래도 '+n+'번으로 할까요?')) return;
-      LIVE.me={g:grp.g,c:grp.c,n}; LIVE.picked=true; box.classList.remove('on'); liveConnectedPill(); livePush(true); };
+      LIVE.me={g:grp.g,c:grp.c,n}; LIVE.picked=true; box.classList.remove('on'); liveConnectedPill(); livePush(true); guideShow(); };
     $('pkGrid').appendChild(b); }
   $('pkNote').textContent=taken.size?'내 번호를 눌러요 (흐린 번호는 이미 누가 들어와 있어요)':'내 번호를 눌러요';
   box.classList.add('on');
@@ -870,6 +925,9 @@ async function liveInit(){
     wakeOn();
     document.addEventListener('visibilitychange',()=>{ LIVE.hidden=document.visibilityState!=='visible'; livePush(true); if(!LIVE.hidden) wakeOn(); });
     document.addEventListener('click',e=>{ if(e.target.closest&&e.target.closest('#livePill u')) livePick(); });
+    $('guideX').onclick=()=>{ LIVE.guideOff=true; guideShow(); };
+    if(LIVE.resume||det.count) LIVE.didRun=true;   // 회차 도중·뒤에 다시 들어온 경우엔 숫자 화면
+    guideShow();
   }catch(e){ console.error(e); LIVE.ok=false; livePill('선생님 화면에 연결하지 못했어요 — 혼자 세기는 돼요',true); }
 }
 
