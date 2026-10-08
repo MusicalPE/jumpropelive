@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 판정기 v0.8.5 · 카메라로 진짜 뛰는지 보기</title>
+<title>줄넘기 판정기 v0.8.6 · 카메라로 진짜 뛰는지 보기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -206,7 +206,7 @@
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
     <div class="titles">
-      <h1>줄넘기 판정기<span class="ver">v0.8.5</span></h1>
+      <h1>줄넘기 판정기<span class="ver">v0.8.6</span></h1>
       <span class="sub">머리부터 발까지 보이게 서서, 몸이 뜨고 팔이 돌 때만 1회로 세요</span>
     </div>
     <div class="who" id="who"></div>
@@ -388,7 +388,7 @@ const $=id=>document.getElementById(id);
 const video=$('video'), cv=$('overlay'), cx=cv.getContext('2d');
 let landmarker=null, stream=null, facing='user', running=false, t0=0, raf=0, lastVideoT=-1, frames=0, fpsT=0;
 /* ---------- 앱 연동: 체육교사 보조 프로그램의 줄넘기 화면에서 열리면 ?app=앱주소&t=학생표&kind=종류 가 붙어 와요 ---------- */
-const VER='0.8.5';
+const VER='0.8.6';
 const Q=new URLSearchParams(location.search);
 const LINK={ app:Q.get('app')||'', t:Q.get('t')||'', kind:Q.get('kind')||'', sens:+(Q.get('sens')||0)||0, target:(Q.get('target')==='fit'?'fit':'rope'), who:null, saved:null,
   // mode=post : 오프라인판(파일로 여는 프로그램)이 연 창. 서버 대신 window.opener.postMessage 로 결과를 돌려준다.
@@ -669,7 +669,7 @@ function runStart(){ // 시작 버튼을 누른 것과 같은 일 (선생님 신
 function runEnd(){ // 선생님 신호로 끝 — 기록은 선생님 현황판이 한꺼번에 하므로 여기서는 저장 창을 띄우지 않음
   if(LIVE.cdTimer){ clearInterval(LIVE.cdTimer); LIVE.cdTimer=0; }
   const was=running&&LIVE.ctlRun; running=false;
-  $('btnStart').textContent='시작'; $('btnStart').classList.remove('warn'); $('btnStart').classList.add('primary'); $('btnStart').disabled=false; $('btnReset').disabled=false;
+  $('btnStart').classList.remove('warn'); $('btnStart').classList.add('primary'); liveIdle();
   if(!was){ livePush(true); return; }
   beep(440,0.15,0.2); $('status').textContent='끝! 선생님 화면을 봐요'; $('status').className='status idle';
   livePush(true);
@@ -681,10 +681,18 @@ function runEnd(){ // 선생님 신호로 끝 — 기록은 선생님 현황판�
   $('smOk').onclick=()=>$('saveModal').classList.remove('on');
   $('saveModal').classList.add('on');
 }
+// 선생님 방에 들어와 있는 동안은 학생이 혼자 시작 못 함 (선생님 '시작'으로만) — 방이 닫히거나 연결에 실패하면 혼자 세기 가능
+function liveLocked(){ return LIVE.on&&LIVE.ok&&!LIVE.closed; }
+function liveIdle(){
+  const lk=liveLocked();
+  $('btnStart').disabled=lk; $('btnReset').disabled=lk; $('btnStart').textContent=lk?'선생님이 시작해요':'시작';
+  if(lk&&!running&&!LIVE.cdTimer&&!det.count){ $('status').textContent='선생님이 시작하면 같이 세요'; $('status').className='status idle'; }
+}
 function onControl(c){
   // c = {ph:'go', id:회차, at:시작시각(서버 ms), dur:초(0=선생님이 끝낼 때까지)} | {ph:'end', id} | {ph:'open'} | null(방 닫힘)
   LIVE.ctl=c;
-  if(!c){ if(running&&LIVE.ctlRun) runEnd(); LIVE.ctlRun=''; livePill('선생님이 방을 닫았어요 — 혼자 세기는 돼요',true); return; }
+  LIVE.closed=!c;
+  if(!c){ if(running&&LIVE.ctlRun) runEnd(); LIVE.ctlRun=''; liveIdle(); livePill('선생님이 방을 닫았어요 — 혼자 세기는 돼요',true); return; }
   const again=LIVE.resume&&c.ph==='go'&&String(c.id)===LIVE.resume.run&&!running;   // 새로 고침 뒤 같은 회차
   if(!again&&LIVE.resume&&c.ph) LIVE.resume=null;
   if(c.ph==='go'&&c.id&&(c.id!==LIVE.ctlRun||again)){
@@ -703,7 +711,7 @@ function onControl(c){
       } else if(LIVE.ctlEnd&&now>=LIVE.ctlEnd){ runEnd(); }
       else if(LIVE.ctlEnd){ const r=Math.ceil((LIVE.ctlEnd-now)/1000); if(r<=5&&r>0&&r!==shown){ shown=r; const b=$('burst'); b.textContent=r+'초!'; b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); beep(990,0.06,0.15); } }
     },100);
-  } else if(c.ph==='end'&&LIVE.ctlRun&&(!c.id||String(c.id)===LIVE.ctlRun)){ if(running) runEnd(); else { if(LIVE.cdTimer){ clearInterval(LIVE.cdTimer); LIVE.cdTimer=0; } $('btnStart').disabled=false; $('btnReset').disabled=false; $('btnStart').textContent='시작'; } }
+  } else if(c.ph==='end'&&LIVE.ctlRun&&(!c.id||String(c.id)===LIVE.ctlRun)){ if(running) runEnd(); else { if(LIVE.cdTimer){ clearInterval(LIVE.cdTimer); LIVE.cdTimer=0; } liveIdle(); } }
 }
 function liveConnectedPill(){ const m=LIVE.me; livePill(m?`선생님 화면에 연결됨 · ${m.g}학년 ${m.c}반 ${m.n}번${LIVE.T&&LIVE.T.mode&&LIVE.T.mode()==='lp'?' <span style="color:var(--muted)">· 우회 연결</span>':''}${LIVE.picked?' <u style="cursor:pointer">번호 바꾸기</u>':''}`:'번호를 골라 주세요'); }
 // 번호 고르기 (QR로 바로 들어온 학생) — 이름은 선생님 현황판에만 있고, 여기서는 번호만 고름
@@ -748,7 +756,7 @@ async function liveInit(){
   LIVE.me=me;
   livePill('선생님 화면에 연결하는 중…');
   try{
-    LIVE.T=await LIVE_T(LIVE.room, LIVE.dev); LIVE.ok=true;
+    LIVE.T=await LIVE_T(LIVE.room, LIVE.dev); LIVE.ok=true; LIVE.closed=false; liveIdle();
     LIVE.conn=false; LIVE.downAt=performance.now();
     LIVE.T.onConnected((c,ever)=>{
       LIVE.conn=c;
@@ -782,9 +790,9 @@ $('btnCam').onclick=async()=>{
   try{ await loadModel(); $('btnCam').textContent='카메라 켜는 중…'; await openCam(); $('cover').classList.add('hide'); t0=performance.now(); loop(); if(LIVE.on) linkInit().then(liveInit); else linkInit(); }
   catch(e){ console.error(e); $('coverErr').textContent='시작하지 못했어요: '+(e.message||e)+(location.protocol==='file:'?' — 파일로 열었을 때 카메라가 막히면 크롬에서 열거나, 인터넷에 올린 주소로 열어 보세요.':''); $('btnCam').disabled=false; $('btnCam').textContent='다시 시도'; }
 };
-$('btnStart').onclick=()=>{ running=!running; if(running){ t0=performance.now(); det.reset(); lastCount=0; $('count').innerHTML='0<small>회</small>'; beep(660,0.1,0.2); } else { beep(440,0.15,0.2); $('status').textContent='멈춤 — 시작을 누르면 처음부터 다시 세요'; $('status').className='status idle'; if(LINK.linked) openSaveModal(); }
+$('btnStart').onclick=()=>{ if(liveLocked()&&!running) return; running=!running; if(running){ t0=performance.now(); det.reset(); lastCount=0; $('count').innerHTML='0<small>회</small>'; beep(660,0.1,0.2); } else { beep(440,0.15,0.2); $('status').textContent='멈춤 — 시작을 누르면 처음부터 다시 세요'; $('status').className='status idle'; if(LINK.linked) openSaveModal(); }
   $('btnStart').textContent=running?(LINK.linked?'끝내고 기록하기':'멈춤'):'시작'; $('btnStart').classList.toggle('warn',running); $('btnStart').classList.toggle('primary',!running); };
-$('btnReset').onclick=()=>{ det.reset(); lastCount=0; t0=performance.now(); $('count').innerHTML='0<small>회</small>'; $('devCount').value=''; diff(); $('status').textContent=running?'준비됐어요 — 뛰어 봐요!':'시작을 누르고 카메라 앞에 서요'; };
+$('btnReset').onclick=()=>{ if(liveLocked()) return; det.reset(); lastCount=0; t0=performance.now(); $('count').innerHTML='0<small>회</small>'; $('devCount').value=''; diff(); $('status').textContent=running?'준비됐어요 — 뛰어 봐요!':'시작을 누르고 카메라 앞에 서요'; };
 $('sens').oninput=()=>{ const v=+$('sens').value; det.minAmp=v/100; $('sensV').textContent=v<=7?'예민 (살짝 떠도 셈)':v<=12?'보통':'둔감 (높이 떠야 셈)'; };
 $('btnFlip').onclick=async()=>{ facing=facing==='user'?'environment':'user'; try{ await openCam(); }catch(e){ log('카메라 전환 실패: '+e.message); } };
 $('btnBig').onclick=()=>{ $('pip').classList.toggle('big'); $('btnBig').textContent=$('pip').classList.contains('big')?'내 모습 작게':'내 모습 크게'; };
