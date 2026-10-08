@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 판정기 v0.8.6 · 카메라로 진짜 뛰는지 보기</title>
+<title>줄넘기 판정기 v0.8.7 · 카메라로 진짜 뛰는지 보기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -128,6 +128,11 @@
   .steps em{font-style:normal;color:var(--accent-ink);font-weight:700}
   .coverBody .small{font-size:13px;color:var(--muted);line-height:1.6;margin:0;padding-top:14px;border-top:1px solid var(--line)}
   .cover .err{color:var(--red);font-weight:700}
+  .camHelp{background:#FFF6F4;border:2px solid #FFD3CC;border-radius:16px;padding:14px 16px;color:var(--ink);font-weight:500;text-align:left}
+  .camHelp h4{margin:0 0 8px;font-size:18px;color:var(--red)}
+  .camHelp ol{margin:0;padding-left:22px;font-size:16px;line-height:1.75}
+  .camHelp .alt{margin-top:8px;font-size:14px;color:var(--muted);line-height:1.6}
+  .camHelp button{margin-top:10px;min-height:44px;font-size:16px}
   #btnCam{font-size:19px;font-weight:800;padding:16px 28px;min-height:60px;align-self:flex-start;border-radius:16px}
 
   /* 기록 창 */
@@ -206,7 +211,7 @@
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
     <div class="titles">
-      <h1>줄넘기 판정기<span class="ver">v0.8.6</span></h1>
+      <h1>줄넘기 판정기<span class="ver">v0.8.7</span></h1>
       <span class="sub">머리부터 발까지 보이게 서서, 몸이 뜨고 팔이 돌 때만 1회로 세요</span>
     </div>
     <div class="who" id="who"></div>
@@ -388,7 +393,7 @@ const $=id=>document.getElementById(id);
 const video=$('video'), cv=$('overlay'), cx=cv.getContext('2d');
 let landmarker=null, stream=null, facing='user', running=false, t0=0, raf=0, lastVideoT=-1, frames=0, fpsT=0;
 /* ---------- 앱 연동: 체육교사 보조 프로그램의 줄넘기 화면에서 열리면 ?app=앱주소&t=학생표&kind=종류 가 붙어 와요 ---------- */
-const VER='0.8.6';
+const VER='0.8.7';
 const Q=new URLSearchParams(location.search);
 const LINK={ app:Q.get('app')||'', t:Q.get('t')||'', kind:Q.get('kind')||'', sens:+(Q.get('sens')||0)||0, target:(Q.get('target')==='fit'?'fit':'rope'), who:null, saved:null,
   // mode=post : 오프라인판(파일로 여는 프로그램)이 연 창. 서버 대신 window.opener.postMessage 로 결과를 돌려준다.
@@ -508,6 +513,60 @@ async function openCam(){
   $('nocam').hidden=true; $('pip').classList.toggle('mirror',facing==='user');
   document.querySelectorAll('.pip video,.pip canvas').forEach(el=>el.style.transform=facing==='user'?'scaleX(-1)':'none');
 }
+// 카메라를 못 켤 때 기기별로 고치는 방법 — 한 번 '차단'을 누르면 브라우저가 기억해서 다시 묻지 않으므로 직접 풀어야 함
+function camEnv(){
+  const u=navigator.userAgent;
+  const inapp=/KAKAOTALK|NAVER\(inapp|Instagram|FBAN|FBAV|Line\/|DaumApps|everytimeApp|BAND\//i.test(u);
+  const ios=/iPhone|iPad|iPod/.test(u)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  const android=/Android/.test(u), samsung=/SamsungBrowser/.test(u), whale=/Whale/.test(u), cros=/CrOS/.test(u);
+  const iosApp=ios&&/CriOS/.test(u)?'Chrome':ios&&/NAVER|Whale/.test(u)?'네이버·웨일':'Safari';
+  return {inapp,ios,android,samsung,whale,cros,iosApp,kakao:/KAKAOTALK/i.test(u)};
+}
+function camHelp(e){
+  const E=camEnv(), name=e&&e.name||'', box=$('coverErr');
+  let h='', steps=[], alt='';
+  const noApi=!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia;
+  const camErr=/NotAllowed|PermissionDenied|Security|NotReadable|TrackStart|Abort|NotFound|Overconstrained|DevicesNotFound/.test(name);
+  if(!noApi&&!camErr) return false;          // 카메라 문제가 아님(모델 받기 실패 등)
+  if(noApi||(E.inapp&&/NotAllowed|PermissionDenied|Security/.test(name))){
+    h='이 앱 안에서는 카메라를 쓸 수 없어요';
+    steps=E.ios?['오른쪽 아래(또는 위)의 <b>공유·더보기</b> 버튼을 눌러요','<b>Safari로 열기</b>(또는 다른 브라우저로 열기)를 눌러요','열린 화면에서 다시 <b>카메라 켜고 시작하기</b>']
+               :['오른쪽 위 <b>⋮</b> 버튼을 눌러요','<b>다른 브라우저로 열기</b>(크롬·삼성 인터넷)를 눌러요','열린 화면에서 다시 <b>카메라 켜고 시작하기</b>'];
+    alt='QR은 휴대폰 기본 <b>카메라 앱</b>으로 찍으면 바로 브라우저로 열려요.';
+  } else if(name==='NotAllowedError'||name==='PermissionDeniedError'||name==='SecurityError'){
+    h='카메라가 막혀 있어요 — 한 번 차단하면 다시 묻지 않아서 직접 풀어 줘야 해요';
+    if(E.ios){
+      steps=E.iosApp==='Safari'?['주소창 왼쪽 <b>가가(aA)</b> 버튼을 눌러요','<b>웹 사이트 설정</b> → <b>카메라</b> → <b>허용</b>','이 화면을 <b>새로 고침</b>하고 다시 시작']
+        :[`아이폰 <b>설정</b> 앱 → 아래로 내려 <b>${E.iosApp==='Chrome'?'Chrome':'네이버/웨일'}</b>을 눌러요`,'<b>카메라</b>를 켜요','이 화면으로 돌아와 <b>새로 고침</b>하고 다시 시작'];
+      alt='그래도 안 되면 아이폰 <b>설정 → Safari → 카메라</b>를 <b>허용</b>(또는 묻기)으로 바꿔요.';
+    } else if(E.android){
+      steps=[`주소창 왼쪽 <b>${E.samsung?'자물쇠':'설정(조절) 아이콘 또는 자물쇠'}</b>를 눌러요`,`<b>권한</b>${E.samsung?'':'(또는 사이트 설정)'} → <b>카메라</b> → <b>허용</b>`,'이 화면을 <b>새로 고침</b>하고 다시 시작'];
+      alt='목록에 카메라가 없으면 휴대폰 <b>설정 → 애플리케이션 → '+(E.samsung?'삼성 인터넷':E.whale?'웨일':'Chrome')+' → 권한 → 카메라 → 허용</b>.';
+    } else {
+      steps=['주소창 왼쪽 <b>자물쇠(또는 조절 아이콘)</b>를 눌러요 — 주소창 오른쪽에 <b>카메라 아이콘(빨간 X)</b>이 있으면 그걸 눌러도 돼요','<b>카메라</b>를 <b>허용</b>으로 바꿔요','이 화면을 <b>새로 고침</b>하고 다시 시작'];
+      alt=E.cros?'학교 크롬북은 관리자가 카메라를 막아 둔 경우도 있어요. 그럴 땐 선생님께 알려 주세요.':'윈도우 노트북이면 <b>설정 → 개인 정보 → 카메라</b>에서 앱·브라우저의 카메라 사용이 켜져 있는지도 봐요.';
+    }
+  } else if(name==='NotReadableError'||name==='TrackStartError'||name==='AbortError'){
+    h='다른 앱이 카메라를 쓰고 있어요';
+    steps=['카메라 앱·영상 통화·다른 브라우저 창을 모두 닫아요','이 화면을 <b>새로 고침</b>하고 다시 시작'];
+    alt='그래도 안 되면 기기를 껐다 켜 봐요.';
+  } else if(name==='NotFoundError'||name==='OverconstrainedError'||name==='DevicesNotFoundError'){
+    h='카메라를 찾지 못했어요'; steps=['카메라가 있는 기기인지, 외장 카메라라면 잘 꽂혀 있는지 봐요','다시 시도'];
+  } else return false;
+  box.innerHTML=`<div class="camHelp"><h4>${h}</h4><ol>${steps.map(x=>'<li>'+x+'</li>').join('')}</ol>${alt?'<div class="alt">'+alt+'</div>':''}`+
+    (E.kakao?'<button id="camExt" class="primary">다른 브라우저로 열기</button>':'<button id="camReload">새로 고침</button>')+'</div>';
+  const r=$('camReload'); if(r) r.onclick=()=>location.reload();
+  const k=$('camExt'); if(k) k.onclick=()=>{ location.href='kakaotalk://web/openExternal?url='+encodeURIComponent(location.href); };
+  return true;
+}
+// 미리 막혀 있는지 확인 (크롬 계열) — 누르기 전에 바로 안내
+async function camPrecheck(){
+  try{ if(!navigator.permissions) return; const p=await navigator.permissions.query({name:'camera'});
+    const f=()=>{ if(p.state==='denied') camHelp({name:'NotAllowedError'}); else if($('coverErr').querySelector('.camHelp')&&p.state!=='denied') $('coverErr').innerHTML=''; };
+    f(); p.onchange=f;
+  }catch(e){}
+}
+camPrecheck();
 /* ---------- 뼈대 그리기 ---------- */
 const BONES=[[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28]];
 function draw(lm, st){
@@ -788,7 +847,7 @@ async function liveInit(){
 $('btnCam').onclick=async()=>{
   audioWarm();   // 카메라 켜기 버튼을 누르는 순간 소리 장치도 미리 켜 둠 (선생님 신호 카운트다운 첫 삐 소리에 멈추지 않게)
   try{ await loadModel(); $('btnCam').textContent='카메라 켜는 중…'; await openCam(); $('cover').classList.add('hide'); t0=performance.now(); loop(); if(LIVE.on) linkInit().then(liveInit); else linkInit(); }
-  catch(e){ console.error(e); $('coverErr').textContent='시작하지 못했어요: '+(e.message||e)+(location.protocol==='file:'?' — 파일로 열었을 때 카메라가 막히면 크롬에서 열거나, 인터넷에 올린 주소로 열어 보세요.':''); $('btnCam').disabled=false; $('btnCam').textContent='다시 시도'; }
+  catch(e){ console.error(e); if(camHelp(e)){ $('btnCam').disabled=false; $('btnCam').textContent='다시 시도'; return; } $('coverErr').textContent='시작하지 못했어요: '+(e.message||e)+(location.protocol==='file:'?' — 파일로 열었을 때 카메라가 막히면 크롬에서 열거나, 인터넷에 올린 주소로 열어 보세요.':''); $('btnCam').disabled=false; $('btnCam').textContent='다시 시도'; }
 };
 $('btnStart').onclick=()=>{ if(liveLocked()&&!running) return; running=!running; if(running){ t0=performance.now(); det.reset(); lastCount=0; $('count').innerHTML='0<small>회</small>'; beep(660,0.1,0.2); } else { beep(440,0.15,0.2); $('status').textContent='멈춤 — 시작을 누르면 처음부터 다시 세요'; $('status').className='status idle'; if(LINK.linked) openSaveModal(); }
   $('btnStart').textContent=running?(LINK.linked?'끝내고 기록하기':'멈춤'):'시작'; $('btnStart').classList.toggle('warn',running); $('btnStart').classList.toggle('primary',!running); };
