@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>게이트웨이 신호 읽기 (시험용)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<style>
+  :root{--bg:#F3F4F6;--card:#fff;--line:#E7E9EE;--ink:#1F2430;--ink2:#3B4252;--muted:#7A8190;--accent:#FF6B5B;--mint:#2BB3A3;--red:#E5484D}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Pretendard Variable",Pretendard,"Malgun Gothic",sans-serif;padding:16px}
+  .wrap{max-width:1100px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+  h1{font-size:24px;margin:0 0 4px} h2{font-size:17px;margin:0 0 8px}
+  p{margin:6px 0;line-height:1.6;color:var(--ink2)} .muted{color:var(--muted);font-size:14px}
+  button,select,input{font:inherit}
+  button{font-weight:700;border-radius:12px;padding:9px 16px;border:1px solid var(--line);background:#fff;cursor:pointer;min-height:42px}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button:disabled{opacity:.4;cursor:default}
+  select,input[type=text]{padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:#F8F9FB}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  @media(max-width:800px){.grid{grid-template-columns:1fr}}
+  .ok{color:var(--mint);font-weight:700} .no{color:var(--red);font-weight:700}
+  pre{margin:0;background:#1E2230;color:#E6E8EE;border-radius:12px;padding:12px;height:420px;overflow:auto;font:13px/1.5 ui-monospace,Consolas,monospace;white-space:pre-wrap;word-break:break-all}
+  #info{font:13px/1.6 ui-monospace,Consolas,monospace;white-space:pre-wrap;color:var(--ink2)}
+  .pill{display:inline-block;background:#F8F9FB;border:1px solid var(--line);border-radius:99px;padding:3px 10px;font-size:13px;font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>게이트웨이 신호 읽기 <span class="pill">시험용</span></h1>
+    <p>USB 게이트웨이가 PC에 어떤 방식으로 연결되는지, 줄넘기를 돌릴 때 어떤 신호가 들어오는지 그대로 보여 주는 페이지예요. 받은 기록은 아래 "기록 내려받기"로 저장해 보내 주세요.</p>
+    <p class="muted">PC 크롬(또는 엣지)에서만 돼요. 시작 전에 다른 탭에 열린 제조사 웹페이지는 <b>닫아 주세요</b> — 장치는 한 번에 한 탭만 쓸 수 있어요.</p>
+    <p id="support" class="muted"></p>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>1. 시리얼(COM 포트)</h2>
+      <p class="muted">장치 관리자 "포트(COM & LPT)"에 잡히는 경우</p>
+      <div class="row"><label>속도 <select id="baud"><option>9600</option><option>19200</option><option>38400</option><option>57600</option><option selected>115200</option><option>230400</option><option>460800</option><option>921600</option><option>1000000</option></select></label></div>
+      <div class="row" style="margin-top:8px"><button class="primary" id="serOpen">시리얼 연결</button><button id="serClose" disabled>끊기</button></div>
+    </div>
+    <div class="card">
+      <h2>2. USB 직접(WebUSB)</h2>
+      <p class="muted">시리얼 목록에 안 보이면 이걸로</p>
+      <div class="row"><button class="primary" id="usbOpen">USB 연결</button><button id="usbClose" disabled>끊기</button></div>
+    </div>
+    <div class="card">
+      <h2>3. HID</h2>
+      <p class="muted">장치 관리자 "휴먼 인터페이스 장치"에 잡히는 경우</p>
+      <div class="row"><button class="primary" id="hidOpen">HID 연결</button><button id="hidClose" disabled>끊기</button></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>장치 정보</h2>
+    <div id="info">아직 연결 안 됨</div>
+  </div>
+
+  <div class="card">
+    <h2>보내기 <span class="muted" style="font-weight:500">(명령을 알게 되면 시험할 때만 — 모르면 쓰지 마세요)</span></h2>
+    <div class="row">
+      <select id="sendMode"><option value="hex">16진수 (예: AA 01 00 55)</option><option value="text">글자 (줄 끝에 \r\n 붙임)</option></select>
+      <input type="text" id="sendData" style="flex:1;min-width:220px" placeholder="AA 01 00 55">
+      <button id="sendBtn" disabled>보내기</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between;margin-bottom:8px">
+      <h2 style="margin:0">받은 신호 <span class="pill" id="cnt">0건</span></h2>
+      <div class="row">
+        <label class="muted"><input type="checkbox" id="showAscii" checked> 글자도 보기</label>
+        <button id="mark">표시 넣기</button>
+        <button id="clear">지우기</button>
+        <button class="primary" id="save">기록 내려받기</button>
+      </div>
+    </div>
+    <p class="muted">"표시 넣기"를 누르고 줄넘기를 몇 번 돌리면, 기록에 "--- 표시 1 ---"이 끼어들어서 어느 신호가 그 행동 때문인지 알기 쉬워요. 예: 표시 → 3번 줄넘기 5회 돌리기 → 표시 → 7번 줄넘기 2회 …</p>
+    <pre id="log"></pre>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const t0=performance.now(); let n=0, marks=0, lines=[];
+const hex=b=>Array.from(b,x=>x.toString(16).padStart(2,'0').toUpperCase()).join(' ');
+const asc=b=>Array.from(b,x=>x>=32&&x<127?String.fromCharCode(x):'.').join('');
+function log(s,raw){
+  const tm=((performance.now()-t0)/1000).toFixed(3).padStart(9);
+  let line=`${tm}s  ${s}`;
+  if(raw){ line+=`  [${raw.length}바이트]  ${hex(raw)}`; if($('showAscii').checked) line+=`  |${asc(raw)}|`; n++; $('cnt').textContent=n+'건'; }
+  lines.push(line); const el=$('log'); const atBottom=el.scrollTop+el.clientHeight>=el.scrollHeight-20;
+  el.textContent+=line+'\n'; if(lines.length>5000){ lines=lines.slice(-4000); el.textContent=lines.join('\n')+'\n'; }
+  if(atBottom) el.scrollTop=el.scrollHeight;
+}
+function info(s){ $('info').textContent=s; }
+const sup=[['시리얼','serial' in navigator],['WebUSB','usb' in navigator],['HID','hid' in navigator]];
+$('support').innerHTML='이 브라우저: '+sup.map(([k,v])=>`${k} <span class="${v?'ok':'no'}">${v?'가능':'안 됨'}</span>`).join(' · ')+(sup.some(x=>!x[1])?' — 안 되는 건 PC 크롬에서 열어 보세요':'');
+$('mark').onclick=()=>{ marks++; log(`----------------- 표시 ${marks} -----------------`); };
+$('clear').onclick=()=>{ lines=[]; n=0; $('cnt').textContent='0건'; $('log').textContent=''; };
+$('save').onclick=()=>{ const b=new Blob([$('info').textContent+'\n\n'+lines.join('\n')],{type:'text/plain'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='게이트웨이_신호_'+new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')+'.txt'; a.click(); };
+let sendFn=null;
+function parseSend(){ const v=$('sendData').value.trim(); if($('sendMode').value==='hex'){ const p=v.replace(/0x/gi,'').split(/[\s,]+/).filter(Boolean).map(h=>parseInt(h,16)); if(p.some(isNaN)) throw new Error('16진수가 아니에요'); return new Uint8Array(p); } return new TextEncoder().encode(v.replace(/\\r/g,'\r').replace(/\\n/g,'\n')+'\r\n'); }
+$('sendBtn').onclick=async()=>{ try{ const d=parseSend(); await sendFn(d); log('>> 보냄',d); }catch(e){ log('보내기 실패: '+e.message); } };
+function connected(kind,send){ sendFn=send; $('sendBtn').disabled=!send; log(`=== ${kind} 연결됨 — 이제 줄넘기를 켜고 돌려 보세요 ===`); }
+
+/* ---- 시리얼 ---- */
+let port=null, reader=null, serStop=false;
+$('serOpen').onclick=async()=>{
+  try{
+    port=await navigator.serial.requestPort();
+    const pi=port.getInfo(); const baud=+$('baud').value;
+    await port.open({baudRate:baud, bufferSize:65536});
+    info(`방식: 시리얼(COM)\n제조사 번호(VID): 0x${(pi.usbVendorId||0).toString(16).padStart(4,'0')}\n제품 번호(PID): 0x${(pi.usbProductId||0).toString(16).padStart(4,'0')}\n속도: ${baud}`);
+    $('serOpen').disabled=true; $('serClose').disabled=false; serStop=false;
+    connected('시리얼', async d=>{ const w=port.writable.getWriter(); await w.write(d); w.releaseLock(); });
+    while(port.readable&&!serStop){
+      reader=port.readable.getReader();
+      try{ for(;;){ const {value,done}=await reader.read(); if(done) break; if(value&&value.length) log('<<',value); } }
+      catch(e){ log('읽기 오류: '+e.message+' (속도를 바꿔 다시 연결해 보세요)'); }
+      finally{ reader.releaseLock(); }
+    }
+  }catch(e){ log('시리얼 연결 실패: '+e.message); }
+};
+$('serClose').onclick=async()=>{ serStop=true; try{ if(reader) await reader.cancel(); await port.close(); }catch(e){} $('serOpen').disabled=false; $('serClose').disabled=true; $('sendBtn').disabled=true; log('=== 시리얼 끊음 ==='); };
+
+/* ---- WebUSB ---- */
+let dev=null, usbStop=false;
+$('usbOpen').onclick=async()=>{
+  try{
+    dev=await navigator.usb.requestDevice({filters:[]});
+    await dev.open(); if(dev.configuration===null) await dev.selectConfiguration(1);
+    let s=`방식: WebUSB\n이름: ${dev.manufacturerName||''} ${dev.productName||''}\nVID: 0x${dev.vendorId.toString(16).padStart(4,'0')}  PID: 0x${dev.productId.toString(16).padStart(4,'0')}\n`;
+    let pick=null;
+    for(const itf of dev.configuration.interfaces){ for(const alt of itf.alternates){
+      s+=`\n인터페이스 ${itf.interfaceNumber} (종류 0x${alt.interfaceClass.toString(16)}/${alt.interfaceSubclass}/${alt.interfaceProtocol})`;
+      for(const ep of alt.endpoints){ s+=`\n  끝점 ${ep.endpointNumber} ${ep.direction==='in'?'받기':'보내기'} ${ep.type} ${ep.packetSize}바이트`; }
+      const inEp=alt.endpoints.find(e=>e.direction==='in'&&e.type!=='isochronous'), outEp=alt.endpoints.find(e=>e.direction==='out');
+      if(inEp&&!pick&&alt.interfaceClass!==3) pick={itf:itf.interfaceNumber,inEp,outEp};
+    } }
+    info(s);
+    if(!pick){ log('받을 수 있는 끝점을 못 찾았어요 — 위 장치 정보를 캡처해 보내 주세요 (HID 장치면 3번으로)'); return; }
+    try{ await dev.claimInterface(pick.itf); }catch(e){ log(`인터페이스 ${pick.itf}를 잡지 못했어요: ${e.message} — 윈도우가 이미 드라이버를 붙인 장치일 수 있어요(그럼 1번 시리얼로)`); return; }
+    $('usbOpen').disabled=true; $('usbClose').disabled=false; usbStop=false;
+    connected('WebUSB', pick.outEp? d=>dev.transferOut(pick.outEp.endpointNumber,d):null);
+    while(!usbStop){ try{ const r=await dev.transferIn(pick.inEp.endpointNumber,pick.inEp.packetSize||64); if(r.data&&r.data.byteLength) log('<<',new Uint8Array(r.data.buffer)); }catch(e){ if(!usbStop) log('읽기 오류: '+e.message); break; } }
+  }catch(e){ log('USB 연결 실패: '+e.message); }
+};
+$('usbClose').onclick=async()=>{ usbStop=true; try{ await dev.close(); }catch(e){} $('usbOpen').disabled=false; $('usbClose').disabled=true; $('sendBtn').disabled=true; log('=== USB 끊음 ==='); };
+
+/* ---- HID ---- */
+let hd=null;
+$('hidOpen').onclick=async()=>{
+  try{
+    const list=await navigator.hid.requestDevice({filters:[]}); hd=list[0]; if(!hd) return;
+    await hd.open();
+    let s=`방식: HID\n이름: ${hd.productName}\nVID: 0x${hd.vendorId.toString(16).padStart(4,'0')}  PID: 0x${hd.productId.toString(16).padStart(4,'0')}\n`;
+    hd.collections.forEach(c=>{ s+=`\n용도 0x${c.usagePage.toString(16)}/0x${c.usage.toString(16)}  받기 보고서: ${c.inputReports.map(r=>r.reportId).join(',')||'-'}  보내기 보고서: ${c.outputReports.map(r=>r.reportId).join(',')||'-'}`; });
+    info(s);
+    hd.addEventListener('inputreport',e=>log(`<< 보고서 ${e.reportId}`,new Uint8Array(e.data.buffer)));
+    const outId=(hd.collections.flatMap(c=>c.outputReports)[0]||{}).reportId||0;
+    $('hidOpen').disabled=true; $('hidClose').disabled=false;
+    connected('HID', d=>hd.sendReport(outId,d));
+  }catch(e){ log('HID 연결 실패: '+e.message); }
+};
+$('hidClose').onclick=async()=>{ try{ await hd.close(); }catch(e){} $('hidOpen').disabled=false; $('hidClose').disabled=true; $('sendBtn').disabled=true; log('=== HID 끊음 ==='); };
+</script>
+</body>
+</html>
