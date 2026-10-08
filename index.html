@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 판정기 v0.8.10 · 카메라로 진짜 뛰는지 보기</title>
+<title>줄넘기 판정기 v0.8.11 · 카메라로 진짜 뛰는지 보기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -153,6 +153,14 @@
   .burst.on{animation:burst 1.4s ease-out}
   @keyframes burst{0%{opacity:0;transform:translate(-50%,-30%) scale(.9)}18%{opacity:1;transform:translate(-50%,-50%) scale(1)}75%{opacity:1}100%{opacity:0;transform:translate(-50%,-62%)}}
 
+  /* 세로 휴대폰이면 가로로 눕히라고 권함 */
+  .rotHint{display:none;align-items:center;gap:10px;background:#FFF6E8;border:1px solid #F5D49C;color:#8A5300;border-radius:14px;padding:5px 6px 5px 10px;font-size:13px;font-weight:700;line-height:1.3}
+  .rotHint svg{flex:none;width:26px;height:26px;animation:rot 2.4s ease-in-out infinite}
+  @keyframes rot{0%,30%{transform:rotate(0)}55%,85%{transform:rotate(-90deg)}100%{transform:rotate(0)}}
+  .rotHint span{flex:1} .rotHint button{min-height:32px;padding:3px 9px;font-size:12px;border-radius:10px;white-space:nowrap}
+  .rotHint .rx{background:none;border:none;box-shadow:none;color:#8A5300;padding:4px 6px}
+  .coverRot{display:none;font-size:14px;font-weight:700;color:#8A5300;background:#FFF6E8;border-radius:12px;padding:8px 12px}
+  @media (max-width:1100px) and (orientation:portrait) and (pointer:coarse){ .rotHint.on{display:flex} .coverRot{display:block} }
   /* 기다리는 동안 판정 안내 (선생님 방) */
   .guide{position:absolute;inset:0;z-index:4;background:var(--card);border-radius:24px;padding:clamp(14px,2.6vh,28px) clamp(14px,2.4vw,32px);display:flex;flex-direction:column;gap:clamp(8px,1.6vh,16px);overflow:auto;text-align:left}
   .guide[hidden]{display:none}
@@ -287,7 +295,7 @@
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
     <div class="titles">
-      <h1>줄넘기 판정기<span class="ver">v0.8.10</span></h1>
+      <h1>줄넘기 판정기<span class="ver">v0.8.11</span></h1>
       <span class="sub">머리부터 발까지 보이게 서서, 몸이 뜨고 팔이 돌 때만 1회로 세요</span>
     </div>
     <div class="who" id="who"></div>
@@ -297,6 +305,9 @@
     <button class="hbtn" id="btnFlip">카메라 전환</button>
   </header>
 
+  <div class="rotHint" id="rotHint"><svg viewBox="0 0 40 40" fill="none" stroke="#C77A12" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect x="12" y="4" width="16" height="32" rx="3"/><path d="M18 31h4"/></svg>
+    <span>휴대폰은 <b>가로로 눕혀</b> 세우면 더 잘 보여요</span>
+    <button id="rotGo" class="primary">가로로 보기</button><button class="rx" id="rotX" aria-label="닫기">닫기</button></div>
   <main class="stage">
     <section class="card main">
       <div class="lab"><i></i>지금까지 뛴 횟수</div>
@@ -389,6 +400,7 @@
         <li><span>3</span><div><b>몸 전체가 뜨고 팔이 돌 때</b>만 1회예요. 팔만 돌리면 <em>"팔만 돌리고 있어요"</em>, 줄 없이 뛰면 <em>"줄을 돌리지 않았어요"</em>가 떠요.</div></li>
       </ol>
       <div class="err" id="coverErr"></div>
+      <div class="coverRot">휴대폰은 <b>가로로 눕혀</b> 세워 두고 하면 더 잘 보여요</div>
       <button class="primary" id="btnCam">카메라 켜고 시작하기</button>
       <p class="small">처음 열 때는 인터넷이 필요해요(관절 인식 모델 약 6MB). 한 번 받으면 브라우저가 기억해요. 체육교사 보조 프로그램이나 줄넘기 기록 관리 프로그램의 "카메라로 뛰기"로 열었다면 끝낼 때 뛴 횟수가 앱에 바로 기록돼요.</p>
     </div>
@@ -512,7 +524,7 @@ const $=id=>document.getElementById(id);
 const video=$('video'), cv=$('overlay'), cx=cv.getContext('2d');
 let landmarker=null, stream=null, facing='user', running=false, t0=0, raf=0, lastVideoT=-1, frames=0, fpsT=0;
 /* ---------- 앱 연동: 체육교사 보조 프로그램의 줄넘기 화면에서 열리면 ?app=앱주소&t=학생표&kind=종류 가 붙어 와요 ---------- */
-const VER='0.8.10';
+const VER='0.8.11';
 const Q=new URLSearchParams(location.search);
 const LINK={ app:Q.get('app')||'', t:Q.get('t')||'', kind:Q.get('kind')||'', sens:+(Q.get('sens')||0)||0, target:(Q.get('target')==='fit'?'fit':'rope'), who:null, saved:null,
   // mode=post : 오프라인판(파일로 여는 프로그램)이 연 창. 서버 대신 window.opener.postMessage 로 결과를 돌려준다.
@@ -996,6 +1008,13 @@ $('sens').oninput=()=>{ const v=+$('sens').value; det.minAmp=v/100; $('sensV').t
 $('btnFlip').onclick=async()=>{ facing=facing==='user'?'environment':'user'; try{ await openCam(); }catch(e){ log('카메라 전환 실패: '+e.message); } };
 $('btnBig').onclick=()=>{ $('pip').classList.toggle('big'); $('btnBig').textContent=$('pip').classList.contains('big')?'내 모습 작게':'내 모습 크게'; };
 $('pip').onclick=()=>$('btnBig').onclick();
+// 세로 휴대폰 → 가로 권장. '가로로 보기'는 전체 화면 + 가로 고정(안드로이드 크롬·삼성 인터넷). 아이폰은 직접 돌려야 함
+{ let off=false; try{ off=sessionStorage.getItem('jl_rotx')==='1'; }catch(e){} if(!off) $('rotHint').classList.add('on');
+  const canLock=!!(screen.orientation&&screen.orientation.lock&&document.documentElement.requestFullscreen);
+  if(!canLock) $('rotGo').hidden=true;
+  $('rotGo').onclick=async()=>{ try{ await document.documentElement.requestFullscreen(); await screen.orientation.lock('landscape'); }catch(e){ $('rotHint').querySelector('span').innerHTML='자동으로 돌리지 못했어요 — 휴대폰 <b>자동 회전</b>을 켜고 직접 가로로 돌려 주세요.'; $('rotGo').hidden=true; } };
+  $('rotX').onclick=()=>{ $('rotHint').classList.remove('on'); try{ sessionStorage.setItem('jl_rotx','1'); }catch(e){} };
+}
 $('btnFull').onclick=()=>{ try{ if(document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen(); }catch(e){ log('전체 화면을 쓸 수 없어요'); } };
 document.addEventListener('fullscreenchange',()=>{ $('btnFull').textContent=document.fullscreenElement?'⛶ 전체 화면 끄기':'⛶ 전체 화면'; });
 $('devCount').oninput=diff;
