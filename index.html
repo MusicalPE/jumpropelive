@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 판정기 v0.8.7 · 카메라로 진짜 뛰는지 보기</title>
+<title>줄넘기 판정기 v0.8.8 · 카메라로 진짜 뛰는지 보기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -211,7 +211,7 @@
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
     <div class="titles">
-      <h1>줄넘기 판정기<span class="ver">v0.8.7</span></h1>
+      <h1>줄넘기 판정기<span class="ver">v0.8.8</span></h1>
       <span class="sub">머리부터 발까지 보이게 서서, 몸이 뜨고 팔이 돌 때만 1회로 세요</span>
     </div>
     <div class="who" id="who"></div>
@@ -315,6 +315,7 @@ function JumpDetector(opt){
   opt=opt||{};
   this.minAmp=opt.minAmp||0.10;      // 몸통 길이의 몇 배 이상 떠야 1회 (민감도, 0.10 ≈ 4~5cm)
   this.minGap=opt.minGap||0.18;      // 회와 회 사이 최소 시간(초)
+  this.armLow=opt.armLow||0.06;      // 손목만 작게 돌리는 숙련자용: 손목이 그리는 원 크기(몸통 길이 배수) 문턱
   this.reset();
 }
 JumpDetector.prototype.reset=function(){
@@ -323,6 +324,7 @@ JumpDetector.prototype.reset=function(){
   this.handSpeed=0; this.prevW=null; this.prevT=null; this.hand=false; this.handSec=0; this.lastArmT=-9;
   this.streak=0; this.best=0; this.visible=false; this.rateBuf=[]; this.noRope=0; this.partial=0; this.why='';
   this.ank={s:null,base:null}; this.ankPeak=0; this.full=false; this.tooClose=false;
+  this.wM=null; this.wVar=0; this.lastArmLowT=-9; this.lAir=false; this.lT=0; this.lHip=0; this.lHead=0; this.lAnk=0; this.lastBounce=-9; this.prevGap=0; this.pend=0; this.chain=false; this.low=0;
 };
 // 한 채널(머리·엉덩이)의 높이를 부드럽게 하고 기준선(땅에 있을 때 높이) 대비 얼마나 떴는지
 JumpDetector.prototype.track=function(ch, y){
@@ -354,14 +356,22 @@ JumpDetector.prototype.push=function(t, lm){
   const lift=hipOk?hipLift:headLift, amp=this.minAmp;
   this.lift=lift; this.hipLift=hipLift;
   // 손목 속도 (어깨 기준 상대 위치, 몸통 길이/초) — 줄을 돌리고 있는지
-  if(v(15)&&v(16)){
+  const vw=i=>lm[i]&&(lm[i].visibility===undefined||lm[i].visibility>0.2);
+  if(vw(15)&&vw(16)){
     const w={x:((lm[15].x+lm[16].x)/2-sh.x)/scale,y:((lm[15].y+lm[16].y)/2-sh.y)/scale};
     if(this.prevW){ const sp=Math.hypot(w.x-this.prevW.x,w.y-this.prevW.y)/dt; this.handSpeed+=(sp-this.handSpeed)*0.3; }
+    // 손목이 그리는 원의 크기(최근 0.3초 흔들림 폭) — 속도보다 잡음에 덜 흔들림
+    const al=1-Math.exp(-dt/0.3);
+    if(!this.wM) this.wM={x:w.x,y:w.y};
+    const dx=w.x-this.wM.x, dy=w.y-this.wM.y; this.wM.x+=dx*al; this.wM.y+=dy*al; this.wVar+=((dx*dx+dy*dy)-this.wVar)*al;
     this.prevW=w;
-  } else { this.prevW=null; this.handSpeed*=0.9; }
+  } else { this.prevW=null; this.handSpeed*=0.9; this.wVar*=0.9; this.wM=null; }
   if(this.handSpeed>0.8) this.lastArmT=t;
-  const armOn=(t-this.lastArmT)<0.7;
+  this.wAmp=Math.sqrt(this.wVar);
+  if(this.wAmp>this.armLow) this.lastArmLowT=t;
+  const armOn=(t-this.lastArmT)<0.7, armSmall=(t-this.lastArmLowT)<0.7;
   const countable=this.full && !this.tooClose;
+  // (1) 보통 점프: 몸통 길이의 amp배 이상 뜸 — 예전과 똑같이 셈
   if(!this.air){ if(lift>amp && countable){ this.air=true; this.airT=t; this.hipPeak=hipLift; this.headPeak=headLift; this.ankPeak=ankLift; } }
   else { this.hipPeak=Math.max(this.hipPeak,hipLift); this.headPeak=Math.max(this.headPeak,headLift); this.ankPeak=Math.max(this.ankPeak,ankLift);
     if(lift<amp*0.5 || !countable){ this.air=false;
@@ -370,9 +380,28 @@ JumpDetector.prototype.push=function(t, lm){
       const bodyOk=this.hipPeak>amp && this.headPeak>amp*0.6 && this.ankPeak>amp*0.7;
       const timeOk=airTime>=0.06 && airTime<=0.9;
       if(countable && t-this.lastJump>this.minGap && timeOk){
-        if(bodyOk && armOn){ this.count++; this.lastJump=t; this.streak++; this.best=Math.max(this.best,this.streak); this.rateBuf.push(t); this.why=''; }
-        else if(bodyOk && !armOn){ this.noRope++; this.why='norope'; }
+        if(bodyOk && armOn){ this.add(t,1); this.chain=true; this.pend=0; this.prevGap=0; this.lastBounce=t; }
+        else if(bodyOk && !armOn){ this.noRope++; this.why='norope'; this.chain=false; this.pend=0; }
         else { this.partial++; this.why='partial'; } } } }
+  // (2) 숙련자 낮은 점프: 2~3cm만 뜨고 손목만 작게 돌림 → 낮은 문턱 + 손목 원 + "일정한 박자로 계속"일 때만 셈
+  const low=Math.max(0.035,amp*0.45);
+  if(!this.lAir){ if(lift>low && countable && !this.air){ this.lAir=true; this.lT=t; this.lHip=hipLift; this.lHead=headLift; this.lAnk=ankLift; } }
+  else { this.lHip=Math.max(this.lHip,hipLift); this.lHead=Math.max(this.lHead,headLift); this.lAnk=Math.max(this.lAnk,ankLift);
+    if(lift<low*0.5 || !countable){ this.lAir=false;
+      const airTime=t-this.lT;
+      // 엉덩이·머리·발목이 함께 떴고, 발목도 엉덩이만큼 떠야 함 (무릎만 굽혀 들썩이면 발목이 안 뜸)
+      const smallOk=this.lHip>low && this.lHead>low*0.6 && this.lAnk>low && this.lAnk>this.lHip*0.7 && this.lHip<amp*1.5;
+      const fresh=t-this.lastJump>this.minGap && t-this.lastBounce>0.18;   // 방금 (1)로 센 점프와 같은 것이 아님
+      if(countable && smallOk && armSmall && fresh && airTime>=0.04 && airTime<=0.6){
+        const gap=t-this.lastBounce, inBeat=gap>=0.22&&gap<=0.8;
+        const steady=inBeat&&(!this.prevGap||(gap/this.prevGap>0.65&&gap/this.prevGap<1.5));
+        // 이미 세고 있던 흐름이면 바로 셈 / 아니면 박자가 3번 이어지면 앞의 것까지 한꺼번에 셈
+        if(this.chain&&inBeat){ this.add(t,1); this.low++; }
+        else if(steady){ this.pend++; if(this.pend>=2){ this.add(t,this.pend+1); this.low+=this.pend+1; this.chain=true; this.pend=0; } }
+        else { this.chain=false; this.pend=0; }
+        this.prevGap=inBeat?gap:0; this.lastBounce=t;
+      } } }
+  if(t-this.lastBounce>0.9){ this.chain=false; this.pend=0; this.prevGap=0; }
   if(t-this.lastJump>2.5 && this.streak) this.streak=0;
   this.rateBuf=this.rateBuf.filter(x=>t-x<=10);
   // 손만 돌림: 손목은 빠른데 몸이 1.2초 넘게 안 뜸
@@ -381,6 +410,7 @@ JumpDetector.prototype.push=function(t, lm){
   this.prevT=t;
   return this.state();
 };
+JumpDetector.prototype.add=function(t,k){ this.count+=k; this.lastJump=t; this.streak+=k; this.best=Math.max(this.best,this.streak); for(let i=0;i<k;i++) this.rateBuf.push(t); this.why=''; };
 JumpDetector.prototype.state=function(){
   return { count:this.count, air:this.air, lift:this.lift, hipLift:this.hipLift, hand:this.hand, handSec:this.handSec, visible:this.visible, hipSeen:this.hipSeen,
            streak:this.streak, best:this.best, rate:this.rateBuf.length*6, noRope:this.noRope, partial:this.partial, why:this.why, lastJump:this.lastJump, amp:this.minAmp, full:this.full, tooClose:this.tooClose };
@@ -393,7 +423,7 @@ const $=id=>document.getElementById(id);
 const video=$('video'), cv=$('overlay'), cx=cv.getContext('2d');
 let landmarker=null, stream=null, facing='user', running=false, t0=0, raf=0, lastVideoT=-1, frames=0, fpsT=0;
 /* ---------- 앱 연동: 체육교사 보조 프로그램의 줄넘기 화면에서 열리면 ?app=앱주소&t=학생표&kind=종류 가 붙어 와요 ---------- */
-const VER='0.8.7';
+const VER='0.8.8';
 const Q=new URLSearchParams(location.search);
 const LINK={ app:Q.get('app')||'', t:Q.get('t')||'', kind:Q.get('kind')||'', sens:+(Q.get('sens')||0)||0, target:(Q.get('target')==='fit'?'fit':'rope'), who:null, saved:null,
   // mode=post : 오프라인판(파일로 여는 프로그램)이 연 창. 서버 대신 window.opener.postMessage 로 결과를 돌려준다.
