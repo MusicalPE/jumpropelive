@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 판정기 v0.8.3 · 카메라로 진짜 뛰는지 보기</title>
+<title>줄넘기 판정기 v0.8.4 · 카메라로 진짜 뛰는지 보기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -144,7 +144,7 @@
   /* 10회마다 축하 */
   #fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:30}
   .burst{position:fixed;left:50%;top:16%;transform:translate(-50%,-50%);pointer-events:none;z-index:31;opacity:0;white-space:nowrap;
-    background:var(--card);color:var(--accent);font-weight:800;letter-spacing:-.04em;font-size:clamp(44px,9vh,96px);padding:.25em .8em;border-radius:999px;box-shadow:0 20px 60px rgba(255,107,91,.3)}
+    background:var(--card);color:var(--accent);font-weight:800;letter-spacing:-.04em;font-size:clamp(44px,9vh,96px);padding:.25em .8em;border-radius:999px;box-shadow:0 8px 20px rgba(255,107,91,.25);will-change:transform,opacity}
   .burst.on{animation:burst 1.4s ease-out}
   @keyframes burst{0%{opacity:0;transform:translate(-50%,-30%) scale(.9)}18%{opacity:1;transform:translate(-50%,-50%) scale(1)}75%{opacity:1}100%{opacity:0;transform:translate(-50%,-62%)}}
 
@@ -206,7 +206,7 @@
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
     <div class="titles">
-      <h1>줄넘기 판정기<span class="ver">v0.8.3</span></h1>
+      <h1>줄넘기 판정기<span class="ver">v0.8.4</span></h1>
       <span class="sub">머리부터 발까지 보이게 서서, 몸이 뜨고 팔이 돌 때만 1회로 세요</span>
     </div>
     <div class="who" id="who"></div>
@@ -262,6 +262,7 @@
 
 <canvas id="fx"></canvas>
 <div class="burst" id="burst"></div>
+<div aria-hidden="true" style="position:fixed;left:-9999px;top:0;font-size:clamp(44px,9vh,96px);font-weight:800;opacity:.01;pointer-events:none">0123456789시작초!회돌파끝</div>
 
 <div class="modal" id="saveModal"><div class="box">
   <h3 id="smTitle">기록할까요?</h3>
@@ -387,7 +388,7 @@ const $=id=>document.getElementById(id);
 const video=$('video'), cv=$('overlay'), cx=cv.getContext('2d');
 let landmarker=null, stream=null, facing='user', running=false, t0=0, raf=0, lastVideoT=-1, frames=0, fpsT=0;
 /* ---------- 앱 연동: 체육교사 보조 프로그램의 줄넘기 화면에서 열리면 ?app=앱주소&t=학생표&kind=종류 가 붙어 와요 ---------- */
-const VER='0.8.3';
+const VER='0.8.4';
 const Q=new URLSearchParams(location.search);
 const LINK={ app:Q.get('app')||'', t:Q.get('t')||'', kind:Q.get('kind')||'', sens:+(Q.get('sens')||0)||0, target:(Q.get('target')==='fit'?'fit':'rope'), who:null, saved:null,
   // mode=post : 오프라인판(파일로 여는 프로그램)이 연 창. 서버 대신 window.opener.postMessage 로 결과를 돌려준다.
@@ -459,6 +460,7 @@ async function sendResult(count,sec,st){
 }
 const det=new JumpDetector({minAmp:0.10});
 let ac=null;
+function audioWarm(){ try{ ac=ac||new (window.AudioContext||window.webkitAudioContext)(); if(ac.state==='suspended') ac.resume(); const b=ac.createBuffer(1,1,22050), s=ac.createBufferSource(); s.buffer=b; s.connect(ac.destination); s.start(0); }catch(e){} }
 function beep(f,d,vol){ if(!$('snd').checked) return; try{ ac=ac||new (window.AudioContext||window.webkitAudioContext)(); const o=ac.createOscillator(), g=ac.createGain(); o.type='triangle'; o.frequency.value=f; g.gain.setValueAtTime(vol||0.2,ac.currentTime); g.gain.exponentialRampToValueAtTime(0.0001,ac.currentTime+d); o.connect(g).connect(ac.destination); o.start(); o.stop(ac.currentTime+d); }catch(e){} }
 function log(s){ $('log').textContent=s; }
 
@@ -728,6 +730,7 @@ async function liveInit(){
 
 /* ---------- 버튼 ---------- */
 $('btnCam').onclick=async()=>{
+  audioWarm();   // 카메라 켜기 버튼을 누르는 순간 소리 장치도 미리 켜 둠 (선생님 신호 카운트다운 첫 삐 소리에 멈추지 않게)
   try{ await loadModel(); $('btnCam').textContent='카메라 켜는 중…'; await openCam(); $('cover').classList.add('hide'); t0=performance.now(); loop(); if(LIVE.on) linkInit().then(liveInit); else linkInit(); }
   catch(e){ console.error(e); $('coverErr').textContent='시작하지 못했어요: '+(e.message||e)+(location.protocol==='file:'?' — 파일로 열었을 때 카메라가 막히면 크롬에서 열거나, 인터넷에 올린 주소로 열어 보세요.':''); $('btnCam').disabled=false; $('btnCam').textContent='다시 시도'; }
 };

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.3.0</title>
+<title>점프 라이브 v0.3.1</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -114,7 +114,7 @@
   .res td.c{font-weight:800;font-size:20px}
   .res tr.top td{background:var(--accent-soft)}
 
-  .big{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);z-index:30;pointer-events:none;font-size:min(42vh,40vw);font-weight:800;color:var(--accent);opacity:0;letter-spacing:-.06em;text-shadow:0 20px 60px rgba(255,107,91,.35)}
+  .big{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);z-index:30;pointer-events:none;font-size:min(42vh,40vw);font-weight:800;color:var(--accent);opacity:0;letter-spacing:-.06em;will-change:transform,opacity;contain:layout paint}
   .big.on{animation:big 1s ease-out}
   @keyframes big{0%{opacity:0;transform:translate(-50%,-50%) scale(1.3)}20%{opacity:1;transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0}}
   .demo{background:var(--amber-soft);color:#9A5B05;border:1px solid #F5D49C;border-radius:12px;padding:8px 14px;font-weight:700;font-size:14px}
@@ -134,7 +134,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.3.0</span></h1>
+    <h1>점프 라이브<span class="ver">v0.3.1</span></h1>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <div class="me" id="me" hidden><span id="meName"></span><button id="btnOut">로그아웃</button></div>
@@ -221,6 +221,7 @@
   <div class="row"><button class="primary" id="btnResCopy">결과 복사 (시트에 붙여 넣기)</button><button id="btnResClose">닫기</button><span class="small" id="resMsg"></span></div>
 </div></div>
 <div class="big" id="big"></div>
+<div aria-hidden="true" style="position:fixed;left:-9999px;top:0;font-size:min(42vh,40vw);font-weight:800;opacity:.01;pointer-events:none">0123456789시작끝!</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script type="module">
@@ -230,7 +231,7 @@
    서버에 올라가는 것: 방 주인(로그인 ID), 학년·반·인원, 시작·끝 신호, 학생 기기별 학년·반·번호·횟수·상태. 이름은 이 컴퓨터에만.
    전송 방식은 BACKEND 하나에 모음 (Firebase / 시험 모드) — 나중에 다른 서버로 바꿀 때 이것만 바꾸면 됨
    ========================================================================================= */
-const VER='0.3.0';
+const VER='0.3.1';
 const FB_CONFIG={ apiKey:'AIzaSyDimPwJ974Pmn9wcgwFZFWUBQPaOra5chQ', authDomain:'jumpropelive.firebaseapp.com',
   databaseURL:'https://jumpropelive-default-rtdb.asia-southeast1.firebasedatabase.app', projectId:'jumpropelive',
   storageBucket:'jumpropelive.firebasestorage.app', messagingSenderId:'727527484238', appId:'1:727527484238:web:aaed6e0585ee7db7228c1f' };
@@ -411,7 +412,7 @@ async function openRoom(){
     Object.assign(S,{room,groups,type,devs:{},ctl:{ph:'open'},lastRun:null,prevCnt:{},endShown:''});
     store.set('jrl_open',JSON.stringify({room,groups,type,uid:USER.uid,app:APPM?{s:SHELL}:null}));
     $('clsName').textContent=clsLabel(groups)+(type?` · ${type}`:''); view('vLive'); $('vLive').style.display='flex';
-    B.watch(room,d=>{ S.devs=d; trackRate(d); render(); });
+    B.watch(room,d=>{ S.devs=d; trackRate(d); renderSoon(); });
     render(); showQr();
   }catch(e){ console.error(e); $('setupErr').textContent='방을 열지 못했어요: '+(e.message||e); }
   $('btnOpen').disabled=false; $('btnOpen').textContent='방 열기';
@@ -482,8 +483,12 @@ function render(){
 
 /* ---------- 시작·끝 ---------- */
 function beep(f,d,v){ try{ const ac=window.__ac=window.__ac||new (window.AudioContext||window.webkitAudioContext)(); const o=ac.createOscillator(),g=ac.createGain(); o.frequency.value=f; o.type='triangle'; g.gain.setValueAtTime(v||.2,ac.currentTime); g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+d); o.connect(g).connect(ac.destination); o.start(); o.stop(ac.currentTime+d); }catch(e){} }
+let renderRaf=0, renderLast=0;
+function renderSoon(){ if(renderRaf) return; const wait=Math.max(0,150-(performance.now()-renderLast)); renderRaf=setTimeout(()=>requestAnimationFrame(()=>{ renderRaf=0; renderLast=performance.now(); render(); }),wait); }
 function big(t){ const b=$('big'); b.textContent=t; b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); }
+function audioWarm(){ try{ const ac=window.__ac=window.__ac||new (window.AudioContext||window.webkitAudioContext)(); if(ac.state==='suspended') ac.resume(); const b=ac.createBuffer(1,1,22050), s=ac.createBufferSource(); s.buffer=b; s.connect(ac.destination); s.start(0); }catch(e){} }
 async function go(){
+  audioWarm();
   const dur=+$('selDur').value, id='r'+Date.now().toString(36);
   const c={ph:'go',id,at:B.now()+5000,dur};
   try{ await B.setControl(S.room,c); S.ctl=c; S.lastRun={id,dur,at:c.at}; S.endShown=''; S.prevCnt={}; $('qr').hidden=true; $('btnResult').disabled=true; }
@@ -606,7 +611,7 @@ setInterval(()=>{ if(S.room) render(); },3000);   // 신호가 끊긴 기기를 
       Object.assign(S,{room:prev.room,groups,type:prev.type||(a&&a.type)||'',devs:{},ctl:{ph:'open'}});
       if(a&&APPM){ JR.admin=sessGet(); rpc('ping').then(x=>{ JR.live=!!(x&&x.live); }).catch(()=>{}); }
       $('clsName').textContent=clsLabel(S.groups)+(S.type?` · ${S.type}`:''); view('vLive'); $('vLive').style.display='flex';
-      B.watch(S.room,d=>{ S.devs=d; trackRate(d); render(); }); render(); return;
+      B.watch(S.room,d=>{ S.devs=d; trackRate(d); renderSoon(); }); render(); return;
     }
     view('vSetup'); $('vLive').style.display='none';
   });
