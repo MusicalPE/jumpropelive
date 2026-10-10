@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.3.4</title>
+<title>점프 라이브 v0.4.0</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -147,6 +147,24 @@
   #ytBox:empty{display:none}
   #ytBox iframe{width:100%;height:100%;display:block;border:0}
   .music.mini #ytBox,.music.mini .mbody{display:none}
+  /* 줄넘기 허브 (JUMPITNOW 전자 줄넘기) */
+  .hub{position:fixed;right:16px;bottom:16px;z-index:22;background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 10px 30px rgba(31,36,48,.18);padding:12px;width:min(460px,calc(100vw - 32px));max-height:min(78vh,720px);display:flex;flex-direction:column;gap:10px}
+  .hub[hidden]{display:none}
+  .hub .mh{display:flex;align-items:center;gap:8px;font-weight:800}
+  .hub .mh .x{margin-left:auto;min-height:32px;padding:2px 10px;font-size:13px}
+  .hub .hst{font-size:13px;color:var(--muted)} .hub .hst.ok{color:var(--mint)} .hub .hst.bad{color:var(--red)}
+  .hub .hr{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;color:var(--ink2)}
+  .hub .hr button{min-height:34px;padding:4px 10px;font-size:13px}
+  .hub .hlist{overflow:auto;border-top:1px solid var(--line);min-height:40px}
+  .hub table{width:100%;border-collapse:collapse;font-size:13px}
+  .hub td,.hub th{padding:5px 4px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+  .hub th{color:var(--muted);font-weight:700;font-size:12px}
+  .hub td.no{font-weight:900;font-size:16px;color:var(--accent-ink);width:34px;text-align:center}
+  .hub td select{font:inherit;font-size:13px;padding:3px 4px;border-radius:8px;border:1px solid var(--line);background:var(--soft);max-width:150px}
+  .hub td button{min-height:28px;padding:2px 7px;font-size:12px;border-radius:8px}
+  .hub .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--muted);margin-right:4px}
+  .hub .dot.on{background:var(--mint)}
+  #btnHub.on{background:var(--mint-soft,#E7F7F5);color:var(--mint);border-color:#BDE8E2}
   #btnMusic.on{background:var(--accent-soft);color:var(--accent-ink);border-color:#FFD3CC}
   @keyframes big{0%{opacity:0;transform:translate(-50%,-50%) scale(1.3)}20%{opacity:1;transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0}}
   .demo{background:var(--amber-soft);color:#9A5B05;border:1px solid #F5D49C;border-radius:12px;padding:8px 14px;font-weight:700;font-size:14px}
@@ -166,7 +184,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.3.4</span></h1>
+    <h1>점프 라이브<span class="ver">v0.4.0</span></h1>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <div class="me" id="me" hidden><span id="meName"></span><button id="btnOut">로그아웃</button></div>
@@ -225,6 +243,7 @@
       <button class="dark" id="btnEnd" disabled>끝</button>
       <button id="btnSort">횟수순</button>
       <button id="btnMusic" title="유튜브 배경음악">음악</button>
+      <button id="btnHub" title="전자 줄넘기 허브(USB)">줄넘기 허브</button>
       <button id="btnQr">QR</button>
       <button id="btnResult" disabled>결과</button>
       <button id="btnClose">방 닫기</button>
@@ -255,6 +274,13 @@
   <div class="row"><button class="primary" id="btnResCopy">결과 복사 (시트에 붙여 넣기)</button><button id="btnResClose">닫기</button><span class="small" id="resMsg"></span></div>
 </div></div>
 <div class="big" id="big"></div>
+<div class="hub" id="hub" hidden>
+  <div class="mh">줄넘기 허브 <span class="hst" id="hubSt">연결 안 됨</span><button class="x" id="hubX">닫기</button></div>
+  <div class="hr"><button class="primary" id="hubConn">허브 연결</button><button id="hubRole" disabled>줄넘기 찾기</button><button id="hubBatt" disabled>배터리</button><button id="hubVib" disabled>모두 진동</button><button id="hubAuto" disabled hidden>전체 자동번호</button></div>
+  <label class="hr"><input type="checkbox" id="hubBuzz" checked> 시작·끝에 줄넘기 진동</label>
+  <div class="hlist"><table><thead><tr><th>번호</th><th>학생</th><th>상태</th><th>배터리</th><th>횟수</th><th></th></tr></thead><tbody id="hubBody"></tbody></table></div>
+  <div class="hst" id="hubMsg">USB에 허브를 꽂고 "허브 연결" → 목록에서 "USB JTAG/serial debug unit"을 골라요. 크롬·엣지에서만 돼요. JUMPITNOW 사이트에서는 허브를 먼저 해제해 주세요.</div>
+</div>
 <div class="music" id="music" hidden>
   <div class="mh">배경음악 <span class="mmsg" id="mNow"></span><button class="x" id="mMini">접기</button><button class="x" id="mClose">닫기</button></div>
   <div id="ytBox"></div>
@@ -278,7 +304,7 @@
    서버에 올라가는 것: 방 주인(로그인 ID), 학년·반·인원, 시작·끝 신호, 학생 기기별 학년·반·번호·횟수·상태. 이름은 이 컴퓨터에만.
    전송 방식은 BACKEND 하나에 모음 (Firebase / 시험 모드) — 나중에 다른 서버로 바꿀 때 이것만 바꾸면 됨
    ========================================================================================= */
-const VER='0.3.4';
+const VER='0.4.0';
 const FB_CONFIG={ apiKey:'AIzaSyDimPwJ974Pmn9wcgwFZFWUBQPaOra5chQ', authDomain:'jumpropelive.firebaseapp.com',
   databaseURL:'https://jumpropelive-default-rtdb.asia-southeast1.firebasedatabase.app', projectId:'jumpropelive',
   storageBucket:'jumpropelive.firebasestorage.app', messagingSenderId:'727527484238', appId:'1:727527484238:web:aaed6e0585ee7db7228c1f' };
@@ -492,7 +518,7 @@ function trackRate(devs){
 function rateOf(id,d){ const h=RATE[id]; if(!h||!h.length||!d.run) return 0; const now=Date.now(), last=h[h.length-1];
   if(now-last[0]>3000) return 0; const f=h[0], sec=Math.max(3,(now-f[0])/1000); return Math.min(400,Math.round((d.cnt-f[1])/sec*60)); }
 function liveDevs(){ // 끊김 판정 포함
-  const now=B.now(); return Object.entries(S.devs).map(([id,d])=>Object.assign({id},d,{rate:rateOf(id,d),best:d.best||0,st:(d.st!=='off'&&now-(d.t||0)>STALE_MS)?'off':d.st}));
+  const now=B.now(); return Object.entries(Object.assign({},S.devs,hubDevs())).map(([id,d])=>Object.assign({id},d,{rate:rateOf(id,d),best:d.best||0,st:(d.st!=='off'&&now-(d.t||0)>STALE_MS)?'off':d.st}));
 }
 function render(){
   const all=liveDevs(), mine={}, others=[], gs=S.groups, M=multi();
@@ -623,13 +649,117 @@ function musicInit(){
   $('mTrackIn').onchange=async e=>{ for(const f of e.target.files) await TrackDB.add(f); e.target.value=''; M.loaded=''; M.hasFiles=true; mTracks(); mMsg('음악 파일을 넣었어요'); };
   $('mTracks').onclick=async e=>{ const b=e.target.closest('[data-del]'); if(!b) return; const id=/^\d+$/.test(b.dataset.del)?+b.dataset.del:b.dataset.del; await TrackDB.del(id); M.loaded=''; const l=await mTracks(); M.hasFiles=l.length>0; };
 }
+/* ---------- 줄넘기 허브 (JUMPITNOW 전자 줄넘기, USB 시리얼) ----------
+   허브와 한 줄씩 글자로 주고받음 (115200):
+     보냄  free all · start all · stop all · getData all|번호 · getRole all · getBattery all · vibrate all · showId 번호 · assign 지금 새번호 · assignall
+     받음  GW,READY,n · RXB,번호,주소,내용hex · DATA,번호,모드,횟수,시간(0.1초),멈춤 · BATT,번호,% · ROLE,번호,역할 · TXB,…,OK
+   줄넘기 번호 → 학생: 기본은 번호대로(여러 반이면 반 순서대로 이어서), 목록에서 바꾸면 이 컴퓨터가 기억
+   줄넘기 기록은 학생 기기와 똑같이 바둑판·결과·시트 저장(승인)에 들어감 */
+const HUB={ port:null, reader:null, on:false, buf:'', ropes:{}, pollT:0, polling:false, runId:'', startAt:0,
+  map:(()=>{ try{ return JSON.parse(store.get('jl_hubmap')||'{}')||{}; }catch(e){ return {}; } })() };
+function hubMsg(t,bad){ $('hubMsg').textContent=t; $('hubMsg').style.color=bad?'var(--red)':''; }
+function hubSt(t,c){ $('hubSt').textContent=t; $('hubSt').className='hst '+(c||''); $('btnHub').classList.toggle('on',HUB.on); }
+async function hubSend(cmd){ if(!HUB.port||!HUB.port.writable) return false;
+  try{ const w=HUB.port.writable.getWriter(); await w.write(new TextEncoder().encode(cmd+'\n')); w.releaseLock(); return true; }catch(e){ console.warn('hub send',e); return false; } }
+function hubRope(n){ n=+n; if(!(n>0)) return null; return HUB.ropes[n]=HUB.ropes[n]||{n,addr:'',batt:null,role:'',cnt:0,dur:0,seen:0,data:0,ctl:'',run:false,lastCnt:0,lastUp:0}; }
+// 줄넘기 번호 → 학생 {g,c,n}
+function hubStudent(n){
+  const m=HUB.map[n]; if(m){ const p=m.split('-').map(Number); if(S.groups.some(x=>x.g===p[0]&&x.c===p[1]&&p[2]>=1&&p[2]<=x.max)) return {g:p[0],c:p[1],n:p[2]}; }
+  let k=+n; for(const x of S.groups){ if(k<=x.max) return {g:x.g,c:x.c,n:k}; k-=x.max; } return null;
+}
+function hubLine(ln){
+  const a=ln.trim().split(','); if(!a[0]) return; const now=Date.now();
+  if(a[0]==='GW'&&a[1]==='READY'){ hubSt('연결됨','ok'); hubMsg('허브 준비 끝 — 줄넘기를 켜면 목록에 나와요'); setTimeout(()=>hubSend('getRole all'),400); setTimeout(()=>hubSend('getBattery all'),1400); return; }
+  if(a[0]==='RXB'){ const r=hubRope(a[1]); if(!r) return; r.addr=a[2]||r.addr; r.seen=now; hubRender(); return; }
+  if(a[0]==='DATA'){ const r=hubRope(a[1]); if(!r) return; const c=+a[3]||0;
+    r.seen=r.data=now; r.mode=+a[2]; r.dur=+a[4]||0;
+    if(c!==r.cnt){ r.lastUp=now; } r.cnt=c; r.ctl=HUB.runId; hubPush(); return; }
+  if(a[0]==='BATT'){ const r=hubRope(a[1]); if(r){ r.batt=+a[2]; r.seen=now; hubRender(); } return; }
+  if(a[0]==='ROLE'){ const r=hubRope(a[1]); if(r){ r.role=a[2]||''; r.seen=now; hubRender(); } return; }
+  if(a[0]==='ASSIGN'||a[0]==='ASSIGNALL'){ hubMsg('번호를 바꿨어요: '+ln); setTimeout(()=>hubSend('getRole all'),800); return; }
+}
+// 허브 줄넘기를 바둑판용 가짜 기기로 (S.devs 와 함께 그려짐)
+function hubDevs(){
+  const out={}, now=Date.now(), go=S.ctl.ph==='go'&&B.now()>=S.ctl.at;
+  Object.values(HUB.ropes).forEach(r=>{ const st=hubStudent(r.n); if(!st) return;
+    const off=!r.seen||now-r.seen>20000;
+    out['hub'+r.n]={g:st.g,c:st.c,n:st.n,cnt:r.ctl?r.cnt:0,ctl:r.ctl,run:go&&!!r.ctl,best:0,t:B.now(),hub:true,
+      st:off?'off':(go&&r.ctl?(now-r.lastUp<1500?'jump':'stop'):'ready')}; });
+  return out;
+}
+function hubPush(){ trackRate(hubDevs()); hubRender(); renderSoon(); }
+function hubRender(){
+  if($('hub').hidden) return;
+  const opts=S.groups.flatMap(x=>Array.from({length:x.max},(_,i)=>{ const n=i+1; return [skey(x.g,x.c,n),`${multi()?x.g+'-'+x.c+' ':''}${n}번 ${x.names[n]||''}`]; }));
+  const rs=Object.values(HUB.ropes).sort((a,b)=>a.n-b.n), now=Date.now();
+  $('hubBody').innerHTML=rs.map(r=>{ const st=hubStudent(r.n), cur=st?skey(st.g,st.c,st.n):'', on=r.seen&&now-r.seen<20000;
+    return `<tr data-n="${r.n}"><td class="no">${r.n}</td><td><select data-map>${S.groups.length?'':'<option value="">방을 먼저 열어요</option>'}${opts.map(([v,l])=>`<option value="${v}"${v===cur?' selected':''}>${esc(l)}</option>`).join('')}</select></td>
+      <td><span class="dot ${on?'on':''}"></span>${on?'연결':'끊김'}</td><td>${r.batt==null?'—':r.batt+'%'}</td><td>${r.ctl?r.cnt:'—'}</td>
+      <td><button data-act="show" title="줄넘기 화면에 번호 띄우기">번호</button> <button data-act="vib">진동</button></td></tr>`; }).join('')
+    || '<tr><td colspan="6" style="color:var(--muted)">아직 줄넘기가 없어요 — 줄넘기를 켜거나 "줄넘기 찾기"를 눌러요</td></tr>';
+}
+async function hubConnect(){
+  if(HUB.on){ await hubClose(); return; }
+  if(!('serial' in navigator)){ hubMsg('이 브라우저는 USB 시리얼을 못 써요 — PC의 크롬이나 엣지에서 열어 주세요',true); return; }
+  try{ HUB.port=await navigator.serial.requestPort(); await HUB.port.open({baudRate:115200,bufferSize:65536}); }
+  catch(e){ HUB.port=null; if(e.name!=='NotFoundError') hubMsg('허브를 열지 못했어요: '+e.message+' — JUMPITNOW 사이트나 다른 창이 허브를 쓰고 있으면 닫아 주세요',true); return; }
+  HUB.on=true; HUB.buf=''; hubSt('허브 켜지는 중…'); hubMsg('허브가 다시 켜져요 — 5~7초 기다려요');
+  $('hubConn').textContent='허브 끊기'; ['hubRole','hubBatt','hubVib','hubAuto'].forEach(id=>$(id).disabled=false);
+  const dec=new TextDecoder();
+  (async()=>{ while(HUB.on&&HUB.port&&HUB.port.readable){ HUB.reader=HUB.port.readable.getReader();
+      try{ for(;;){ const {value,done}=await HUB.reader.read(); if(done) break; HUB.buf+=dec.decode(value,{stream:true}); let i;
+          while((i=HUB.buf.indexOf('\n'))>=0){ const ln=HUB.buf.slice(0,i).replace(/\r$/,''); HUB.buf=HUB.buf.slice(i+1); try{ hubLine(ln); }catch(e){ console.warn(e); } } } }
+      catch(e){ if(HUB.on){ hubSt('끊김','bad'); hubMsg('허브 연결이 끊겼어요 — USB를 확인하고 다시 연결해 주세요',true); } break; }
+      finally{ try{ HUB.reader.releaseLock(); }catch(e){} } }
+    if(HUB.on) hubClose(true); })();
+}
+async function hubClose(lost){
+  HUB.on=false; hubStopPoll();
+  try{ if(HUB.reader) await HUB.reader.cancel(); }catch(e){} try{ if(HUB.port) await HUB.port.close(); }catch(e){}
+  HUB.port=null; $('hubConn').textContent='허브 연결'; ['hubRole','hubBatt','hubVib','hubAuto'].forEach(id=>$(id).disabled=true);
+  hubSt(lost?'끊김':'연결 안 됨',lost?'bad':''); hubPush();
+}
+// 회차 흐름: 카운트다운 → free all / "시작!" → start all + 1초마다 getData / 끝 → stop all + 마지막 getData (빠진 줄넘기는 따로 다시)
+function hubOnGo(id){ if(!HUB.on) return; HUB.runId=id; Object.values(HUB.ropes).forEach(r=>{ r.cnt=0; r.ctl=''; r.lastUp=0; }); hubSend('stop all').then(()=>setTimeout(()=>hubSend('free all'),300)); hubPush(); }
+function hubOnStart(){ if(!HUB.on||!HUB.runId) return; HUB.startAt=Date.now();
+  Object.values(HUB.ropes).forEach(r=>{ r.ctl=HUB.runId; r.cnt=0; });
+  hubSend('start all').then(()=>{ if($('hubBuzz').checked) setTimeout(()=>hubSend('vibrate all'),250); }); hubStartPoll(); hubPush(); }
+function hubStartPoll(){ hubStopPoll(); HUB.polling=true;
+  const tick=async()=>{ if(!HUB.polling||!HUB.on) return; const t=Date.now(); HUB.pollT=t; await hubSend('getData all');
+    setTimeout(()=>{ if(!HUB.polling) return; Object.values(HUB.ropes).forEach(r=>{ if(r.seen&&Date.now()-r.seen<20000&&r.data<t) hubSend('getData '+r.n); }); },650);
+    HUB.timer=setTimeout(tick,1200); };
+  tick(); }
+function hubStopPoll(){ HUB.polling=false; clearTimeout(HUB.timer); }
+function hubOnEnd(){ if(!HUB.on||!HUB.runId) return; hubStopPoll(); const t=Date.now();
+  hubSend('stop all').then(()=>{ if($('hubBuzz').checked) setTimeout(()=>hubSend('vibrate all'),200);
+    setTimeout(()=>hubSend('getData all'),450);
+    [1100,1600].forEach(ms=>setTimeout(()=>Object.values(HUB.ropes).forEach(r=>{ if(r.seen&&r.data<t) hubSend('getData '+r.n); }),ms)); }); }
+function hubInit(){
+  $('btnHub').onclick=()=>{ $('hub').hidden=!$('hub').hidden; hubRender(); };
+  $('hubX').onclick=()=>{ $('hub').hidden=true; };
+  $('hubConn').onclick=hubConnect;
+  $('hubRole').onclick=()=>hubSend('getRole all');
+  $('hubBatt').onclick=()=>hubSend('getBattery all');
+  $('hubVib').onclick=()=>hubSend('vibrate all');
+  $('hubAuto').onclick=()=>{ if(confirm('켜져 있는 줄넘기 번호를 처음부터 다시 매길까요? (지금 번호가 바뀔 수 있어요)')){ HUB.ropes={}; hubRender(); hubSend('assignall'); } };
+  $('hubBody').onchange=e=>{ const sel=e.target.closest('[data-map]'); if(!sel) return; const n=sel.closest('tr').dataset.n;
+    HUB.map[n]=sel.value; store.set('jl_hubmap',JSON.stringify(HUB.map)); hubPush(); };
+  $('hubBody').onclick=async e=>{ const b=e.target.closest('[data-act]'); if(!b) return; const n=b.closest('tr').dataset.n;
+    if(b.dataset.act==='show') hubSend('showId '+n);
+    else if(b.dataset.act==='vib') hubSend('vibrate '+n);
+    else if(b.dataset.act==='num'){ const v=prompt(n+'번 줄넘기를 몇 번으로 바꿀까요?',''); const m=+v; if(!(m>0&&m<=99)) return;
+      if(HUB.ropes[m]&&m!==+n&&!confirm(m+'번 줄넘기가 이미 있어요. 그래도 바꿀까요?')) return;
+      await hubSend(`assign ${n} ${m}`); delete HUB.ropes[n]; hubRender(); setTimeout(()=>{ hubSend('getRole all'); hubSend('showId '+m); },1200); } };
+  if(navigator.serial) navigator.serial.addEventListener('disconnect',e=>{ if(HUB.port&&e.target===HUB.port) hubClose(true); });
+  setInterval(()=>{ if(HUB.on&&!$('hub').hidden) hubRender(); },3000);
+}
 function big(t){ const b=$('big'); b.textContent=t; b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); }
 function audioWarm(){ try{ const ac=window.__ac=window.__ac||new (window.AudioContext||window.webkitAudioContext)(); if(ac.state==='suspended') ac.resume(); const b=ac.createBuffer(1,1,22050), s=ac.createBufferSource(); s.buffer=b; s.connect(ac.destination); s.start(0); }catch(e){} }
 async function go(){
   audioWarm();
   const dur=+$('selDur').value, id='r'+Date.now().toString(36);
   const c={ph:'go',id,at:B.now()+5000,dur};
-  try{ await B.setControl(S.room,c); S.ctl=c; S.lastRun={id,dur,at:c.at}; S.endShown=''; S.prevCnt={}; $('qr').hidden=true; $('btnResult').disabled=true; musicCountdown(); }
+  try{ await B.setControl(S.room,c); S.ctl=c; S.lastRun={id,dur,at:c.at}; S.endShown=''; S.prevCnt={}; $('qr').hidden=true; $('btnResult').disabled=true; musicCountdown(); hubOnGo(id); }
   catch(e){ alert('시작 신호를 보내지 못했어요: '+e.message); }
 }
 async function end(){
@@ -640,7 +770,7 @@ async function end(){
 }
 function finish(){ // 학생 기기가 마지막 숫자를 보낼 시간을 2초 주고 결과
   if(S.endShown===S.lastRun.id) return; S.endShown=S.lastRun.id;
-  beep(440,.3,.25); big('끝!'); musicEnd();
+  beep(440,.3,.25); big('끝!'); musicEnd(); hubOnEnd();
   setTimeout(()=>{ render(); showResult(); $('btnResult').disabled=false; if(APPM&&S.groups.some(x=>Object.keys(x.ids||{}).length)) saveResult(); },2000);
 }
 function clockTick(){
@@ -651,7 +781,7 @@ function clockTick(){
     if(d<0){ const left=Math.ceil(-d/1000); el.textContent=left+''; el.className='clock cd'; if(left!==S.cdShown&&left<=5){ S.cdShown=left; big(left); beep(660,.08,.18); } }
     else{
       // 시작 표시는 회차마다 한 번만 (끝 카운트다운과 따로 기억 — 같이 쓰면 '시작!'이 되풀이됨)
-      if(S.startShown!==c.id){ S.startShown=c.id; big('시작!'); beep(1046,.25,.25); musicStart(); }
+      if(S.startShown!==c.id){ S.startShown=c.id; big('시작!'); beep(1046,.25,.25); musicStart(); hubOnStart(); }
       if(c.dur){ const r=Math.max(0,Math.ceil(c.dur-d/1000)); el.textContent=Math.floor(r/60)+':'+String(r%60).padStart(2,'0'); el.className='clock go';
         if(r<=5&&r>0&&S.endCd!==r){ if(S.endCd==null) musicLast5(); S.endCd=r; big(r); beep(990,.06,.15); }
         if(d>=c.dur*1000){ S.ctl={ph:'end',id:c.id}; B.setControl(S.room,S.ctl).catch(()=>{}); finish(); } }
@@ -721,7 +851,7 @@ $('btnPw').onclick=appPw; $('inPw').onkeydown=e=>{ if(e.key==='Enter') appPw(); 
 /* ---------- 시작 ---------- */
 $('btnIn').onclick=async()=>{ $('loginErr').textContent=''; try{ await B.signIn(); }catch(e){ $('loginErr').textContent='로그인하지 못했어요: '+(e.code==='auth/unauthorized-domain'?'Firebase 승인된 도메인에 이 주소가 없어요':(e.code==='auth/operation-not-allowed'||e.code==='auth/configuration-not-found')?'Firebase에서 로그인 기능(Authentication → Google)이 아직 켜져 있지 않아요':e.code==='auth/popup-blocked'?'팝업이 막혔어요 — 주소창 오른쪽에서 팝업을 허용해 주세요':(e.message||e)); } };
 $('btnOut').onclick=async()=>{ if(S.room&&!confirm('방이 열려 있어요. 방을 그대로 두고 로그아웃할까요?')) return; await B.signOut(); };
-musicInit();
+musicInit(); hubInit();
 $('btnOpen').onclick=openRoom; $('btnClose').onclick=closeRoom; $('btnGo').onclick=go; $('btnEnd').onclick=end;
 $('btnSort').onclick=()=>{ S.sort=S.sort==='no'?'cnt':'no'; $('btnSort').textContent=S.sort==='no'?'횟수순':'번호순'; render(); };
 $('btnQr').onclick=showQr; $('btnQrClose').onclick=()=>$('qr').hidden=true;
