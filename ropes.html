@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>줄넘기 관리 v0.1.0</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<style>
+  :root{
+    --bg:#F3F4F6; --card:#FFFFFF; --soft:#F8F9FB; --line:#E7E9EE; --ink:#1F2430; --ink2:#3B4252; --muted:#7A8190;
+    --accent:#FF6B5B; --accent-soft:#FFF0EE; --accent-ink:#E2513F;
+    --mint:#2BB3A3; --mint-soft:#E7F7F5; --amber:#C77A12; --amber-soft:#FFF5E6; --red:#E5484D; --red-soft:#FDECEC;
+    --shadow:0 1px 2px rgba(17,24,39,.04),0 8px 28px rgba(17,24,39,.06);
+    --ui:"Pretendard Variable",Pretendard,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  }
+  *{box-sizing:border-box} [hidden]{display:none!important}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--ui);word-break:keep-all;font-feature-settings:"tnum";letter-spacing:-.01em}
+  button,input,select{font:inherit}
+  button{cursor:pointer;border-radius:12px;padding:8px 14px;font-weight:700;font-size:15px;min-height:42px;color:var(--ink2);background:var(--card);border:1px solid var(--line);box-shadow:0 1px 2px rgba(17,24,39,.04)}
+  button:hover{background:var(--soft)} button:active{transform:scale(.97)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 6px 18px rgba(255,107,91,.28)}
+  button.primary:hover{background:var(--accent-ink)}
+  button:disabled{opacity:.4;cursor:default}
+  input[type=number]{font-weight:700;font-size:16px;padding:6px 8px;border-radius:10px;border:1px solid var(--line);background:var(--soft);color:var(--ink);width:70px;text-align:center}
+  .wrap{max-width:1100px;margin:0 auto;padding:18px 20px 40px;display:flex;flex-direction:column;gap:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);padding:18px 20px}
+  header{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .mark{width:44px;height:44px;border-radius:14px;background:var(--accent);display:grid;place-items:center;flex:none}
+  .mark svg{width:24px;height:24px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  h1{font-size:clamp(20px,2.6vw,28px);margin:0;letter-spacing:-.03em}
+  .ver{font-size:12px;font-weight:700;color:var(--accent-ink);background:var(--accent-soft);border-radius:99px;padding:3px 9px;margin-left:8px;vertical-align:4px}
+  .sub{color:var(--muted);font-size:14px;margin:4px 0 0}
+  .spacer{flex:1}
+  .gw{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--ink2)}
+  .gw .dot{width:10px;height:10px;border-radius:50%;background:var(--muted)} .gw.on .dot{background:var(--mint)} .gw.bad .dot{background:var(--red)}
+  .sum{display:flex;gap:26px;flex-wrap:wrap;font-size:16px;color:var(--ink2)} .sum b{font-size:22px;margin-left:6px;color:var(--ink)}
+  .sum .low b{color:var(--red)}
+  .bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .bar h2{margin:0 auto 0 0;font-size:20px;letter-spacing:-.02em} .bar h2 small{color:var(--muted);font-weight:600;margin-left:4px}
+  table{width:100%;border-collapse:collapse}
+  th{font-size:13px;color:var(--muted);text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);font-weight:700}
+  td{padding:10px 8px;border-bottom:1px solid var(--line);font-size:15px;vertical-align:middle}
+  td.id{font-weight:900;font-size:22px;color:var(--accent-ink);width:56px}
+  .st{display:inline-flex;align-items:center;gap:6px;border-radius:99px;padding:4px 10px;font-size:13px;font-weight:700;background:var(--soft);color:var(--muted)}
+  .st.on{background:var(--mint-soft);color:var(--mint)} .st i{width:8px;height:8px;border-radius:50%;background:currentColor}
+  .batt{font-weight:700} .batt.low{color:var(--red)}
+  .num{display:flex;gap:6px;align-items:center}
+  .num button{min-height:36px;padding:4px 10px;font-size:13px}
+  .ctl{display:flex;gap:6px;flex-wrap:wrap}
+  .ctl button{min-height:38px;width:44px;padding:0;display:grid;place-items:center}
+  .ctl svg{width:20px;height:20px;stroke:var(--ink2);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .ctl button.off svg{stroke:var(--red)}
+  .addr{font-size:11px;color:var(--muted);font-family:ui-monospace,Consolas,monospace}
+  .empty{color:var(--muted);text-align:center;padding:30px 0}
+  .test{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .msg{font-size:14px;color:var(--muted);min-height:20px} .msg.bad{color:var(--red)} .msg.ok{color:var(--mint)}
+  details summary{cursor:pointer;font-weight:700;color:var(--ink2)}
+  pre{background:#1F2430;color:#D6DAE3;border-radius:12px;padding:12px;font-size:12px;max-height:320px;overflow:auto;white-space:pre-wrap;margin:10px 0 0}
+  .foot{color:var(--muted);font-size:13px;text-align:center}
+  @media (max-width:760px){ .hide-s{display:none} td,th{padding:8px 4px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
+    <div><h1>줄넘기 관리<span class="ver">v0.1.0</span></h1><p class="sub">전자 줄넘기 허브(USB)에 연결된 줄넘기 확인 · 번호 정하기 · 배터리</p></div>
+    <div class="spacer"></div>
+    <span class="gw" id="gw"><span class="dot"></span><span id="gwT">허브 연결 안 됨</span></span>
+    <button class="primary" id="btnConn">허브 연결</button>
+    <button id="btnScan" disabled>전체 스캔</button>
+  </header>
+
+  <div class="card sum">
+    <span>연결 <b id="sOn">0</b></span><span>끊김 <b id="sOff">0</b></span><span class="low">배터리 부족 <b id="sLow">0</b></span><span>전체 <b id="sAll">0</b></span>
+  </div>
+
+  <div class="card">
+    <div class="bar">
+      <h2>줄넘기 <small id="cnt">0개</small></h2>
+      <label class="num">시작 번호 <input type="number" id="startNo" min="1" max="99" value="1"></label>
+      <button id="btnAuto" disabled title="연결된 줄넘기를 지금 번호 순서대로 시작 번호부터 다시 매겨요">번호 차례로 다시 매기기</button>
+    </div>
+    <div class="msg" id="msg">USB에 허브를 꽂고 "허브 연결" → "USB JTAG/serial debug unit"을 골라요. 크롬·엣지에서만 돼요. JUMPITNOW 사이트·점프 라이브에서 허브를 쓰고 있으면 먼저 해제해 주세요.</div>
+    <table>
+      <thead><tr><th>번호</th><th>상태</th><th>배터리</th><th class="hide-s">역할</th><th>횟수</th><th>번호 바꾸기</th><th>제어</th></tr></thead>
+      <tbody id="body"><tr><td colspan="7" class="empty">허브를 연결하면 켜져 있는 줄넘기가 나와요</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="bar"><h2>횟수 시험</h2></div>
+    <p class="sub" style="margin:0 0 10px">줄넘기가 잘 세는지 확인할 때: 시작 → 뛰기 → 횟수 받기 → 멈춤</p>
+    <div class="test">
+      <button id="tStart" disabled>시작 (모두)</button>
+      <button id="tData" disabled>횟수 받기</button>
+      <button id="tStop" disabled>멈춤</button>
+      <label class="num"><input type="checkbox" id="tAuto"> 1초마다 자동으로 받기</label>
+    </div>
+  </div>
+
+  <div class="card">
+    <details><summary>허브 대화 기록 (문제 생겼을 때 보기)</summary><pre id="log"></pre></details>
+  </div>
+  <p class="foot">줄넘기 번호는 점프 라이브에서 학생 번호와 이어져요 (기본: 줄넘기 1번 = 1번 학생) · Made by 음악적체육인</p>
+</div>
+
+<script>
+/* JUMPITNOW 허브 글자 명령 (115200, 줄 끝 \n)
+   보냄: getRole all · getBattery all · buzzer|vibrate|showId|powerOff 번호 · assign 지금 새 · free|start|stop all · getData all|번호
+   받음: GW,READY,n · RXB,번호,주소,hex(첫 바이트=종류) · ROLE,번호,역할 · BATT,번호,% · DATA,번호,모드,횟수,0.1초,멈춤 · TXB,…,OK */
+const $=id=>document.getElementById(id);
+const H={ port:null, reader:null, on:false, buf:'', ropes:{}, pollT:0, auto:0 };
+const ON_MS=45000, LOW=20;
+const t0=performance.now();
+function log(s){ const el=$('log'); el.textContent+=((performance.now()-t0)/1000).toFixed(1).padStart(7)+'s  '+s+'\n'; if(el.textContent.length>60000) el.textContent=el.textContent.slice(-40000); el.scrollTop=el.scrollHeight; }
+function msg(t,c){ $('msg').textContent=t; $('msg').className='msg '+(c||''); }
+function gw(t,c){ $('gwT').textContent=t; $('gw').className='gw '+(c||''); }
+async function send(cmd){ if(!H.port||!H.port.writable) return false; try{ const w=H.port.writable.getWriter(); await w.write(new TextEncoder().encode(cmd+'\n')); w.releaseLock(); log('>> '+cmd); return true; }catch(e){ log('보내기 실패 '+e.message); return false; } }
+function rope(n){ n=+n; if(!(n>0)) return null; return H.ropes[n]=H.ropes[n]||{n,addr:'',batt:null,role:'',cnt:null,seen:0}; }
+function line(ln){
+  if(!ln.trim()) return; log('<< '+ln);
+  const a=ln.trim().split(','), now=Date.now();
+  if(a[0]==='GW'&&a[1]==='READY'){ gw('허브 연결됨','on'); msg('허브 준비 끝 — 줄넘기를 켜면 목록에 나와요. 안 보이면 "전체 스캔"을 눌러요','ok'); setTimeout(scan,500); return; }
+  if(a[0]==='RXB'){ const r=rope(a[1]); if(!r) return; const old=Object.values(H.ropes).find(x=>x!==r&&x.addr&&x.addr===a[2]); if(old) delete H.ropes[old.n]; // 번호가 바뀐 줄넘기
+    r.addr=a[2]; r.seen=now; draw(); return; }
+  if(a[0]==='ROLE'){ const r=rope(a[1]); if(r){ r.role=a[2]||''; r.seen=now; draw(); } return; }
+  if(a[0]==='BATT'){ const r=rope(a[1]); if(r){ r.batt=+a[2]; r.seen=now; draw(); } return; }
+  if(a[0]==='DATA'){ const r=rope(a[1]); if(r){ r.cnt=+a[3]; r.dur=+a[4]; r.seen=now; draw(); } return; }
+}
+const ICON={buzzer:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
+  vibrate:'<rect x="8" y="5" width="8" height="14" rx="2"/><path d="M3 9v6M21 9v6M5.5 7.5v9M18.5 7.5v9"/>',
+  showId:'<path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/>',
+  powerOff:'<path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/>'};
+function draw(){
+  const rs=Object.values(H.ropes).sort((a,b)=>a.n-b.n), now=Date.now();
+  const on=r=>r.seen&&now-r.seen<ON_MS;
+  $('sOn').textContent=rs.filter(on).length; $('sOff').textContent=rs.filter(r=>!on(r)).length;
+  $('sLow').textContent=rs.filter(r=>r.batt!=null&&r.batt<LOW).length; $('sAll').textContent=rs.length; $('cnt').textContent=rs.length+'개';
+  const dup=new Set(), seen=new Set(); rs.forEach(r=>{ if(seen.has(r.n)) dup.add(r.n); seen.add(r.n); });
+  $('body').innerHTML=rs.map(r=>`<tr data-n="${r.n}">
+    <td class="id">${r.n}</td>
+    <td><span class="st ${on(r)?'on':''}"><i></i>${on(r)?'연결':'끊김'}</span></td>
+    <td class="batt ${r.batt!=null&&r.batt<LOW?'low':''}">${r.batt==null?'—':r.batt+'%'}</td>
+    <td class="hide-s">${r.role||'—'}<div class="addr">${r.addr?r.addr.split(':').slice(-2).join(':'):''}</div></td>
+    <td>${r.cnt==null?'—':r.cnt+'회'}</td>
+    <td><div class="num"><input type="number" min="1" max="99" value="${r.n}" data-new><button data-act="assign">변경</button></div></td>
+    <td><div class="ctl">${['buzzer','vibrate','showId','powerOff'].map(k=>`<button data-act="${k}" class="${k==='powerOff'?'off':''}" title="${{buzzer:'부저',vibrate:'진동',showId:'번호 표시',powerOff:'전원 끄기'}[k]}"><svg viewBox="0 0 24 24">${ICON[k]}</svg></button>`).join('')}</div></td></tr>`).join('')
+    || `<tr><td colspan="7" class="empty">${H.on?'아직 줄넘기가 없어요 — 줄넘기를 켜고 "전체 스캔"을 눌러요':'허브를 연결하면 켜져 있는 줄넘기가 나와요'}</td></tr>`;
+}
+function scan(){ send('getRole all'); setTimeout(()=>send('getBattery all'),900); }
+async function connect(){
+  if(H.on){ await close(); return; }
+  if(!('serial' in navigator)){ msg('이 브라우저는 USB 시리얼을 못 써요 — PC의 크롬이나 엣지에서 열어 주세요','bad'); return; }
+  try{ H.port=await navigator.serial.requestPort(); await H.port.open({baudRate:115200,bufferSize:65536}); }
+  catch(e){ H.port=null; if(e.name!=='NotFoundError') msg('허브를 열지 못했어요: '+e.message+' — 다른 창(JUMPITNOW·점프 라이브)이 허브를 쓰고 있으면 닫아 주세요','bad'); return; }
+  H.on=true; H.buf=''; gw('허브 켜지는 중…'); msg('허브가 다시 켜져요 — 5~7초 기다려요');
+  $('btnConn').textContent='허브 끊기'; ['btnScan','btnAuto','tStart','tData','tStop'].forEach(id=>$(id).disabled=false);
+  const dec=new TextDecoder();
+  (async()=>{ while(H.on&&H.port&&H.port.readable){ H.reader=H.port.readable.getReader();
+      try{ for(;;){ const {value,done}=await H.reader.read(); if(done) break; H.buf+=dec.decode(value,{stream:true}); let i;
+          while((i=H.buf.indexOf('\n'))>=0){ const ln=H.buf.slice(0,i).replace(/\r$/,''); H.buf=H.buf.slice(i+1); try{ line(ln); }catch(e){ console.warn(e); } } } }
+      catch(e){ if(H.on){ gw('끊김','bad'); msg('허브 연결이 끊겼어요 — USB를 확인하고 다시 연결해 주세요','bad'); } break; }
+      finally{ try{ H.reader.releaseLock(); }catch(e){} } }
+    if(H.on) close(true); })();
+}
+async function close(lost){
+  H.on=false; clearInterval(H.auto); $('tAuto').checked=false;
+  try{ if(H.reader) await H.reader.cancel(); }catch(e){} try{ if(H.port) await H.port.close(); }catch(e){}
+  H.port=null; $('btnConn').textContent='허브 연결'; ['btnScan','btnAuto','tStart','tData','tStop'].forEach(id=>$(id).disabled=true);
+  if(!lost) gw('허브 연결 안 됨'); draw();
+}
+// 번호 바꾸기 (assign 지금 새) — 응답 RXB,새,주소,05새 → 같은 주소의 옛 번호 줄은 지움
+async function assign(from,to){
+  if(from===to) return;
+  if(H.ropes[to]&&!confirm(to+'번 줄넘기가 이미 있어요. 같은 번호가 두 개가 되는데 그래도 바꿀까요?')) return;
+  msg(`${from}번 → ${to}번으로 바꾸는 중…`);
+  await send(`assign ${from} ${to}`);
+  setTimeout(()=>{ send('getRole all'); setTimeout(()=>send('showId '+to),700); msg(`${from}번을 ${to}번으로 바꿨어요 — 줄넘기 화면에 새 번호가 떠요`,'ok'); },900);
+}
+// 차례로 다시 매기기: 겹치지 않게 먼저 임시 번호(90번대)로 옮긴 뒤 시작 번호부터
+async function renumber(){
+  const rs=Object.values(H.ropes).filter(r=>r.seen&&Date.now()-r.seen<ON_MS).sort((a,b)=>a.n-b.n), s=+$('startNo').value||1;
+  if(!rs.length){ msg('연결된 줄넘기가 없어요 — "전체 스캔"을 먼저 눌러요','bad'); return; }
+  if(s+rs.length-1>89){ msg('번호가 너무 커요','bad'); return; }
+  if(!confirm(`연결된 줄넘기 ${rs.length}개를 지금 번호 순서대로 ${s}번부터 ${s+rs.length-1}번까지 다시 매길까요?`)) return;
+  const wait=ms=>new Promise(r=>setTimeout(r,ms));
+  msg('다시 매기는 중… (줄넘기 하나에 1초쯤)');
+  const plan=rs.map((r,i)=>({from:r.n,tmp:90+i,to:s+i})).filter(p=>p.from!==p.to);
+  for(const p of plan){ await send(`assign ${p.from} ${p.tmp}`); await wait(700); }
+  for(const p of plan){ await send(`assign ${p.tmp} ${p.to}`); await wait(700); }
+  H.ropes={}; draw(); await wait(500); scan(); setTimeout(()=>send('showId all'),2000);
+  msg(`${s}번부터 다시 매겼어요 — 줄넘기 화면에 번호가 떠요`,'ok');
+}
+$('btnConn').onclick=connect;
+$('btnScan').onclick=scan;
+$('btnAuto').onclick=renumber;
+$('body').onclick=e=>{ const b=e.target.closest('[data-act]'); if(!b) return; const n=+b.closest('tr').dataset.n, act=b.dataset.act;
+  if(act==='assign'){ const v=+b.closest('tr').querySelector('[data-new]').value; if(!(v>=1&&v<=99)){ msg('번호는 1~99로 넣어 주세요','bad'); return; } assign(n,v); return; }
+  if(act==='powerOff'&&!confirm(n+'번 줄넘기 전원을 끌까요? (다시 켜려면 줄넘기 버튼을 눌러야 해요)')) return;
+  send(`${act} ${n}`); };
+$('body').onkeydown=e=>{ if(e.key==='Enter'&&e.target.matches('[data-new]')) e.target.closest('tr').querySelector('[data-act=assign]').click(); };
+$('tStart').onclick=async()=>{ Object.values(H.ropes).forEach(r=>r.cnt=0); draw(); await send('free all'); setTimeout(()=>send('start all'),400); msg('시작했어요 — 뛰고 나서 "횟수 받기"를 눌러요','ok'); };
+$('tData').onclick=()=>{ const t=Date.now(); send('getData all'); setTimeout(()=>Object.values(H.ropes).forEach(r=>{ if(r.seen&&Date.now()-r.seen<ON_MS&&(r.seen<t)) send('getData '+r.n); }),800); };
+$('tStop').onclick=()=>{ send('stop all'); $('tAuto').checked=false; clearInterval(H.auto); };
+$('tAuto').onchange=()=>{ clearInterval(H.auto); if($('tAuto').checked) H.auto=setInterval(()=>send('getData all'),1200); };
+if(navigator.serial) navigator.serial.addEventListener('disconnect',e=>{ if(H.port&&e.target===H.port) close(true); });
+setInterval(()=>{ if(H.on) draw(); },5000);
+// 30초마다 조용히 연결 확인 (끊김 표시가 정확하게)
+setInterval(()=>{ if(H.on&&document.visibilityState==='visible') send('getRole all'); },30000);
+</script>
+</body>
+</html>
