@@ -63,9 +63,20 @@
   <div class="card">
     <h2>보내기 <span class="muted" style="font-weight:500">(명령을 알게 되면 시험할 때만 — 모르면 쓰지 마세요)</span></h2>
     <div class="row">
-      <select id="sendMode"><option value="hex">16진수 (예: AA 01 00 55)</option><option value="text">글자 (줄 끝에 \r\n 붙임)</option></select>
-      <input type="text" id="sendData" style="flex:1;min-width:220px" placeholder="AA 01 00 55">
+      <select id="sendMode"><option value="text" selected>글자 (줄 끝에 \n 붙임)</option><option value="hex">16진수 (예: AA 01 00 55)</option></select>
+      <input type="text" id="sendData" style="flex:1;min-width:220px" placeholder="예: getData all">
       <button id="sendBtn" disabled>보내기</button>
+    </div>
+    <p class="muted" style="margin:10px 0 6px">빠른 명령 — 위에서부터 차례로 눌러 보세요</p>
+    <div class="row" style="flex-wrap:wrap;gap:6px">
+      <button data-cmd="getRole all">① 연결 확인 (getRole all)</button>
+      <button data-cmd="getBattery all">② 배터리 (getBattery all)</button>
+      <button data-cmd="free all">③ 자유 모드 (free all)</button>
+      <button data-cmd="start all">④ 시작 (start all)</button>
+      <button data-cmd="getData all">⑤ 횟수 받기 (getData all)</button>
+      <button data-cmd="stop all">⑥ 멈춤 (stop all)</button>
+      <button data-cmd="time all 30">30초 모드 (time all 30)</button>
+      <button data-cmd="vibrate all">진동 (vibrate all)</button>
     </div>
   </div>
 
@@ -105,7 +116,9 @@ $('mark').onclick=()=>{ marks++; log(`----------------- 표시 ${marks} --------
 $('clear').onclick=()=>{ lines=[]; n=0; $('cnt').textContent='0건'; $('log').textContent=''; };
 $('save').onclick=()=>{ const b=new Blob([$('info').textContent+'\n\n'+lines.join('\n')],{type:'text/plain'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='게이트웨이_신호_'+new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')+'.txt'; a.click(); };
 let sendFn=null;
-function parseSend(){ const v=$('sendData').value.trim(); if($('sendMode').value==='hex'){ const p=v.replace(/0x/gi,'').split(/[\s,]+/).filter(Boolean).map(h=>parseInt(h,16)); if(p.some(isNaN)) throw new Error('16진수가 아니에요'); return new Uint8Array(p); } return new TextEncoder().encode(v.replace(/\\r/g,'\r').replace(/\\n/g,'\n')+'\r\n'); }
+function parseSend(){ const v=$('sendData').value.trim(); if($('sendMode').value==='hex'){ const p=v.replace(/0x/gi,'').split(/[\s,]+/).filter(Boolean).map(h=>parseInt(h,16)); if(p.some(isNaN)) throw new Error('16진수가 아니에요'); return new Uint8Array(p); } return new TextEncoder().encode(v.replace(/\\r/g,'\r').replace(/\\n/g,'\n')+'\n'); }
+// 빠른 명령 (JUMPITNOW 허브 글자 명령: 명령 대상[ 값], 대상 = all | 줄넘기번호 | !주소)
+document.querySelectorAll('[data-cmd]').forEach(b=>b.onclick=async()=>{ if(!sendFn){ log('먼저 연결해 주세요'); return; } const d=new TextEncoder().encode(b.dataset.cmd+'\n'); try{ await sendFn(d); log('>> '+b.dataset.cmd); }catch(e){ log('보내기 실패: '+e.message); } });
 $('sendBtn').onclick=async()=>{ try{ const d=parseSend(); await sendFn(d); log('>> 보냄',d); }catch(e){ log('보내기 실패: '+e.message); } };
 function connected(kind,send){ sendFn=send; $('sendBtn').disabled=!send; log(`=== ${kind} 연결됨 — 이제 줄넘기를 켜고 돌려 보세요 ===`); }
 
