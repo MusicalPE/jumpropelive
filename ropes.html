@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 관리 v0.1.0</title>
+<title>줄넘기 관리 v0.1.1</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -65,7 +65,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
-    <div><h1>줄넘기 관리<span class="ver">v0.1.0</span></h1><p class="sub">전자 줄넘기 허브(USB)에 연결된 줄넘기 확인 · 번호 정하기 · 배터리</p></div>
+    <div><h1>줄넘기 관리<span class="ver">v0.1.1</span></h1><p class="sub">전자 줄넘기 허브(USB)에 연결된 줄넘기 확인 · 번호 정하기 · 배터리</p></div>
     <div class="spacer"></div>
     <span class="gw" id="gw"><span class="dot"></span><span id="gwT">허브 연결 안 됨</span></span>
     <button class="primary" id="btnConn">허브 연결</button>
@@ -124,7 +124,9 @@ function line(ln){
   const a=ln.trim().split(','), now=Date.now();
   if(a[0]==='GW'&&a[1]==='READY'){ gw('허브 연결됨','on'); msg('허브 준비 끝 — 줄넘기를 켜면 목록에 나와요. 안 보이면 "전체 스캔"을 눌러요','ok'); setTimeout(scan,500); return; }
   if(a[0]==='RXB'){ const r=rope(a[1]); if(!r) return; const old=Object.values(H.ropes).find(x=>x!==r&&x.addr&&x.addr===a[2]); if(old) delete H.ropes[old.n]; // 번호가 바뀐 줄넘기
-    r.addr=a[2]; r.seen=now; draw(); return; }
+    r.addr=a[2]; r.seen=now;
+    if(H.pend&&/^05/i.test(a[3]||'')&&+a[1]===H.pend.to){ clearTimeout(H.pend.t); msg(`${H.pend.from}번을 ${H.pend.to}번으로 바꿨어요 — 줄넘기 화면에 새 번호가 떠요`,'ok'); const to=H.pend.to; H.pend=null; setTimeout(()=>send('showId '+to),500); }
+    draw(); return; }
   if(a[0]==='ROLE'){ const r=rope(a[1]); if(r){ r.role=a[2]||''; r.seen=now; draw(); } return; }
   if(a[0]==='BATT'){ const r=rope(a[1]); if(r){ r.batt=+a[2]; r.seen=now; draw(); } return; }
   if(a[0]==='DATA'){ const r=rope(a[1]); if(r){ r.cnt=+a[3]; r.dur=+a[4]; r.seen=now; draw(); } return; }
@@ -176,8 +178,9 @@ async function assign(from,to){
   if(from===to) return;
   if(H.ropes[to]&&!confirm(to+'번 줄넘기가 이미 있어요. 같은 번호가 두 개가 되는데 그래도 바꿀까요?')) return;
   msg(`${from}번 → ${to}번으로 바꾸는 중…`);
+  if(H.pend) clearTimeout(H.pend.t);
+  H.pend={from,to,t:setTimeout(()=>{ H.pend=null; msg(`${from}번 줄넘기가 대답하지 않았어요 — 번호가 안 바뀌었을 수 있어요. 줄넘기가 켜져 있는지 보고 다시 해 보세요 (아래 "허브 대화 기록"에서 확인)`,'bad'); send('getRole all'); },3000)};
   await send(`assign ${from} ${to}`);
-  setTimeout(()=>{ send('getRole all'); setTimeout(()=>send('showId '+to),700); msg(`${from}번을 ${to}번으로 바꿨어요 — 줄넘기 화면에 새 번호가 떠요`,'ok'); },900);
 }
 // 차례로 다시 매기기: 겹치지 않게 먼저 임시 번호(90번대)로 옮긴 뒤 시작 번호부터
 async function renumber(){
