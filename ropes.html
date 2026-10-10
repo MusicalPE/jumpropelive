@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 관리 v0.1.1</title>
+<title>줄넘기 관리 v0.1.2</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -65,7 +65,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
-    <div><h1>줄넘기 관리<span class="ver">v0.1.1</span></h1><p class="sub">전자 줄넘기 허브(USB)에 연결된 줄넘기 확인 · 번호 정하기 · 배터리</p></div>
+    <div><h1>줄넘기 관리<span class="ver">v0.1.2</span></h1><p class="sub">전자 줄넘기 허브(USB)에 연결된 줄넘기 확인 · 번호 정하기 · 배터리</p></div>
     <div class="spacer"></div>
     <span class="gw" id="gw"><span class="dot"></span><span id="gwT">허브 연결 안 됨</span></span>
     <button class="primary" id="btnConn">허브 연결</button>
@@ -79,7 +79,7 @@
   <div class="card">
     <div class="bar">
       <h2>줄넘기 <small id="cnt">0개</small></h2>
-      <label class="num">시작 번호 <input type="number" id="startNo" min="1" max="99" value="1"></label>
+      <label class="num">시작 번호 <input type="number" id="startNo" min="1" max="40" value="1"></label>
       <button id="btnAuto" disabled title="연결된 줄넘기를 지금 번호 순서대로 시작 번호부터 다시 매겨요">번호 차례로 다시 매기기</button>
     </div>
     <div class="msg" id="msg">USB에 허브를 꽂고 "허브 연결" → "USB JTAG/serial debug unit"을 골라요. 크롬·엣지에서만 돼요. JUMPITNOW 사이트·점프 라이브에서 허브를 쓰고 있으면 먼저 해제해 주세요.</div>
@@ -112,7 +112,7 @@
    받음: GW,READY,n · RXB,번호,주소,hex(첫 바이트=종류) · ROLE,번호,역할 · BATT,번호,% · DATA,번호,모드,횟수,0.1초,멈춤 · TXB,…,OK */
 const $=id=>document.getElementById(id);
 const H={ port:null, reader:null, on:false, buf:'', ropes:{}, pollT:0, auto:0 };
-const ON_MS=45000, LOW=20;
+const ON_MS=45000, LOW=20, MAXID=40;   // 허브가 받는 줄넘기 번호: 1~40 (41 이상은 ERR,BAD_ID)
 const t0=performance.now();
 function log(s){ const el=$('log'); el.textContent+=((performance.now()-t0)/1000).toFixed(1).padStart(7)+'s  '+s+'\n'; if(el.textContent.length>60000) el.textContent=el.textContent.slice(-40000); el.scrollTop=el.scrollHeight; }
 function msg(t,c){ $('msg').textContent=t; $('msg').className='msg '+(c||''); }
@@ -127,6 +127,8 @@ function line(ln){
     r.addr=a[2]; r.seen=now;
     if(H.pend&&/^05/i.test(a[3]||'')&&+a[1]===H.pend.to){ clearTimeout(H.pend.t); msg(`${H.pend.from}번을 ${H.pend.to}번으로 바꿨어요 — 줄넘기 화면에 새 번호가 떠요`,'ok'); const to=H.pend.to; H.pend=null; setTimeout(()=>send('showId '+to),500); }
     draw(); return; }
+  if(a[0]==='ERR'){ if(H.pend){ clearTimeout(H.pend.t); H.pend=null; }
+    msg(a[1]==='BAD_ID'?`허브가 ${a[3]||''}번을 받지 않아요 — 줄넘기 번호는 1~${MAXID}번까지예요`:'허브 오류: '+ln,'bad'); H.err=ln; return; }
   if(a[0]==='ROLE'){ const r=rope(a[1]); if(r){ r.role=a[2]||''; r.seen=now; draw(); } return; }
   if(a[0]==='BATT'){ const r=rope(a[1]); if(r){ r.batt=+a[2]; r.seen=now; draw(); } return; }
   if(a[0]==='DATA'){ const r=rope(a[1]); if(r){ r.cnt=+a[3]; r.dur=+a[4]; r.seen=now; draw(); } return; }
@@ -147,7 +149,7 @@ function draw(){
     <td class="batt ${r.batt!=null&&r.batt<LOW?'low':''}">${r.batt==null?'—':r.batt+'%'}</td>
     <td class="hide-s">${r.role||'—'}<div class="addr">${r.addr?r.addr.split(':').slice(-2).join(':'):''}</div></td>
     <td>${r.cnt==null?'—':r.cnt+'회'}</td>
-    <td><div class="num"><input type="number" min="1" max="99" value="${r.n}" data-new><button data-act="assign">변경</button></div></td>
+    <td><div class="num"><input type="number" min="1" max="40" value="${r.n}" data-new><button data-act="assign">변경</button></div></td>
     <td><div class="ctl">${['buzzer','vibrate','showId','powerOff'].map(k=>`<button data-act="${k}" class="${k==='powerOff'?'off':''}" title="${{buzzer:'부저',vibrate:'진동',showId:'번호 표시',powerOff:'전원 끄기'}[k]}"><svg viewBox="0 0 24 24">${ICON[k]}</svg></button>`).join('')}</div></td></tr>`).join('')
     || `<tr><td colspan="7" class="empty">${H.on?'아직 줄넘기가 없어요 — 줄넘기를 켜고 "전체 스캔"을 눌러요':'허브를 연결하면 켜져 있는 줄넘기가 나와요'}</td></tr>`;
 }
@@ -182,17 +184,29 @@ async function assign(from,to){
   H.pend={from,to,t:setTimeout(()=>{ H.pend=null; msg(`${from}번 줄넘기가 대답하지 않았어요 — 번호가 안 바뀌었을 수 있어요. 줄넘기가 켜져 있는지 보고 다시 해 보세요 (아래 "허브 대화 기록"에서 확인)`,'bad'); send('getRole all'); },3000)};
   await send(`assign ${from} ${to}`);
 }
-// 차례로 다시 매기기: 겹치지 않게 먼저 임시 번호(90번대)로 옮긴 뒤 시작 번호부터
+// 차례로 다시 매기기: 시작 번호부터. 번호가 겹치면 비어 있는 번호(1~40)를 잠깐 거쳐 감
 async function renumber(){
   const rs=Object.values(H.ropes).filter(r=>r.seen&&Date.now()-r.seen<ON_MS).sort((a,b)=>a.n-b.n), s=+$('startNo').value||1;
   if(!rs.length){ msg('연결된 줄넘기가 없어요 — "전체 스캔"을 먼저 눌러요','bad'); return; }
-  if(s+rs.length-1>89){ msg('번호가 너무 커요','bad'); return; }
+  if(s<1||s+rs.length-1>MAXID){ msg(`번호가 ${MAXID}번을 넘어요 — 시작 번호를 줄여 주세요`,'bad'); return; }
   if(!confirm(`연결된 줄넘기 ${rs.length}개를 지금 번호 순서대로 ${s}번부터 ${s+rs.length-1}번까지 다시 매길까요?`)) return;
   const wait=ms=>new Promise(r=>setTimeout(r,ms));
   msg('다시 매기는 중… (줄넘기 하나에 1초쯤)');
-  const plan=rs.map((r,i)=>({from:r.n,tmp:90+i,to:s+i})).filter(p=>p.from!==p.to);
-  for(const p of plan){ await send(`assign ${p.from} ${p.tmp}`); await wait(700); }
-  for(const p of plan){ await send(`assign ${p.tmp} ${p.to}`); await wait(700); }
+  let todo=rs.map((r,i)=>({cur:r.n,to:s+i})).filter(p=>p.cur!==p.to);
+  const used=()=>new Set(Object.values(H.ropes).map(r=>r.n).concat(todo.map(p=>p.cur)));
+  let guard=0;
+  while(todo.length&&guard++<200){
+    const busy=new Set(todo.map(p=>p.cur)), free=todo.find(p=>!busy.has(p.to));
+    let p=free, dest;
+    if(p) dest=p.to;
+    else { // 서로 번호를 바꿔야 하는 경우: 빈 번호로 잠깐 옮김
+      p=todo[0]; const u=used(), targets=new Set(todo.map(x=>x.to)); dest=0;
+      for(let k=MAXID;k>=1;k--) if(!u.has(k)&&!targets.has(k)){ dest=k; break; }
+      if(!dest){ msg('빈 번호가 없어서 다시 매기지 못했어요','bad'); return; } }
+    H.err=''; await send(`assign ${p.cur} ${dest}`); await wait(800);
+    if(H.err){ msg('번호를 바꾸다 멈췄어요: '+H.err,'bad'); return; }
+    p.cur=dest; todo=todo.filter(x=>x.cur!==x.to);
+  }
   H.ropes={}; draw(); await wait(500); scan(); setTimeout(()=>send('showId all'),2000);
   msg(`${s}번부터 다시 매겼어요 — 줄넘기 화면에 번호가 떠요`,'ok');
 }
@@ -200,7 +214,7 @@ $('btnConn').onclick=connect;
 $('btnScan').onclick=scan;
 $('btnAuto').onclick=renumber;
 $('body').onclick=e=>{ const b=e.target.closest('[data-act]'); if(!b) return; const n=+b.closest('tr').dataset.n, act=b.dataset.act;
-  if(act==='assign'){ const v=+b.closest('tr').querySelector('[data-new]').value; if(!(v>=1&&v<=99)){ msg('번호는 1~99로 넣어 주세요','bad'); return; } assign(n,v); return; }
+  if(act==='assign'){ const v=+b.closest('tr').querySelector('[data-new]').value; if(!(v>=1&&v<=MAXID)){ msg('번호는 1~'+MAXID+'으로 넣어 주세요 (허브가 받는 번호)','bad'); return; } assign(n,v); return; }
   if(act==='powerOff'&&!confirm(n+'번 줄넘기 전원을 끌까요? (다시 켜려면 줄넘기 버튼을 눌러야 해요)')) return;
   send(`${act} ${n}`); };
 $('body').onkeydown=e=>{ if(e.key==='Enter'&&e.target.matches('[data-new]')) e.target.closest('tr').querySelector('[data-act=assign]').click(); };
