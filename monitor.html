@@ -695,7 +695,7 @@ function hubRender(){
   $('hubBody').innerHTML=rs.map(r=>{ const st=hubStudent(r.n), cur=st?skey(st.g,st.c,st.n):'', on=r.seen&&now-r.seen<20000;
     return `<tr data-n="${r.n}"><td class="no">${r.n}</td><td><select data-map>${S.groups.length?'':'<option value="">방을 먼저 열어요</option>'}${opts.map(([v,l])=>`<option value="${v}"${v===cur?' selected':''}>${esc(l)}</option>`).join('')}</select></td>
       <td><span class="dot ${on?'on':''}"></span>${on?'연결':'끊김'}</td><td>${r.batt==null?'—':r.batt+'%'}</td><td>${r.ctl?r.cnt:'—'}</td>
-      <td><button data-act="show" title="줄넘기 화면에 번호 띄우기">번호</button> <button data-act="vib">진동</button></td></tr>`; }).join('')
+      <td><button data-act="show" title="줄넘기 화면에 번호 띄우기">번호</button> <button data-act="vib">진동</button> <button data-act="num" title="이 줄넘기 번호 바꾸기">바꾸기</button></td></tr>`; }).join('')
     || '<tr><td colspan="6" style="color:var(--muted)">아직 줄넘기가 없어요 — 줄넘기를 켜거나 "줄넘기 찾기"를 눌러요</td></tr>';
 }
 async function hubConnect(){
