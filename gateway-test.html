@@ -80,6 +80,7 @@
       </div>
     </div>
     <p class="muted">"표시 넣기"를 누르고 줄넘기를 몇 번 돌리면, 기록에 "--- 표시 1 ---"이 끼어들어서 어느 신호가 그 행동 때문인지 알기 쉬워요. 예: 표시 → 3번 줄넘기 5회 돌리기 → 표시 → 7번 줄넘기 2회 …</p>
+    <div id="ropes" class="muted" style="margin:6px 0 10px;font-size:14px"></div>
     <pre id="log"></pre>
   </div>
 </div>
@@ -108,6 +109,19 @@ function parseSend(){ const v=$('sendData').value.trim(); if($('sendMode').value
 $('sendBtn').onclick=async()=>{ try{ const d=parseSend(); await sendFn(d); log('>> 보냄',d); }catch(e){ log('보내기 실패: '+e.message); } };
 function connected(kind,send){ sendFn=send; $('sendBtn').disabled=!send; log(`=== ${kind} 연결됨 — 이제 줄넘기를 켜고 돌려 보세요 ===`); }
 
+/* ---- 시리얼: 허브는 한 줄씩 글자로 보냄 (예: GW,READY,4 / RXB,1,주소,0301) → 줄 단위로 보여 주고 줄넘기별로 묶음 ---- */
+let serBuf='', ropes={};
+const dec=new TextDecoder();
+function serLines(value){
+  serBuf+=dec.decode(value,{stream:true});
+  let i; while((i=serBuf.indexOf('\n'))>=0){ const ln=serBuf.slice(0,i).replace(/\r$/,''); serBuf=serBuf.slice(i+1); if(!ln.trim()) continue;
+    const m=/^RXB,(\d+),([0-9a-f:]+),([0-9a-fA-F]*)$/.exec(ln.trim());
+    if(m){ const id=m[2].split(':').slice(-1)[0]; const r=ropes[id]=ropes[id]||{n:0,last:''}; r.n++; r.last=m[3];
+      log(`<< 줄넘기 ${id} · 채널 ${m[1]} · 내용 ${m[3]}   (${ln})`); n++; $('cnt').textContent=n+'건';
+      $('ropes').innerHTML='줄넘기별: '+Object.entries(ropes).map(([k,v])=>`<b>${k}</b> ${v.n}건 (마지막 ${v.last})`).join(' · '); }
+    else log('<< '+ln);
+  }
+}
 /* ---- 시리얼 ---- */
 let port=null, reader=null, serStop=false;
 $('serOpen').onclick=async()=>{
@@ -120,7 +134,7 @@ $('serOpen').onclick=async()=>{
     connected('시리얼', async d=>{ const w=port.writable.getWriter(); await w.write(d); w.releaseLock(); });
     while(port.readable&&!serStop){
       reader=port.readable.getReader();
-      try{ for(;;){ const {value,done}=await reader.read(); if(done) break; if(value&&value.length) log('<<',value); } }
+      try{ for(;;){ const {value,done}=await reader.read(); if(done) break; if(value&&value.length) serLines(value); } }
       catch(e){ log('읽기 오류: '+e.message+' (속도를 바꿔 다시 연결해 보세요)'); }
       finally{ reader.releaseLock(); }
     }
