@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 관리 v0.1.3</title>
+<title>줄넘기 관리 v0.1.4</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -65,11 +65,12 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
-    <div><h1>줄넘기 관리<span class="ver">v0.1.3</span></h1><p class="sub">전자 줄넘기 허브(USB)에 연결된 줄넘기 확인 · 번호 정하기 · 배터리</p></div>
+    <div><h1>줄넘기 관리<span class="ver">v0.1.4</span></h1><p class="sub">전자 줄넘기 허브(USB)에 연결된 줄넘기 확인 · 번호 정하기 · 배터리</p></div>
     <div class="spacer"></div>
     <span class="gw" id="gw"><span class="dot"></span><span id="gwT">허브 연결 안 됨</span></span>
     <button class="primary" id="btnConn">허브 연결</button>
     <button id="btnScan" disabled>전체 스캔</button>
+    <button id="btnBatt" disabled>배터리 확인</button>
   </header>
 
   <div class="card sum">
@@ -130,7 +131,7 @@ function line(ln){
   if(a[0]==='ERR'){ if(H.pend){ clearTimeout(H.pend.t); H.pend=null; }
     msg(a[1]==='BAD_ID'?`허브가 ${a[3]||''}번을 받지 않아요 — 줄넘기 번호는 1~${MAXID}번까지예요`:'허브 오류: '+ln,'bad'); H.err=ln; return; }
   if(a[0]==='ROLE'){ const r=rope(a[1]); if(r){ r.role=a[2]||''; r.seen=now; draw(); } return; }
-  if(a[0]==='BATT'){ const r=rope(a[1]); if(r){ r.batt=+a[2]; r.seen=now; draw(); } return; }
+  if(a[0]==='BATT'){ const r=rope(a[1]); if(r){ r.batt=+a[2]; r.battAt=now; r.seen=now; draw(); } return; }
   if(a[0]==='DATA'){ const r=rope(a[1]); if(r){ r.cnt=+a[3]; r.dur=+a[4]; r.seen=now; draw(); } return; }
 }
 const ICON={buzzer:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
@@ -153,14 +154,17 @@ function draw(){
     <td><div class="ctl">${['buzzer','vibrate','showId','powerOff'].map(k=>`<button data-act="${k}" class="${k==='powerOff'?'off':''}" title="${{buzzer:'부저',vibrate:'진동',showId:'번호 표시',powerOff:'전원 끄기'}[k]}"><svg viewBox="0 0 24 24">${ICON[k]}</svg></button>`).join('')}</div></td></tr>`).join('')
     || `<tr><td colspan="7" class="empty">${H.on?'아직 줄넘기가 없어요 — 줄넘기를 켜고 "전체 스캔"을 눌러요':'허브를 연결하면 켜져 있는 줄넘기가 나와요'}</td></tr>`;
 }
-function scan(){ send('getRole all'); setTimeout(()=>send('getBattery all'),900); }
+function scan(){ send('getRole all'); setTimeout(battery,1200); }
+// 배터리: 전체에 한 번 묻고, 대답 없는 줄넘기는 하나씩 다시
+function battery(){ const t=Date.now(); H.battAsk=t; send('getBattery all');
+  setTimeout(()=>{ Object.values(H.ropes).forEach((r,i)=>{ if(r.seen&&Date.now()-r.seen<ON_MS&&!(r.battAt>=t)) setTimeout(()=>send('getBattery '+r.n),i*250); }); },1500); }
 async function connect(){
   if(H.on){ await close(); return; }
   if(!('serial' in navigator)){ msg('이 브라우저는 USB 시리얼을 못 써요 — PC의 크롬이나 엣지에서 열어 주세요','bad'); return; }
   try{ H.port=await navigator.serial.requestPort(); await H.port.open({baudRate:115200,bufferSize:65536}); }
   catch(e){ H.port=null; if(e.name!=='NotFoundError') msg('허브를 열지 못했어요: '+e.message+' — 다른 창(JUMPITNOW·점프 라이브)이 허브를 쓰고 있으면 닫아 주세요','bad'); return; }
   H.on=true; H.buf=''; gw('허브 켜지는 중…'); msg('허브가 다시 켜져요 — 5~7초 기다려요');
-  $('btnConn').textContent='허브 끊기'; ['btnScan','btnAuto','tStart','tData','tStop'].forEach(id=>$(id).disabled=false);
+  $('btnConn').textContent='허브 끊기'; ['btnScan','btnBatt','btnAuto','tStart','tData','tStop'].forEach(id=>$(id).disabled=false);
   const dec=new TextDecoder();
   (async()=>{ while(H.on&&H.port&&H.port.readable){ H.reader=H.port.readable.getReader();
       try{ for(;;){ const {value,done}=await H.reader.read(); if(done) break; H.buf+=dec.decode(value,{stream:true}); let i;
@@ -172,7 +176,7 @@ async function connect(){
 async function close(lost){
   H.on=false; clearInterval(H.auto); $('tAuto').checked=false;
   try{ if(H.reader) await H.reader.cancel(); }catch(e){} try{ if(H.port) await H.port.close(); }catch(e){}
-  H.port=null; $('btnConn').textContent='허브 연결'; ['btnScan','btnAuto','tStart','tData','tStop'].forEach(id=>$(id).disabled=true);
+  H.port=null; $('btnConn').textContent='허브 연결'; ['btnScan','btnBatt','btnAuto','tStart','tData','tStop'].forEach(id=>$(id).disabled=true);
   if(!lost) gw('허브 연결 안 됨'); draw();
 }
 // 번호 바꾸기 (assign 지금 새) — 응답 RXB,새,주소,05새 → 같은 주소의 옛 번호 줄은 지움
@@ -212,6 +216,7 @@ async function renumber(){
 }
 $('btnConn').onclick=connect;
 $('btnScan').onclick=scan;
+$('btnBatt').onclick=battery;
 $('btnAuto').onclick=renumber;
 $('body').onclick=e=>{ const b=e.target.closest('[data-act]'); if(!b) return; const n=+b.closest('tr').dataset.n, act=b.dataset.act;
   if(act==='assign'){ const v=+b.closest('tr').querySelector('[data-new]').value; if(!(v>=1&&v<=MAXID)){ msg('번호는 1~'+MAXID+'으로 넣어 주세요 (허브가 받는 번호)','bad'); return; } assign(n,v); return; }
@@ -226,6 +231,7 @@ if(navigator.serial) navigator.serial.addEventListener('disconnect',e=>{ if(H.po
 setInterval(()=>{ if(H.on) draw(); },5000);
 // 30초마다 조용히 연결 확인 (끊김 표시가 정확하게)
 setInterval(()=>{ if(H.on&&document.visibilityState==='visible') send('getRole all'); },30000);
+setInterval(()=>{ if(H.on&&document.visibilityState==='visible') battery(); },120000);   // 2분마다 배터리
 </script>
 </body>
 </html>
