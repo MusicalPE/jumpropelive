@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 관리 v0.1.4</title>
+<title>줄넘기 관리 v0.1.5</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -65,7 +65,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
-    <div><h1>줄넘기 관리<span class="ver">v0.1.4</span></h1><p class="sub">전자 줄넘기 허브(USB)에 연결된 줄넘기 확인 · 번호 정하기 · 배터리</p></div>
+    <div><h1>줄넘기 관리<span class="ver">v0.1.5</span></h1><p class="sub">전자 줄넘기 허브(USB)에 연결된 줄넘기 확인 · 번호 정하기 · 배터리</p></div>
     <div class="spacer"></div>
     <span class="gw" id="gw"><span class="dot"></span><span id="gwT">허브 연결 안 됨</span></span>
     <button class="primary" id="btnConn">허브 연결</button>
@@ -98,6 +98,7 @@
       <button id="tData" disabled>횟수 받기</button>
       <button id="tStop" disabled>멈춤</button>
       <label class="num"><input type="checkbox" id="tAuto"> 1초마다 자동으로 받기</label>
+      <button id="tSolo" disabled title="허브 수업이 끝난 뒤 줄넘기가 '멈춤'으로 남아 있으면 혼자 뛸 때 안 세요 — 다시 세는 상태로">혼자 세기 상태로 돌려놓기</button>
     </div>
   </div>
 
@@ -164,7 +165,7 @@ async function connect(){
   try{ H.port=await navigator.serial.requestPort(); await H.port.open({baudRate:115200,bufferSize:65536}); }
   catch(e){ H.port=null; if(e.name!=='NotFoundError') msg('허브를 열지 못했어요: '+e.message+' — 다른 창(JUMPITNOW·점프 라이브)이 허브를 쓰고 있으면 닫아 주세요','bad'); return; }
   H.on=true; H.buf=''; gw('허브 켜지는 중…'); msg('허브가 다시 켜져요 — 5~7초 기다려요');
-  $('btnConn').textContent='허브 끊기'; ['btnScan','btnBatt','btnAuto','tStart','tData','tStop'].forEach(id=>$(id).disabled=false);
+  $('btnConn').textContent='허브 끊기'; ['btnScan','btnBatt','btnAuto','tStart','tData','tStop','tSolo'].forEach(id=>$(id).disabled=false);
   const dec=new TextDecoder();
   (async()=>{ while(H.on&&H.port&&H.port.readable){ H.reader=H.port.readable.getReader();
       try{ for(;;){ const {value,done}=await H.reader.read(); if(done) break; H.buf+=dec.decode(value,{stream:true}); let i;
@@ -174,9 +175,10 @@ async function connect(){
     if(H.on) close(true); })();
 }
 async function close(lost){
+  if(!lost&&H.on) await solo(true);   // 끊기 전에 혼자 세는 상태로
   H.on=false; clearInterval(H.auto); $('tAuto').checked=false;
   try{ if(H.reader) await H.reader.cancel(); }catch(e){} try{ if(H.port) await H.port.close(); }catch(e){}
-  H.port=null; $('btnConn').textContent='허브 연결'; ['btnScan','btnBatt','btnAuto','tStart','tData','tStop'].forEach(id=>$(id).disabled=true);
+  H.port=null; $('btnConn').textContent='허브 연결'; ['btnScan','btnBatt','btnAuto','tStart','tData','tStop','tSolo'].forEach(id=>$(id).disabled=true);
   if(!lost) gw('허브 연결 안 됨'); draw();
 }
 // 번호 바꾸기 (assign 지금 새) — 응답 RXB,새,주소,05새 → 같은 주소의 옛 번호 줄은 지움
@@ -226,6 +228,9 @@ $('body').onkeydown=e=>{ if(e.key==='Enter'&&e.target.matches('[data-new]')) e.t
 $('tStart').onclick=async()=>{ Object.values(H.ropes).forEach(r=>r.cnt=0); draw(); await send('free all'); setTimeout(()=>send('start all'),400); msg('시작했어요 — 뛰고 나서 "횟수 받기"를 눌러요','ok'); };
 $('tData').onclick=()=>{ const t=Date.now(); send('getData all'); setTimeout(()=>Object.values(H.ropes).forEach(r=>{ if(r.seen&&Date.now()-r.seen<ON_MS&&(r.seen<t)) send('getData '+r.n); }),800); };
 $('tStop').onclick=()=>{ send('stop all'); $('tAuto').checked=false; clearInterval(H.auto); };
+// 줄넘기를 '자유 모드 + 시작' 상태로: 허브 없이 혼자 뛰어도(줄넘기 화면·앱) 세어짐
+async function solo(quiet){ clearInterval(H.auto); $('tAuto').checked=false; await send('free all'); await new Promise(r=>setTimeout(r,400)); await send('start all'); await new Promise(r=>setTimeout(r,300)); if(!quiet) msg('줄넘기를 혼자 세는 상태로 돌려놨어요 — 이제 허브 없이 뛰어도 줄넘기 화면에 숫자가 올라가요','ok'); }
+$('tSolo').onclick=()=>solo();
 $('tAuto').onchange=()=>{ clearInterval(H.auto); if($('tAuto').checked) H.auto=setInterval(()=>send('getData all'),1200); };
 if(navigator.serial) navigator.serial.addEventListener('disconnect',e=>{ if(H.port&&e.target===H.port) close(true); });
 setInterval(()=>{ if(H.on) draw(); },5000);
