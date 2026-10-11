@@ -41,6 +41,21 @@
     <input id="extra" style="width:100%" placeholder="예: 0000ffe0-0000-1000-8000-00805f9b34fb, 6e400001-b5a3-f393-e0a9-e50e24dcca9e">
   </div>
 
+  <div class="card" id="ropeCard">
+    <h2>JUMPITNOW 줄넘기 직접 세기</h2>
+    <p class="muted" style="margin:0 0 10px">연결한 뒤 "자유 시작"을 누르고 뛰면 아래 숫자가 올라가요 (앱의 "자유"와 같은 명령).</p>
+    <div class="row">
+      <button class="primary" id="rFree" disabled>자유 시작</button>
+      <button id="rCd" disabled title="앱의 카운트다운 (시험용)">카운트다운 시작</button>
+      <button id="rStop" disabled>멈춤</button>
+    </div>
+    <div style="display:flex;gap:28px;align-items:baseline;margin-top:14px">
+      <div><span class="muted">횟수</span><div id="rCnt" style="font-size:64px;font-weight:900;line-height:1">—</div></div>
+      <div><span class="muted">시간</span><div id="rSec" style="font-size:28px;font-weight:800">—</div></div>
+      <div><span class="muted">상태</span><div id="rSt" style="font-size:18px;font-weight:700">연결 전</div></div>
+    </div>
+  </div>
+
   <div class="card">
     <h2>2. 찾은 서비스·칸</h2>
     <div id="tree" class="muted">연결하면 줄넘기가 가진 서비스와 칸(특성)이 나와요. "알림" 칸은 자동으로 듣기 시작해요.</div>
@@ -90,7 +105,7 @@ $('btnPick').onclick=async()=>{
     if($('allDev').checked) opt.acceptAllDevices=true; else opt.filters=[{namePrefix:'J'},{namePrefix:'j'}];
     dev=await navigator.bluetooth.requestDevice(opt);
     log(`=== 고른 기기: ${dev.name||'(이름 없음)'}  id=${dev.id} ===`);
-    dev.addEventListener('gattserverdisconnected',()=>{ log('=== 연결 끊김 ==='); $('btnOff').disabled=true; });
+    dev.addEventListener('gattserverdisconnected',()=>{ log('=== 연결 끊김 ==='); $('btnOff').disabled=true; ['rFree','rCd','rStop'].forEach(id=>$(id).disabled=true); $('rSt').textContent='끊김'; TX=RX=null; });
     const gatt=await dev.gatt.connect(); log('=== 연결됨 — 서비스 찾는 중 ===');
     $('btnOff').disabled=false;
     let svcs=[]; try{ svcs=await gatt.getPrimaryServices(); }catch(e){ log('서비스를 못 찾았어요: '+e.message); }
@@ -111,8 +126,36 @@ $('btnPick').onclick=async()=>{
     $('wChar').innerHTML=writable.length?writable.map((w,i)=>`<option value="${i}">${w.tag}</option>`).join(''):'<option value="">쓸 수 있는 칸 없음</option>';
     $('btnW').disabled=!writable.length;
     log(`=== 서비스 ${svcs.length}개 · 이제 줄넘기를 돌려 보세요 ===`);
+    if(svcs.some(s=>short(s.uuid)==='fff0')) ropeSetup(gatt);
   }catch(e){ log('연결 실패: '+e.message); }
 };
+/* JUMPITNOW 블루투스 (안드로이드 앱 기록에서 확인):
+   서비스 FFF0 · 쓰기 FFF6 · 알림 FFF7 · 보내는 명령은 16바이트, 끝 바이트 = 앞 15바이트 합(하위 8비트)
+   01 YY MM DD hh mm ss (숫자를 16진 자리로 그대로: 2026-10-11 → 26 10 11) = 시간 맞추기
+   09 04 = 자유 시작 → 답 0B 04 / 09 03 01 = 카운트다운 시작 → 답 09 33 / 09 99 = 멈춤 → 답 09 C9
+   뛰는 동안 1초마다 알림: 09 모드 값 초 [횟수 4바이트] … (모드 04 자유, 03 카운트다운) */
+let RX=null, TX=null;
+function frame(bytes){ const f=new Uint8Array(16); bytes.forEach((b,i)=>f[i]=b); let s=0; for(let i=0;i<15;i++) s+=f[i]; f[15]=s&255; return f; }
+const bcd=n=>parseInt(String(n).padStart(2,'0'),16);
+async function rsend(bytes,label){ if(!TX) return; const f=frame(bytes); try{ await TX.writeValue(f); log('>> '+label,f); }catch(e){ log('보내기 실패 '+label+': '+e.message); } }
+function rparse(v){
+  if(v[0]===0x09&&v.length>=8&&(v[1]===0x04||v[1]===0x03||v[1]===0x05)){
+    const sec=v[1]===0x04?(v[2]<<8|v[3]):v[3], cnt=((v[4]<<24)|(v[5]<<16)|(v[6]<<8)|v[7])>>>0;
+    $('rCnt').textContent=cnt; $('rSec').textContent=sec+'초'; $('rSt').textContent=v[1]===0x04?'자유 · 세는 중':'카운트다운 · 세는 중'; return; }
+  if(v[0]===0x0b&&v[1]===0x04){ $('rSt').textContent='자유 시작됨 — 뛰어 보세요'; $('rCnt').textContent='0'; return; }
+  if(v[0]===0x09&&v[1]===0x33){ $('rSt').textContent='카운트다운 시작됨'; return; }
+  if(v[0]===0x09&&v[1]===0xc9){ $('rSt').textContent='멈춤'; return; }
+}
+async function ropeSetup(gatt){
+  try{ const sv=await gatt.getPrimaryService(0xfff0); TX=await sv.getCharacteristic(0xfff6); RX=await sv.getCharacteristic(0xfff7);
+    RX.addEventListener('characteristicvaluechanged',ev=>rparse(new Uint8Array(ev.target.value.buffer))); try{ await RX.startNotifications(); }catch(e){}
+    ['rFree','rCd','rStop'].forEach(id=>$(id).disabled=false); $('rSt').textContent='연결됨 — 자유 시작을 눌러요';
+    const d=new Date(); await rsend([0x01,bcd(d.getFullYear()%100),bcd(d.getMonth()+1),bcd(d.getDate()),bcd(d.getHours()%12),bcd(d.getMinutes()),bcd(d.getSeconds())],'시간 맞추기');
+  }catch(e){ log('JUMPITNOW 칸을 못 찾았어요: '+e.message); }
+}
+$('rFree').onclick=()=>rsend([0x09,0x04],'자유 시작');
+$('rCd').onclick=()=>rsend([0x09,0x03,0x01],'카운트다운 시작');
+$('rStop').onclick=()=>rsend([0x09,0x99],'멈춤');
 $('btnOff').onclick=()=>{ try{ dev&&dev.gatt.disconnect(); }catch(e){} };
 $('btnW').onclick=async()=>{ const w=writable[+$('wChar').value]; if(!w) return;
   try{ const v=$('wData').value.trim(); const d=$('wMode').value==='hex'?new Uint8Array(v.replace(/0x/gi,'').split(/[\s,]+/).filter(Boolean).map(h=>parseInt(h,16))):new TextEncoder().encode(v);
