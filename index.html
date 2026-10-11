@@ -50,7 +50,7 @@
   /* 무대 */
   .stage{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:minmax(0,1fr);gap:20px}
   /* 블루투스 줄넘기로 들어온 학생: 카메라 관련 칸은 숨기고 숫자만 크게 */
-  body.rope .camSlot, body.rope .meterBox, body.rope .compare, body.rope #btnBig, body.rope #btnFlip, body.rope .stats .stat:not(:first-child), body.rope footer label:first-of-type{display:none!important}
+  body.rope .camSlot, body.rope .meterBox, body.rope .compare, body.rope #btnBig, body.rope #btnFlip, body.rope .stats, body.rope footer label:first-of-type{display:none!important}
   body.rope .stage{grid-template-columns:1fr!important;grid-template-rows:minmax(0,1fr)!important}
   .ropeBtn{margin-top:10px;background:#fff;border:2px solid #2BB3A3;color:#0E8F85;font-weight:800}
   .ropeRe{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:30;background:#0E8F85;color:#fff;border:0;font-weight:800;padding:14px 22px;border-radius:14px;box-shadow:0 6px 18px rgba(0,0,0,.18)}
@@ -1013,8 +1013,8 @@ function ropeOnData(ev){
   if(!ROPE.armed){ if(c<=2||sec<=2) ROPE.armed=true; else return; }   // 시작 명령 전에 세던 숫자는 버림
   if(c!==ROPE.cnt){ ROPE.lastUp=performance.now(); ROPE.cnt=c; const n=ROPE.base+c, prev=det.count;
     if(n!==prev){ det.count=lastCount=n; ropeShow(); if(n>prev){ beep(880,0.05,0.1); if(Math.floor(n/10)>Math.floor(prev/10)) celebrate(Math.floor(n/10)*10); } } }
-  const m=Math.floor(sec/60), s2=sec%60; $('time').textContent=m+':'+String(s2).padStart(2,'0');
-  ropeStatus('줄넘기가 세는 중','jump'); livePush();
+  const m=Math.floor(sec/60), s2=sec%60, tt=m+':'+String(s2).padStart(2,'0'); $('time').textContent=tt;
+  ropeStatus('줄넘기가 세는 중 · '+tt,'jump'); livePush();
 }
 async function ropeConnect(){
   if(ROPE.busy) return; ROPE.busy=true; $('ropeRe').hidden=true;
