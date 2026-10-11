@@ -747,7 +747,7 @@ function hubModeCmd(){ const m=$('hubMode').value, dur=+$('selDur').value, n=Mat
   return {m:'free',cmd:'free all'}; }
 function hubModeUi(){ const m=$('hubMode').value, dur=+$('selDur').value; $('hubTgtWrap').hidden=m!=='count';
   const tip=m==='time'?(dur>0?`회차 시간 ${dur>=60?dur/60+'분':dur+'초'}이 되면 줄넘기가 스스로 멈춰요 (시간은 화면 위 회차 시간에서 골라요)`:'회차 시간이 "제한 없음"이면 자유로 세요 — 위에서 시간을 골라요')
-    :m==='count'?'정한 횟수가 되면 줄넘기가 스스로 멈춰요. 먼저 닿은 친구가 순위 위로 와요(같은 횟수면 빨리 닿은 순). 모두 닿으면 회차가 저절로 끝나요':'';
+    :m==='count'?'정한 횟수가 되면 줄넘기가 스스로 멈춰요. 빨리 닿은 순서로 순위가 나오고, 모두 닿으면 회차가 저절로 끝나요'+(dur>0?` · 회차 시간(${dur>=60?dur/60+'분':dur+'초'})이 먼저 지나면 거기서 끝나요 — 끝까지 하려면 시간을 "제한 없음"으로`:''):'';
   $('hubModeTip').textContent=tip; $('hubModeTip').hidden=!tip;
   try{ localStorage.setItem('jl_hubmode',JSON.stringify({m,n:+$('hubTarget').value||100})); }catch(e){} }
 function hubOnGo(id){ if(!HUB.on) return; HUB.runId=id; HUB.mode=hubModeCmd(); HUB.autoEnd=false;
