@@ -278,7 +278,7 @@
   <div class="mh">줄넘기 허브 <span class="hst" id="hubSt">연결 안 됨</span><button class="x" id="hubX">닫기</button></div>
   <div class="hr"><button class="primary" id="hubConn">허브 연결</button><button id="hubRole" disabled>줄넘기 찾기</button><button id="hubBatt" disabled>배터리</button><button id="hubVib" disabled>모두 진동</button><button id="hubAuto" disabled hidden>전체 자동번호</button></div>
   <label class="hr"><input type="checkbox" id="hubBuzz" checked> 시작·끝에 줄넘기 진동</label>
-  <div class="hr">줄넘기 세기 <select id="hubMode"><option value="free">자유 — 그냥 세기</option><option value="time">목표 시간 — 회차 시간이 되면 줄넘기가 스스로 멈춤</option><option value="count">목표 횟수 — 정한 횟수에 줄넘기가 스스로 멈춤</option></select>
+  <div class="hr">줄넘기 세기 <select id="hubMode"><option value="free">자유</option><option value="time">목표 시간</option><option value="count">목표 횟수</option></select>
     <span id="hubTgtWrap" hidden><input type="number" id="hubTarget" min="1" max="9999" value="100" style="width:80px">회</span></div>
   <div class="hst" id="hubModeTip" hidden></div>
   <div class="hlist"><table><thead><tr><th>번호</th><th>학생</th><th>상태</th><th>배터리</th><th>횟수</th><th></th></tr></thead><tbody id="hubBody"></tbody></table></div>
@@ -735,8 +735,8 @@ function hubModeCmd(){ const m=$('hubMode').value, dur=+$('selDur').value, n=Mat
   if(m==='count'&&n) return {m:'count',n,cmd:'count all '+n};
   return {m:'free',cmd:'free all'}; }
 function hubModeUi(){ const m=$('hubMode').value, dur=+$('selDur').value; $('hubTgtWrap').hidden=m!=='count';
-  const tip=m==='time'?(dur>0?`회차 시간(${dur}초)이 되면 줄넘기가 스스로 멈춰요 — 줄넘기마다 시간이 똑같이 끊겨요`:'회차 시간이 "제한 없음"이면 자유로 세요 — 위에서 시간을 골라요')
-    :m==='count'?'정한 횟수에 먼저 닿은 친구가 순위 위로 와요(같은 횟수면 빨리 닿은 순). 모두 닿으면 회차가 저절로 끝나요':'';
+  const tip=m==='time'?(dur>0?`회차 시간 ${dur>=60?dur/60+'분':dur+'초'}이 되면 줄넘기가 스스로 멈춰요 (시간은 화면 위 회차 시간에서 골라요)`:'회차 시간이 "제한 없음"이면 자유로 세요 — 위에서 시간을 골라요')
+    :m==='count'?'정한 횟수가 되면 줄넘기가 스스로 멈춰요. 먼저 닿은 친구가 순위 위로 와요(같은 횟수면 빨리 닿은 순). 모두 닿으면 회차가 저절로 끝나요':'';
   $('hubModeTip').textContent=tip; $('hubModeTip').hidden=!tip;
   try{ localStorage.setItem('jl_hubmode',JSON.stringify({m,n:+$('hubTarget').value||100})); }catch(e){} }
 function hubOnGo(id){ if(!HUB.on) return; HUB.runId=id; HUB.mode=hubModeCmd(); HUB.autoEnd=false;
