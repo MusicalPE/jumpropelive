@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 관리 v0.1.5</title>
+<title>줄넘기 관리 v0.1.6</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -65,7 +65,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
-    <div><h1>줄넘기 관리<span class="ver">v0.1.5</span></h1><p class="sub">전자 줄넘기 허브(USB)에 연결된 줄넘기 확인 · 번호 정하기 · 배터리</p></div>
+    <div><h1>줄넘기 관리<span class="ver">v0.1.6</span></h1><p class="sub">전자 줄넘기 허브(USB)에 연결된 줄넘기 확인 · 번호 정하기 · 배터리</p></div>
     <div class="spacer"></div>
     <span class="gw" id="gw"><span class="dot"></span><span id="gwT">허브 연결 안 됨</span></span>
     <button class="primary" id="btnConn">허브 연결</button>
@@ -94,6 +94,8 @@
     <div class="bar"><h2>횟수 시험</h2></div>
     <p class="sub" style="margin:0 0 10px">줄넘기가 잘 세는지 확인할 때: 시작 → 뛰기 → 횟수 받기 → 멈춤</p>
     <div class="test">
+      <select id="tMode" title="세는 방식"><option value="free">자유</option><option value="time">목표 시간</option><option value="count">목표 횟수</option></select>
+      <input type="number" id="tVal" min="1" max="9999" value="30" style="width:76px" hidden><span id="tUnit" hidden>초</span>
       <button id="tStart" disabled>시작 (모두)</button>
       <button id="tData" disabled>횟수 받기</button>
       <button id="tStop" disabled>멈춤</button>
@@ -225,7 +227,11 @@ $('body').onclick=e=>{ const b=e.target.closest('[data-act]'); if(!b) return; co
   if(act==='powerOff'&&!confirm(n+'번 줄넘기 전원을 끌까요? (다시 켜려면 줄넘기 버튼을 눌러야 해요)')) return;
   send(`${act} ${n}`); };
 $('body').onkeydown=e=>{ if(e.key==='Enter'&&e.target.matches('[data-new]')) e.target.closest('tr').querySelector('[data-act=assign]').click(); };
-$('tStart').onclick=async()=>{ Object.values(H.ropes).forEach(r=>r.cnt=0); draw(); await send('free all'); setTimeout(()=>send('start all'),400); msg('시작했어요 — 뛰고 나서 "횟수 받기"를 눌러요','ok'); };
+$('tMode').onchange=()=>{ const m=$('tMode').value; $('tVal').hidden=$('tUnit').hidden=m==='free'; $('tUnit').textContent=m==='time'?'초':'회'; if(m==='time'&&!(+$('tVal').value<=600)) $('tVal').value=30; };
+$('tStart').onclick=async()=>{ Object.values(H.ropes).forEach(r=>r.cnt=0); draw();
+  const m=$('tMode').value, v=Math.max(1,Math.min(9999,Math.round(+$('tVal').value||0)));
+  await send(m==='free'?'free all':`${m} all ${v}`); setTimeout(()=>send('start all'),400);
+  msg(m==='free'?'시작했어요 — 뛰고 나서 "횟수 받기"를 눌러요':m==='time'?`${v}초 뒤에 줄넘기가 스스로 멈춰요 — 뛰고 나서 "횟수 받기"`:`${v}회가 되면 줄넘기가 스스로 멈춰요 — 뛰고 나서 "횟수 받기"`,'ok'); };
 $('tData').onclick=()=>{ const t=Date.now(); send('getData all'); setTimeout(()=>Object.values(H.ropes).forEach(r=>{ if(r.seen&&Date.now()-r.seen<ON_MS&&(r.seen<t)) send('getData '+r.n); }),800); };
 $('tStop').onclick=()=>{ send('stop all'); $('tAuto').checked=false; clearInterval(H.auto); };
 // 줄넘기를 '자유 모드 + 시작' 상태로: 허브 없이 혼자 뛰어도(줄넘기 화면·앱) 세어짐

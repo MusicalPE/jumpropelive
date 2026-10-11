@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.4.1</title>
+<title>점프 라이브 v0.4.2</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -184,7 +184,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.4.1</span></h1>
+    <h1>점프 라이브<span class="ver">v0.4.2</span></h1>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <div class="me" id="me" hidden><span id="meName"></span><button id="btnOut">로그아웃</button></div>
@@ -278,6 +278,9 @@
   <div class="mh">줄넘기 허브 <span class="hst" id="hubSt">연결 안 됨</span><button class="x" id="hubX">닫기</button></div>
   <div class="hr"><button class="primary" id="hubConn">허브 연결</button><button id="hubRole" disabled>줄넘기 찾기</button><button id="hubBatt" disabled>배터리</button><button id="hubVib" disabled>모두 진동</button><button id="hubAuto" disabled hidden>전체 자동번호</button></div>
   <label class="hr"><input type="checkbox" id="hubBuzz" checked> 시작·끝에 줄넘기 진동</label>
+  <div class="hr">줄넘기 세기 <select id="hubMode"><option value="free">자유 — 그냥 세기</option><option value="time">목표 시간 — 회차 시간이 되면 줄넘기가 스스로 멈춤</option><option value="count">목표 횟수 — 정한 횟수에 줄넘기가 스스로 멈춤</option></select>
+    <span id="hubTgtWrap" hidden><input type="number" id="hubTarget" min="1" max="9999" value="100" style="width:80px">회</span></div>
+  <div class="hst" id="hubModeTip" hidden></div>
   <div class="hlist"><table><thead><tr><th>번호</th><th>학생</th><th>상태</th><th>배터리</th><th>횟수</th><th></th></tr></thead><tbody id="hubBody"></tbody></table></div>
   <div class="hst" id="hubMsg">USB에 허브를 꽂고 "허브 연결" → 목록에서 "USB JTAG/serial debug unit"을 골라요. 크롬·엣지에서만 돼요. JUMPITNOW 사이트에서는 허브를 먼저 해제해 주세요.</div>
   <div class="hst">줄넘기 번호 정하기·배터리 점검은 <a href="ropes.html" target="_blank" rel="noopener">줄넘기 관리</a>에서 (이 창에서 허브를 끊고 열어요)</div>
@@ -305,7 +308,7 @@
    서버에 올라가는 것: 방 주인(로그인 ID), 학년·반·인원, 시작·끝 신호, 학생 기기별 학년·반·번호·횟수·상태. 이름은 이 컴퓨터에만.
    전송 방식은 BACKEND 하나에 모음 (Firebase / 시험 모드) — 나중에 다른 서버로 바꿀 때 이것만 바꾸면 됨
    ========================================================================================= */
-const VER='0.4.1';
+const VER='0.4.2';
 const FB_CONFIG={ apiKey:'AIzaSyDimPwJ974Pmn9wcgwFZFWUBQPaOra5chQ', authDomain:'jumpropelive.firebaseapp.com',
   databaseURL:'https://jumpropelive-default-rtdb.asia-southeast1.firebasedatabase.app', projectId:'jumpropelive',
   storageBucket:'jumpropelive.firebasestorage.app', messagingSenderId:'727527484238', appId:'1:727527484238:web:aaed6e0585ee7db7228c1f' };
@@ -675,7 +678,9 @@ function hubLine(ln){
   if(a[0]==='DATA'){ const r=hubRope(a[1]); if(!r) return; const c=+a[3]||0;
     if(!HUB.accept){ r.seen=now; return; }   // 회차 밖(개인 연습으로 돌려놓은 뒤)에 온 횟수는 바둑판에 안 씀
     r.seen=r.data=now; r.mode=+a[2]; r.dur=+a[4]||0;
-    if(c!==r.cnt){ r.lastUp=now; } r.cnt=c; r.ctl=HUB.runId; hubPush(); return; }
+    if(c!==r.cnt){ r.lastUp=now; } r.cnt=c; r.ctl=HUB.runId;
+    if(HUB.mode&&HUB.mode.m==='count'&&c>=HUB.mode.n&&!r.doneDs) r.doneDs=r.dur||Math.round((now-HUB.startAt)/100);
+    hubPush(); hubCheckGoal(); return; }
   if(a[0]==='BATT'){ const r=hubRope(a[1]); if(r){ r.batt=+a[2]; r.seen=now; hubRender(); } return; }
   if(a[0]==='ROLE'){ const r=hubRope(a[1]); if(r){ r.role=a[2]||''; r.seen=now; hubRender(); } return; }
   if(a[0]==='ASSIGN'||a[0]==='ASSIGNALL'){ hubMsg('번호를 바꿨어요: '+ln); setTimeout(()=>hubSend('getRole all'),800); return; }
@@ -696,7 +701,7 @@ function hubRender(){
   const rs=Object.values(HUB.ropes).sort((a,b)=>a.n-b.n), now=Date.now();
   $('hubBody').innerHTML=rs.map(r=>{ const st=hubStudent(r.n), cur=st?skey(st.g,st.c,st.n):'', on=r.seen&&now-r.seen<20000;
     return `<tr data-n="${r.n}"><td class="no">${r.n}</td><td><select data-map>${S.groups.length?'':'<option value="">방을 먼저 열어요</option>'}${opts.map(([v,l])=>`<option value="${v}"${v===cur?' selected':''}>${esc(l)}</option>`).join('')}</select></td>
-      <td><span class="dot ${on?'on':''}"></span>${on?'연결':'끊김'}</td><td>${r.batt==null?'—':r.batt+'%'}</td><td>${r.ctl?r.cnt:'—'}</td>
+      <td><span class="dot ${on?'on':''}"></span>${on?'연결':'끊김'}</td><td>${r.batt==null?'—':r.batt+'%'}</td><td>${r.ctl?r.cnt:'—'}${r.doneDs?' ✓':''}</td>
       <td><button data-act="show" title="줄넘기 화면에 번호 띄우기">번호</button> <button data-act="vib">진동</button> <button data-act="num" title="이 줄넘기 번호 바꾸기">바꾸기</button></td></tr>`; }).join('')
     || '<tr><td colspan="6" style="color:var(--muted)">아직 줄넘기가 없어요 — 줄넘기를 켜거나 "줄넘기 찾기"를 눌러요</td></tr>';
 }
@@ -724,7 +729,25 @@ async function hubClose(lost){
   hubSt(lost?'끊김':'연결 안 됨',lost?'bad':''); hubPush();
 }
 // 회차 흐름: 카운트다운 → free all / "시작!" → start all + 1초마다 getData / 끝 → stop all + 마지막 getData (빠진 줄넘기는 따로 다시)
-function hubOnGo(id){ if(!HUB.on) return; HUB.runId=id; Object.values(HUB.ropes).forEach(r=>{ r.cnt=0; r.ctl=''; r.lastUp=0; }); hubSend('stop all').then(()=>setTimeout(()=>hubSend('free all'),300)); hubPush(); }
+// 줄넘기 세기 방식: free(자유) · time(회차 시간만큼 뛰면 줄넘기가 멈춤) · count(정한 횟수에 줄넘기가 멈춤)
+function hubModeCmd(){ const m=$('hubMode').value, dur=+$('selDur').value, n=Math.max(1,Math.min(9999,Math.round(+$('hubTarget').value||0)));
+  if(m==='time'&&dur>0) return {m:'time',cmd:'time all '+dur};
+  if(m==='count'&&n) return {m:'count',n,cmd:'count all '+n};
+  return {m:'free',cmd:'free all'}; }
+function hubModeUi(){ const m=$('hubMode').value, dur=+$('selDur').value; $('hubTgtWrap').hidden=m!=='count';
+  const tip=m==='time'?(dur>0?`회차 시간(${dur}초)이 되면 줄넘기가 스스로 멈춰요 — 줄넘기마다 시간이 똑같이 끊겨요`:'회차 시간이 "제한 없음"이면 자유로 세요 — 위에서 시간을 골라요')
+    :m==='count'?'정한 횟수에 먼저 닿은 친구가 순위 위로 와요(같은 횟수면 빨리 닿은 순). 모두 닿으면 회차가 저절로 끝나요':'';
+  $('hubModeTip').textContent=tip; $('hubModeTip').hidden=!tip;
+  try{ localStorage.setItem('jl_hubmode',JSON.stringify({m,n:+$('hubTarget').value||100})); }catch(e){} }
+function hubOnGo(id){ if(!HUB.on) return; HUB.runId=id; HUB.mode=hubModeCmd(); HUB.autoEnd=false;
+  Object.values(HUB.ropes).forEach(r=>{ r.cnt=0; r.ctl=''; r.lastUp=0; r.doneDs=0; });
+  const cmd=HUB.mode.cmd; hubSend('stop all').then(()=>setTimeout(()=>hubSend(cmd),300)); hubPush(); }
+// 목표 횟수: 모든 허브 줄넘기가 닿고 카메라로 뛰는 기기가 없으면 회차를 끝냄
+function hubCheckGoal(){ if(!HUB.mode||HUB.mode.m!=='count'||HUB.autoEnd||S.ctl.ph!=='go') return;
+  const act=Object.values(HUB.ropes).filter(r=>r.ctl===HUB.runId&&hubStudent(r.n)&&r.seen&&Date.now()-r.seen<20000);
+  if(!act.length||act.some(r=>r.cnt<HUB.mode.n)) return;
+  if(Object.values(S.devs||{}).some(d=>d.ctl===S.ctl.id&&!d.hub)) return;
+  HUB.autoEnd=true; setTimeout(()=>{ if(S.ctl.ph==='go') end(); },800); }
 function hubOnStart(){ if(!HUB.on||!HUB.runId) return; HUB.startAt=Date.now(); HUB.accept=true; clearTimeout(HUB.freeT);
   Object.values(HUB.ropes).forEach(r=>{ r.ctl=HUB.runId; r.cnt=0; });
   hubSend('start all').then(()=>{ if($('hubBuzz').checked) setTimeout(()=>hubSend('vibrate all'),250); }); hubStartPoll(); hubPush(); }
@@ -745,6 +768,8 @@ function hubInit(){
   $('hubX').onclick=()=>{ $('hub').hidden=true; };
   $('hubConn').onclick=hubConnect;
   $('hubRole').onclick=()=>hubSend('getRole all');
+  try{ const hm=JSON.parse(localStorage.getItem('jl_hubmode')||'null'); if(hm){ $('hubMode').value=hm.m||'free'; $('hubTarget').value=hm.n||100; } }catch(e){}
+  $('hubMode').onchange=$('hubTarget').oninput=hubModeUi; $('selDur').addEventListener('change',hubModeUi); hubModeUi();
   $('hubBatt').onclick=()=>hubSend('getBattery all');
   $('hubVib').onclick=()=>hubSend('vibrate all');
   $('hubAuto').onclick=()=>{ if(confirm('켜져 있는 줄넘기 번호를 처음부터 다시 매길까요? (지금 번호가 바뀔 수 있어요)')){ HUB.ropes={}; hubRender(); hubSend('assignall'); } };
@@ -799,13 +824,18 @@ function clockTick(){
 }
 
 /* ---------- 결과 ---------- */
+// 목표 횟수에 닿은 시간(0.1초 단위, 허브 줄넘기만). 못 닿았으면 0
+function doneDs(r){ if(!HUB.mode||HUB.mode.m!=='count'||HUB.runId!==S.lastRun.id) return 0;
+  const rope=Object.values(HUB.ropes).find(x=>{ const st=hubStudent(x.n); return st&&x.ctl===HUB.runId&&st.g==r.g&&st.c==r.c&&st.n==r.n; });
+  return rope&&rope.doneDs||0; }
 function resultRows(){
-  return (S.rows||[]).filter(r=>r.pick&&r.pick.ctl===S.lastRun.id).sort((a,b)=>(b.cnt-a.cnt)||(a.g-b.g)||(a.c-b.c)||(a.n-b.n));
+  const fin=r=>doneDs(r)||1e9;
+  return (S.rows||[]).filter(r=>r.pick&&r.pick.ctl===S.lastRun.id).sort((a,b)=>(b.cnt-a.cnt)||(fin(a)-fin(b))||(a.g-b.g)||(a.c-b.c)||(a.n-b.n));
 }
 function showResult(){
   const rows=resultRows(), dur=S.lastRun.dur;
   let rank=0, prev=-1;
-  $('resBody').innerHTML=rows.map((r,i)=>{ if(r.cnt!==prev){ rank=i+1; prev=r.cnt; } return `<tr class="${rank<=3?'top':''}"><td>${rank}</td><td>${multi()?r.g+'-'+r.c+' · ':''}${r.n}</td><td>${esc(r.name)}</td><td class="c">${r.cnt}</td><td>${r.best}</td></tr>`; }).join('')
+  $('resBody').innerHTML=rows.map((r,i)=>{ const ds=doneDs(r), key=r.cnt+'|'+ds; if(key!==prev){ rank=i+1; prev=key; } return `<tr class="${rank<=3?'top':''}"><td>${rank}</td><td>${multi()?r.g+'-'+r.c+' · ':''}${r.n}</td><td>${esc(r.name)}</td><td class="c">${r.cnt}${ds?` <small style="font-weight:600;color:var(--muted)">${(ds/10).toFixed(1)}초에 도착</small>`:''}</td><td>${r.best}</td></tr>`; }).join('')
     || '<tr><td colspan="5" style="color:var(--muted)">이번 회차에 뛴 학생이 없어요</td></tr>';
   const got=new Set(rows.map(r=>r.k)), missing=(S.rows||[]).filter(r=>!got.has(r.k)).map(r=>multi()?`${r.g}-${r.c} ${r.n}`:r.n);
   $('resTitle').textContent=`${clsLabel(S.groups)} · ${dur?(dur>=60?dur/60+'분':dur+'초'):'제한 없음'} 결과`;
