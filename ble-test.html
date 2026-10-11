@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>줄넘기 블루투스 신호 읽기 (시험용)</title>
+<style>
+  :root{--bg:#F3F4F6;--card:#fff;--line:#E7E9EE;--ink:#1F2430;--muted:#7A8190;--accent:#FF6B5B;--mint:#2BB3A3;--red:#E5484D}
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:"Pretendard Variable",Pretendard,"Malgun Gothic",sans-serif;word-break:keep-all}
+  .wrap{max-width:900px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px}
+  h1{font-size:22px;margin:0} h2{font-size:17px;margin:0 0 10px} .muted{color:var(--muted);font-size:14px}
+  .pill{font-size:12px;background:#FFF0EE;color:#E2513F;border-radius:99px;padding:3px 9px;vertical-align:3px}
+  button{font:inherit;font-weight:700;border-radius:12px;padding:10px 14px;border:1px solid var(--line);background:#fff;cursor:pointer;min-height:44px}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button:disabled{opacity:.4}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  input,select{font:inherit;padding:8px 10px;border-radius:10px;border:1px solid var(--line)}
+  .ok{color:var(--mint);font-weight:700} .no{color:var(--red);font-weight:700}
+  pre{background:#1F2430;color:#D6DAE3;border-radius:12px;padding:12px;font-size:12px;max-height:55vh;overflow:auto;white-space:pre-wrap;word-break:break-all;margin:0}
+  #tree{font-size:13px;line-height:1.7} #tree code{font-size:12px;background:#F3F4F6;border-radius:6px;padding:1px 5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>줄넘기 블루투스 신호 읽기 <span class="pill">시험용</span></h1>
+    <p class="muted">줄넘기에 블루투스로 직접 붙어서 어떤 신호가 오는지 기록해요. <b>안드로이드 크롬</b>이나 <b>PC 크롬·엣지</b>에서 열어요 (아이폰은 안 돼요).<br>
+    시작 전에: 줄넘기가 <b>JUMPITNOW 앱·사이트에 블루투스로 연결돼 있으면 끊어 주세요</b> (한 번에 하나만 붙어요). 줄넘기는 켜 두세요.</p>
+    <p id="support" class="muted"></p>
+  </div>
+
+  <div class="card">
+    <h2>1. 줄넘기 연결</h2>
+    <div class="row">
+      <button class="primary" id="btnPick">줄넘기 찾기</button>
+      <button id="btnOff" disabled>끊기</button>
+      <label class="row muted" style="gap:4px"><input type="checkbox" id="allDev" checked> 모든 기기 보기</label>
+    </div>
+    <p class="muted" style="margin:10px 0 4px">목록에 이름이 안 보이면 줄넘기를 껐다 켜고 다시 찾아요. 알고 있는 서비스 번호(UUID)가 있으면 아래에 넣어요 (쉼표로 여러 개):</p>
+    <input id="extra" style="width:100%" placeholder="예: 0000ffe0-0000-1000-8000-00805f9b34fb, 6e400001-b5a3-f393-e0a9-e50e24dcca9e">
+  </div>
+
+  <div class="card">
+    <h2>2. 찾은 서비스·칸</h2>
+    <div id="tree" class="muted">연결하면 줄넘기가 가진 서비스와 칸(특성)이 나와요. "알림" 칸은 자동으로 듣기 시작해요.</div>
+  </div>
+
+  <div class="card">
+    <h2>3. 보내기 <span class="muted" style="font-weight:500">(형식을 알게 되면 시험할 때만)</span></h2>
+    <div class="row">
+      <select id="wChar" style="min-width:220px"><option value="">쓸 수 있는 칸 없음</option></select>
+      <select id="wMode"><option value="hex">16진수</option><option value="text">글자</option></select>
+      <input id="wData" style="flex:1;min-width:160px" placeholder="예: AA 01 00">
+      <button id="btnW" disabled>보내기</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between;margin-bottom:8px">
+      <h2 style="margin:0">받은 신호 <span class="pill" id="cnt">0건</span></h2>
+      <div class="row"><button id="mark">표시 넣기</button><button id="clear">지우기</button><button class="primary" id="save">기록 내려받기</button></div>
+    </div>
+    <pre id="log"></pre>
+  </div>
+  <p class="muted" style="text-align:center">시험 순서: 연결 → 표시 넣기 → 정확히 5번 뛰기 → 표시 넣기 → 10번 뛰기 → 기록 내려받기 · Made by 음악적체육인</p>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const t0=performance.now(); let lines=[], n=0, marks=0, dev=null, writable=[];
+const hex=b=>Array.from(b,x=>x.toString(16).padStart(2,'0').toUpperCase()).join(' ');
+const asc=b=>Array.from(b,x=>x>=32&&x<127?String.fromCharCode(x):'.').join('');
+function log(s,raw){ const tm=((performance.now()-t0)/1000).toFixed(3).padStart(9);
+  let line=`${tm}s  ${s}`; if(raw){ line+=`  [${raw.length}바이트]  ${hex(raw)}  |${asc(raw)}|`; n++; $('cnt').textContent=n+'건'; }
+  lines.push(line); const el=$('log'); el.textContent+=line+'\n'; el.scrollTop=el.scrollHeight; }
+// 표준 서비스 이름 (참고용)
+const STD={'1800':'일반 접근','1801':'일반 속성','180a':'기기 정보','180f':'배터리','1805':'시간','1816':'속도·회전','1826':'운동 기구','fe59':'노르딕 업데이트','ffe0':'공용 시리얼(ffe0)','fff0':'공용(fff0)'};
+const short=u=>{ const m=/^0000([0-9a-f]{4})-0000-1000-8000-00805f9b34fb$/.exec(u); return m?m[1]:u; };
+// 웹 블루투스는 미리 적어 둔 서비스만 열어 볼 수 있어서, 흔히 쓰이는 번호를 넓게 적어 둠
+const GUESS=['generic_access','generic_attribute','device_information','battery_service','current_time','cycling_speed_and_cadence','fitness_machine','heart_rate','user_data',
+  0xffe0,0xffe5,0xfff0,0xfff5,0xffd0,0xffc0,0xff00,0xff10,0xfee0,0xfee7,0xfe59,0xfe95,0xfeba,0xfd00,0x1814,0x1826,0x181c,0x1820,
+  '6e400001-b5a3-f393-e0a9-e50e24dcca9e','0000fe59-0000-1000-8000-00805f9b34fb','49535343-fe7d-4ae5-8fa9-9fafd205e455','0000abf0-0000-1000-8000-00805f9b34fb',
+  '00001523-1212-efde-1523-785feabcd123','0000ff01-0000-1000-8000-00805f9b34fb','4fafc201-1fb5-459e-8fcc-c5c9c331914b'];
+$('support').innerHTML='이 브라우저 블루투스: '+(navigator.bluetooth?'<span class="ok">가능</span>':'<span class="no">안 됨 — 안드로이드 크롬이나 PC 크롬에서 열어 주세요</span>');
+function extra(){ return $('extra').value.split(/[\s,]+/).map(s=>s.trim().toLowerCase()).filter(Boolean).map(s=>/^[0-9a-f]{4}$/.test(s)?parseInt(s,16):s); }
+$('btnPick').onclick=async()=>{
+  if(!navigator.bluetooth){ log('이 브라우저는 블루투스를 못 써요'); return; }
+  try{
+    const opt={optionalServices:GUESS.concat(extra())};
+    if($('allDev').checked) opt.acceptAllDevices=true; else opt.filters=[{namePrefix:'J'},{namePrefix:'j'}];
+    dev=await navigator.bluetooth.requestDevice(opt);
+    log(`=== 고른 기기: ${dev.name||'(이름 없음)'}  id=${dev.id} ===`);
+    dev.addEventListener('gattserverdisconnected',()=>{ log('=== 연결 끊김 ==='); $('btnOff').disabled=true; });
+    const gatt=await dev.gatt.connect(); log('=== 연결됨 — 서비스 찾는 중 ===');
+    $('btnOff').disabled=false;
+    let svcs=[]; try{ svcs=await gatt.getPrimaryServices(); }catch(e){ log('서비스를 못 찾았어요: '+e.message); }
+    let html=''; writable=[];
+    for(const s of svcs){
+      const su=short(s.uuid); html+=`<div><b>서비스</b> <code>${s.uuid}</code> ${STD[su]?'· '+STD[su]:''}</div>`;
+      let chs=[]; try{ chs=await s.getCharacteristics(); }catch(e){}
+      for(const c of chs){
+        const p=c.properties, props=[p.read&&'읽기',p.write&&'쓰기',p.writeWithoutResponse&&'쓰기(무응답)',p.notify&&'알림',p.indicate&&'지시'].filter(Boolean).join('·');
+        html+=`<div style="margin-left:16px">칸 <code>${c.uuid}</code> — ${props}</div>`;
+        const tag=`${su}/${short(c.uuid)}`;
+        if(p.read){ try{ const v=new Uint8Array((await c.readValue()).buffer); log(`읽음 ${tag}`,v); }catch(e){ log(`읽기 실패 ${tag}: ${e.message}`); } }
+        if(p.notify||p.indicate){ try{ await c.startNotifications(); c.addEventListener('characteristicvaluechanged',ev=>log(`<< ${tag}`,new Uint8Array(ev.target.value.buffer))); log(`알림 듣기 시작 ${tag}`); }catch(e){ log(`알림 실패 ${tag}: ${e.message}`); } }
+        if(p.write||p.writeWithoutResponse) writable.push({tag,c,wr:p.writeWithoutResponse&&!p.write});
+      }
+    }
+    $('tree').innerHTML=html||'열어 볼 수 있는 서비스가 없어요 — 줄넘기 서비스 번호를 알아야 해요 (아래 안내)';
+    $('wChar').innerHTML=writable.length?writable.map((w,i)=>`<option value="${i}">${w.tag}</option>`).join(''):'<option value="">쓸 수 있는 칸 없음</option>';
+    $('btnW').disabled=!writable.length;
+    log(`=== 서비스 ${svcs.length}개 · 이제 줄넘기를 돌려 보세요 ===`);
+  }catch(e){ log('연결 실패: '+e.message); }
+};
+$('btnOff').onclick=()=>{ try{ dev&&dev.gatt.disconnect(); }catch(e){} };
+$('btnW').onclick=async()=>{ const w=writable[+$('wChar').value]; if(!w) return;
+  try{ const v=$('wData').value.trim(); const d=$('wMode').value==='hex'?new Uint8Array(v.replace(/0x/gi,'').split(/[\s,]+/).filter(Boolean).map(h=>parseInt(h,16))):new TextEncoder().encode(v);
+    if(w.wr) await w.c.writeValueWithoutResponse(d); else await w.c.writeValue(d); log('>> 보냄 '+w.tag,d); }catch(e){ log('보내기 실패: '+e.message); } };
+$('mark').onclick=()=>{ marks++; log(`----------------- 표시 ${marks} -----------------`); };
+$('clear').onclick=()=>{ lines=[]; n=0; $('cnt').textContent='0건'; $('log').textContent=''; };
+$('save').onclick=()=>{ const b=new Blob([$('tree').innerText+'\n\n'+lines.join('\n')],{type:'text/plain'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='블루투스_신호_'+new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')+'.txt'; a.click(); };
+</script>
+</body>
+</html>
