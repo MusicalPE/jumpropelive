@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.4.5</title>
+<title>점프 라이브 v0.4.6</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -81,6 +81,7 @@
   @container (max-width:170px){ .tile .rt{display:none} .tile .dup .w{display:none} .tile .st{font-size:13px} }
   .tile.s-jump{border-color:var(--mint);background:var(--mint-soft)} .tile.s-jump .st{color:var(--mint)}
   .tile.s-jump .st::before{animation:pulse .8s ease-in-out infinite}
+  .tile.arrived{border-color:var(--amber)!important;background:var(--amber-soft)!important} .tile.arrived .st{color:#C77A12!important} .tile.arrived .st::before{animation:none}
   .tile.s-hand{border-color:var(--amber);background:var(--amber-soft)} .tile.s-hand .st{color:#C77A12}
   .tile.s-away,.tile.s-hidden{border-color:var(--red);background:var(--red-soft)} .tile.s-away .st,.tile.s-hidden .st{color:var(--red)}
   .tile.s-off{border-style:dashed;opacity:.6} .tile.s-off .st{color:var(--red)}
@@ -186,7 +187,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.4.5</span></h1>
+    <h1>점프 라이브<span class="ver">v0.4.6</span></h1>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <div class="me" id="me" hidden><span id="meName"></span><button id="btnOut">로그아웃</button></div>
@@ -239,8 +240,9 @@
       </div>
       <div class="spacer"></div>
       <span class="clock" id="clock"></span>
-      <label class="row" style="gap:6px;font-weight:700;color:var(--ink2)">시간
-        <select id="selDur"><option value="30">30초</option><option value="60" selected>1분</option><option value="120">2분</option><option value="180">3분</option><option value="0">제한 없음</option></select></label>
+      <label class="row" style="gap:6px;font-weight:700;color:var(--ink2)">목표
+        <select id="selDur"><optgroup label="시간"><option value="30">30초</option><option value="60" selected>1분</option><option value="120">2분</option><option value="180">3분</option><option value="0">제한 없음</option></optgroup>
+          <optgroup label="횟수 (먼저 닿기)"><option value="g50">50회</option><option value="g100">100회</option><option value="g200">200회</option><option value="g300">300회</option><option value="g500">500회</option></optgroup></select></label>
       <button class="primary" id="btnGo" style="min-width:120px;font-size:19px">시작</button>
       <button class="dark" id="btnEnd" disabled>끝</button>
       <button id="btnSort">횟수순</button>
@@ -280,9 +282,7 @@
   <div class="mh">줄넘기 허브 <span class="hst" id="hubSt">연결 안 됨</span><button class="x" id="hubX">닫기</button></div>
   <div class="hr"><button class="primary" id="hubConn">허브 연결</button><button id="hubRole" disabled>줄넘기 찾기</button><button id="hubBatt" disabled>배터리</button><button id="hubVib" disabled>모두 진동</button><button id="hubAuto" disabled hidden>전체 자동번호</button></div>
   <label class="hr"><input type="checkbox" id="hubBuzz" checked> 시작·끝에 줄넘기 진동</label>
-  <div class="hr">줄넘기 세기 <select id="hubMode"><option value="free">자유</option><option value="time">목표 시간</option><option value="count">목표 횟수</option></select>
-    <span id="hubTgtWrap" hidden><input type="number" id="hubTarget" min="1" max="9999" value="100" style="width:80px">회</span></div>
-  <div class="hst" id="hubModeTip" hidden></div>
+  <div class="hst" id="hubModeTip"></div>
   <div class="hlist"><table><thead><tr><th>번호</th><th>학생</th><th>상태</th><th>배터리</th><th>횟수</th><th></th></tr></thead><tbody id="hubBody"></tbody></table></div>
   <div class="hst" id="hubMsg">USB에 허브를 꽂고 "허브 연결" → 목록에서 "USB JTAG/serial debug unit"을 골라요. 크롬·엣지에서만 돼요. JUMPITNOW 사이트에서는 허브를 먼저 해제해 주세요.</div>
   <div class="hst">줄넘기 번호 정하기·배터리 점검은 <a href="ropes.html" target="_blank" rel="noopener">줄넘기 관리</a>에서 (이 창에서 허브를 끊고 열어요)</div>
@@ -310,7 +310,7 @@
    서버에 올라가는 것: 방 주인(로그인 ID), 학년·반·인원, 시작·끝 신호, 학생 기기별 학년·반·번호·횟수·상태. 이름은 이 컴퓨터에만.
    전송 방식은 BACKEND 하나에 모음 (Firebase / 시험 모드) — 나중에 다른 서버로 바꿀 때 이것만 바꾸면 됨
    ========================================================================================= */
-const VER='0.4.5';
+const VER='0.4.6';
 const FB_CONFIG={ apiKey:'AIzaSyDimPwJ974Pmn9wcgwFZFWUBQPaOra5chQ', authDomain:'jumpropelive.firebaseapp.com',
   databaseURL:'https://jumpropelive-default-rtdb.asia-southeast1.firebasedatabase.app', projectId:'jumpropelive',
   storageBucket:'jumpropelive.firebasestorage.app', messagingSenderId:'727527484238', appId:'1:727527484238:web:aaed6e0585ee7db7228c1f' };
@@ -544,12 +544,19 @@ function render(){
     const k=skey(x.g,x.c,n), list=(mine[k]||[]), on=list.filter(d=>d.st!=='off');
     // 같은 번호 기기가 여럿이면 지금 이번 회차를 뛰는(또는 횟수가 큰) 기기를 보여 줌
     const pick=(on.length?on:list).slice().sort((a,b)=>((b.ctl===runId)-(a.ctl===runId))||(b.cnt-a.cnt))[0];
-    const st=pick?pick.st:'none', cnt=pick&&runId&&pick.ctl===runId?pick.cnt:0;   // 선생님이 시작한 회차의 횟수만 (학생이 혼자 센 건 안 셈)
+    const gl=S.lastRun&&S.lastRun.id===runId?S.lastRun.goal:0;   // 목표 횟수 회차: 닿으면 목표 횟수만큼만 기록
+    const st=pick?pick.st:'none', cnt0=pick&&runId&&pick.ctl===runId?pick.cnt:0, cnt=gl?Math.min(cnt0,gl):cnt0;   // 선생님이 시작한 회차의 횟수만 (학생이 혼자 센 건 안 셈)
     if(on.length) join++; if(st==='jump') jump++; sum+=cnt;
     const cam=on.filter(d=>!isRope(d)).length, rope=on.some(isRope);   // 카메라 기기 수 · 줄넘기(허브·블루투스) 여부 (같은 학생이면 높은 횟수 하나만 씀)
     rows.push({k,g:x.g,c:x.c,n,name:x.names[n]||'',id:x.ids[n]||'',st,cnt,rate:pick&&pick.run?pick.rate:0,best:pick?pick.best:0,dup:on.length,cam,rope,src:pick&&runId&&pick.ctl===runId?(isRope(pick)?'rope':'cam'):'',pick});
   } });
   const total=rows.length;
+  // 목표 횟수 회차: 닿은 시각 기록 · 들어온 학생이 모두 닿으면 저절로 끝
+  const G=S.lastRun&&S.lastRun.goal&&S.ctl.ph==='go'&&S.lastRun.id===S.ctl.id?S.lastRun.goal:0;
+  if(G&&B.now()>=S.ctl.at){ S.done=S.done||{};
+    rows.forEach(r=>{ if(r.cnt>=G&&!S.done[r.k]) S.done[r.k]=B.now()-S.ctl.at; });
+    const inR=rows.filter(r=>r.dup&&r.pick&&r.pick.ctl===runId);
+    if(inR.length&&inR.every(r=>r.cnt>=G)&&S.autoEnd!==S.ctl.id){ S.autoEnd=S.ctl.id; setTimeout(()=>{ if(S.ctl.ph==='go') end(); },1200); } }
   $('pJoin').textContent=`${join} / ${total}`; $('pJump').textContent=jump; $('pSum').textContent=sum.toLocaleString();
   const order=S.sort==='cnt'?rows.slice().sort((a,b)=>(b.cnt-a.cnt)||((a.st==='none')-(b.st==='none'))||(a.g-b.g)||(a.c-b.c)||(a.n-b.n)):rows;
   const top=Math.max(0,...rows.map(r=>r.cnt));
@@ -557,10 +564,10 @@ function render(){
   const W=$('grid').clientWidth||innerWidth-40, H=innerHeight-$('grid').getBoundingClientRect().top-24;
   let best=110; for(let w=260;w>=110;w-=6){ const cols=Math.max(1,Math.floor((W+12)/(w+12))), rws=Math.ceil(total/cols); if(rws*(w*0.78+12)<=Math.max(H,300)){ best=w; break; } }
   $('grid').style.setProperty('--tw',best+'px'); $('grid').style.setProperty('--th',Math.round(best*0.78)+'px'); $('grid').style.setProperty('--nf',Math.round(best/3.6)+'px');
-  const g=$('grid'); const html=order.map(r=>`<div class="tile s-${r.st}${r.cnt&&r.cnt===top&&S.sort==='cnt'?' rank1':''}" data-k="${r.k}">
+  const g=$('grid'); const html=order.map(r=>`<div class="tile s-${r.st}${r.cnt&&r.cnt===top&&S.sort==='cnt'?' rank1':''}${G&&S.done[r.k]?' arrived':''}" data-k="${r.k}">
       <div class="who">${M?`<span class="gc">${r.g}-${r.c}</span>`:''}<span class="no">${r.n}</span><span class="nm">${esc(r.name)}</span>${r.cam>1?`<span class="dup" title="같은 번호로 기기 ${r.cam}대가 들어왔어요">⚠<span class="w"> 기기</span> ${r.cam}대</span>`:''}</div>
       <div class="n">${r.st==='none'?'—':r.cnt}${r.st==='none'?'':'<small>회</small>'}</div>
-      <div class="foot"><span class="st">${LBL[r.st]||r.st}</span>${r.rate?`<span class="rt">분당 ${r.rate}</span>`:''}${srcIcons(r)}</div></div>`).join('');
+      <div class="foot"><span class="st">${G&&S.done[r.k]?'도착 '+(Math.round(S.done[r.k]/100)/10).toFixed(1)+'초':(LBL[r.st]||r.st)}</span>${r.rate?`<span class="rt">분당 ${r.rate}</span>`:''}${srcIcons(r)}</div></div>`).join('');
   g.innerHTML=html;
   rows.forEach(r=>{ if(S.prevCnt[r.k]!==undefined&&r.cnt>S.prevCnt[r.k]){ const t=g.querySelector(`[data-k="${r.k}"]`); if(t) t.classList.add('bump'); } S.prevCnt[r.k]=r.cnt; });
   const ot=others.filter(d=>d.st!=='off');
@@ -691,7 +698,7 @@ function hubLine(ln){
     r.seen=r.data=now; r.mode=+a[2]; r.dur=+a[4]||0;
     if(c!==r.cnt){ r.lastUp=now; } r.cnt=c; r.ctl=HUB.runId;
     if(HUB.mode&&HUB.mode.m==='count'&&c>=HUB.mode.n&&!r.doneDs) r.doneDs=r.dur||Math.round((now-HUB.startAt)/100);
-    hubPush(); hubCheckGoal(); return; }
+    hubPush(); return; }
   if(a[0]==='BATT'){ const r=hubRope(a[1]); if(r){ r.batt=+a[2]; r.seen=now; hubRender(); } return; }
   if(a[0]==='ROLE'){ const r=hubRope(a[1]); if(r){ r.role=a[2]||''; r.seen=now; hubRender(); } return; }
   if(a[0]==='ASSIGN'||a[0]==='ASSIGNALL'){ hubMsg('번호를 바꿨어요: '+ln); setTimeout(()=>hubSend('getRole all'),800); return; }
@@ -741,24 +748,19 @@ async function hubClose(lost){
 }
 // 회차 흐름: 카운트다운 → free all / "시작!" → start all + 1초마다 getData / 끝 → stop all + 마지막 getData (빠진 줄넘기는 따로 다시)
 // 줄넘기 세기 방식: free(자유) · time(회차 시간만큼 뛰면 줄넘기가 멈춤) · count(정한 횟수에 줄넘기가 멈춤)
-function hubModeCmd(){ const m=$('hubMode').value, dur=+$('selDur').value, n=Math.max(1,Math.min(9999,Math.round(+$('hubTarget').value||0)));
-  if(m==='time'&&dur>0) return {m:'time',cmd:'time all '+dur};
-  if(m==='count'&&n) return {m:'count',n,cmd:'count all '+n};
+// 화면 위 '목표'를 따라감: 횟수(g100 등) → count · 시간 → time(줄넘기가 스스로 멈춤) · 제한 없음 → free
+const goalOf=v=>/^g\d+$/.test(String(v))?+String(v).slice(1):0;
+const durOf=v=>goalOf(v)?0:(+v||0);
+const durTxt=d=>d>=60?d/60+'분':d+'초';
+function hubModeCmd(){ const v=$('selDur').value, g=goalOf(v), d=durOf(v);
+  if(g) return {m:'count',n:g,cmd:'count all '+g};
+  if(d>0) return {m:'time',cmd:'time all '+d};
   return {m:'free',cmd:'free all'}; }
-function hubModeUi(){ const m=$('hubMode').value, dur=+$('selDur').value; $('hubTgtWrap').hidden=m!=='count';
-  const tip=m==='time'?(dur>0?`회차 시간 ${dur>=60?dur/60+'분':dur+'초'}이 되면 줄넘기가 스스로 멈춰요 (시간은 화면 위 회차 시간에서 골라요)`:'회차 시간이 "제한 없음"이면 자유로 세요 — 위에서 시간을 골라요')
-    :m==='count'?'정한 횟수가 되면 줄넘기가 스스로 멈춰요. 빨리 닿은 순서로 순위가 나오고, 모두 닿으면 회차가 저절로 끝나요'+(dur>0?` · 회차 시간(${dur>=60?dur/60+'분':dur+'초'})이 먼저 지나면 거기서 끝나요 — 끝까지 하려면 시간을 "제한 없음"으로`:''):'';
-  $('hubModeTip').textContent=tip; $('hubModeTip').hidden=!tip;
-  try{ localStorage.setItem('jl_hubmode',JSON.stringify({m,n:+$('hubTarget').value||100})); }catch(e){} }
+function hubModeUi(){ const v=$('selDur').value, g=goalOf(v), d=durOf(v);
+  $('hubModeTip').textContent='줄넘기 세기는 화면 위 "목표"를 따라가요 — '+(g?`${g}회가 되면 줄넘기가 스스로 멈춰요`:d?`${durTxt(d)}이 되면 줄넘기가 스스로 멈춰요`:'제한 없음: 끝을 누를 때까지 세요'); }
 function hubOnGo(id){ if(!HUB.on) return; HUB.runId=id; HUB.mode=hubModeCmd(); HUB.autoEnd=false;
   Object.values(HUB.ropes).forEach(r=>{ r.cnt=0; r.ctl=''; r.lastUp=0; r.doneDs=0; });
   const cmd=HUB.mode.cmd; hubSend('stop all').then(()=>setTimeout(()=>hubSend(cmd),300)); hubPush(); }
-// 목표 횟수: 모든 허브 줄넘기가 닿고 카메라로 뛰는 기기가 없으면 회차를 끝냄
-function hubCheckGoal(){ if(!HUB.mode||HUB.mode.m!=='count'||HUB.autoEnd||S.ctl.ph!=='go') return;
-  const act=Object.values(HUB.ropes).filter(r=>r.ctl===HUB.runId&&hubStudent(r.n)&&r.seen&&Date.now()-r.seen<20000);
-  if(!act.length||act.some(r=>r.cnt<HUB.mode.n)) return;
-  if(Object.values(S.devs||{}).some(d=>d.ctl===S.ctl.id&&!d.hub)) return;
-  HUB.autoEnd=true; setTimeout(()=>{ if(S.ctl.ph==='go') end(); },800); }
 function hubOnStart(){ if(!HUB.on||!HUB.runId) return; HUB.startAt=Date.now(); HUB.accept=true; clearTimeout(HUB.freeT);
   Object.values(HUB.ropes).forEach(r=>{ r.ctl=HUB.runId; r.cnt=0; });
   hubSend('start all').then(()=>{ if($('hubBuzz').checked) setTimeout(()=>hubSend('vibrate all'),250); }); hubStartPoll(); hubPush(); }
@@ -779,8 +781,7 @@ function hubInit(){
   $('hubX').onclick=()=>{ $('hub').hidden=true; };
   $('hubConn').onclick=hubConnect;
   $('hubRole').onclick=()=>hubSend('getRole all');
-  try{ const hm=JSON.parse(localStorage.getItem('jl_hubmode')||'null'); if(hm){ $('hubMode').value=hm.m||'free'; $('hubTarget').value=hm.n||100; } }catch(e){}
-  $('hubMode').onchange=$('hubTarget').oninput=hubModeUi; $('selDur').addEventListener('change',hubModeUi); hubModeUi();
+  $('selDur').addEventListener('change',hubModeUi); hubModeUi();
   $('hubBatt').onclick=()=>hubSend('getBattery all');
   $('hubVib').onclick=()=>hubSend('vibrate all');
   $('hubAuto').onclick=()=>{ if(confirm('켜져 있는 줄넘기 번호를 처음부터 다시 매길까요? (지금 번호가 바뀔 수 있어요)')){ HUB.ropes={}; hubRender(); hubSend('assignall'); } };
@@ -800,9 +801,9 @@ function audioWarm(){ try{ const ac=window.__ac=window.__ac||new (window.AudioCo
 async function go(){
   audioWarm();
   { const id=S.lastRun&&S.lastRun.id; if(id&&!runKept(id)&&S.closeWarned!==id&&!confirm('지난 회차 결과가 아직 시트에 들어가지 않았어요. 새로 시작하면 지난 결과는 다시 볼 수 없어요. 그래도 시작할까요?')) return; }
-  const dur=+$('selDur').value, id='r'+Date.now().toString(36);
+  const v=$('selDur').value, goal=goalOf(v), dur=durOf(v), id='r'+Date.now().toString(36)+(goal?'g'+goal:'');   // 목표 횟수는 회차 번호 끝에 (학생 기기가 읽음)
   const c={ph:'go',id,at:B.now()+5000,dur};
-  try{ await B.setControl(S.room,c); S.ctl=c; S.lastRun={id,dur,at:c.at}; S.endShown=''; S.prevCnt={}; $('qr').hidden=true; $('btnResult').disabled=true; musicCountdown(); hubOnGo(id); }
+  try{ await B.setControl(S.room,c); S.ctl=c; S.lastRun={id,dur,goal,at:c.at}; S.done={}; S.autoEnd=''; S.endShown=''; S.prevCnt={}; $('qr').hidden=true; $('btnResult').disabled=true; musicCountdown(); hubOnGo(id); }
   catch(e){ alert('시작 신호를 보내지 못했어요: '+e.message); }
 }
 async function end(){
@@ -837,9 +838,9 @@ function clockTick(){
 
 /* ---------- 결과 ---------- */
 // 목표 횟수에 닿은 시간(0.1초 단위, 허브 줄넘기만). 못 닿았으면 0
-function doneDs(r){ if(!HUB.mode||HUB.mode.m!=='count'||HUB.runId!==S.lastRun.id) return 0;
-  const rope=Object.values(HUB.ropes).find(x=>{ const st=hubStudent(x.n); return st&&x.ctl===HUB.runId&&st.g==r.g&&st.c==r.c&&st.n==r.n; });
-  return rope&&rope.doneDs||0; }
+function doneDs(r){ if(!S.lastRun||!S.lastRun.goal) return 0;
+  if(isRope(r.pick)&&r.pick.hub&&HUB.runId===S.lastRun.id){ const rope=Object.values(HUB.ropes).find(x=>{ const st=hubStudent(x.n); return st&&x.ctl===HUB.runId&&st.g==r.g&&st.c==r.c&&st.n==r.n; }); if(rope&&rope.doneDs) return rope.doneDs; }
+  return S.done&&S.done[r.k]?Math.max(1,Math.round(S.done[r.k]/100)):0; }
 function resultRows(){
   const fin=r=>doneDs(r)||1e9;
   return (S.rows||[]).filter(r=>r.pick&&r.pick.ctl===S.lastRun.id).sort((a,b)=>(b.cnt-a.cnt)||(fin(a)-fin(b))||(a.g-b.g)||(a.c-b.c)||(a.n-b.n));
@@ -850,7 +851,7 @@ function showResult(){
   $('resBody').innerHTML=rows.map((r,i)=>{ const ds=doneDs(r), key=r.cnt+'|'+ds; if(key!==prev){ rank=i+1; prev=key; } return `<tr class="${rank<=3?'top':''}"><td>${rank}</td><td>${multi()?r.g+'-'+r.c+' · ':''}${r.n}</td><td>${esc(r.name)}</td><td class="c">${r.cnt}${ds?` <small style="font-weight:600;color:var(--muted)">${(ds/10).toFixed(1)}초에 도착</small>`:''}</td><td>${isRope(r.pick)?'—':r.best}</td></tr>`; }).join('')
     || '<tr><td colspan="5" style="color:var(--muted)">이번 회차에 뛴 학생이 없어요</td></tr>';
   const got=new Set(rows.map(r=>r.k)), missing=(S.rows||[]).filter(r=>!got.has(r.k)).map(r=>multi()?`${r.g}-${r.c} ${r.n}`:r.n);
-  $('resTitle').textContent=`${clsLabel(S.groups)} · ${dur?(dur>=60?dur/60+'분':dur+'초'):'제한 없음'} 결과`;
+  $('resTitle').textContent=`${clsLabel(S.groups)} · ${S.lastRun.goal?'목표 '+S.lastRun.goal+'회':dur?durTxt(dur):'제한 없음'} 결과`;
   $('resNote').textContent=`${rows.length}명 · 합계 ${rows.reduce((s,r)=>s+r.cnt,0).toLocaleString()}회`+(missing.length?` · 기록 없음: ${missing.join(', ')}번`:'')+(APPM?'':' · 결과 복사로 시트에 옮겨 주세요');
   $('resSaveRow').hidden=!APPM; if(APPM) resSaveUi();
   $('resMsg').textContent=''; $('btnResClose').textContent=S.closeWarned===S.lastRun.id?'저장 안 하고 닫기':'닫기'; $('resModal').classList.add('on');

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 판정기 v0.9.2 · 카메라로 진짜 뛰는지 보기</title>
+<title>줄넘기 판정기 v0.9.3 · 카메라로 진짜 뛰는지 보기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -292,7 +292,7 @@
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
     <div class="titles">
-      <h1>줄넘기 판정기<span class="ver">v0.9.2</span></h1>
+      <h1>줄넘기 판정기<span class="ver">v0.9.3</span></h1>
       <span class="sub">머리부터 발까지 보이게 서서, 몸이 뜨고 팔이 돌 때만 1회로 세요</span>
     </div>
     <div class="who" id="who"></div>
@@ -520,7 +520,7 @@ const $=id=>document.getElementById(id);
 const video=$('video'), cv=$('overlay'), cx=cv.getContext('2d');
 let landmarker=null, stream=null, facing='user', running=false, t0=0, raf=0, lastVideoT=-1, frames=0, fpsT=0;
 /* ---------- 앱 연동: 체육교사 보조 프로그램의 줄넘기 화면에서 열리면 ?app=앱주소&t=학생표&kind=종류 가 붙어 와요 ---------- */
-const VER='0.9.2';
+const VER='0.9.3';
 const Q=new URLSearchParams(location.search);
 const LINK={ app:Q.get('app')||'', t:Q.get('t')||'', kind:Q.get('kind')||'', sens:+(Q.get('sens')||0)||0, target:(Q.get('target')==='fit'?'fit':'rope'), who:null, saved:null,
   // mode=post : 오프라인판(파일로 여는 프로그램)이 연 창. 서버 대신 window.opener.postMessage 로 결과를 돌려준다.
@@ -828,6 +828,7 @@ function liveState(st,t,seen){
 //  · 분당 횟수는 선생님 화면이 횟수 변화로 계산 · 최고 연속은 회차가 끝날 때만
 const LIVE_GAP=1000, LIVE_BEAT=10000;
 function livePush(force){
+  if(running&&LIVE.goal&&LIVE.ctlRun&&det.count>=LIVE.goal) goalReached();
   if(!LIVE.ok||!LIVE.me) return;
   const st=det.state(), t=(performance.now()-t0)/1000;
   const s=liveState(st,t,det.visible), now=performance.now();
@@ -854,6 +855,17 @@ function runStart(){ // 시작 버튼을 누른 것과 같은 일 (선생님 신
   $('count').innerHTML=det.count+'<small>회</small>'; beep(660,0.1,0.2);
   $('btnStart').textContent='선생님 신호로 뛰는 중'; $('btnStart').classList.add('warn'); $('btnStart').classList.remove('primary'); $('btnStart').disabled=true; $('btnReset').disabled=true;
   if(ROPE.on) ropeRunStart();
+  if(LIVE.goal){ $('status').textContent=`목표 ${LIVE.goal}회 — 먼저 닿기!`; $('status').className='status jump'; }
+}
+// 목표 횟수에 닿음: 여기서 세기를 멈추고 기다림 (선생님 화면이 닿은 시간을 잼)
+function goalReached(){
+  if(LIVE.goalDone===LIVE.ctlRun) return; LIVE.goalDone=LIVE.ctlRun;
+  if(LIVE.cdTimer){ clearInterval(LIVE.cdTimer); LIVE.cdTimer=0; }
+  det.count=lastCount=LIVE.goal; running=false; if(ROPE.on) ropeRunEnd();
+  $('count').innerHTML=det.count+'<small>회</small>'; beep(1046,0.3,0.25);
+  const b=$('burst'); b.textContent='도착!'; b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); celebrate(det.count);
+  $('status').textContent=`목표 ${LIVE.goal}회 도착! 선생님 화면을 봐요`; $('status').className='status jump';
+  $('btnStart').classList.remove('warn'); $('btnStart').classList.add('primary'); $('btnStart').textContent='도착!';
 }
 function runEnd(){ // 선생님 신호로 끝 — 기록은 선생님 현황판이 한꺼번에 하므로 여기서는 저장 창을 띄우지 않음
   if(LIVE.cdTimer){ clearInterval(LIVE.cdTimer); LIVE.cdTimer=0; }
@@ -903,7 +915,7 @@ function onControl(c){
   const again=LIVE.resume&&c.ph==='go'&&String(c.id)===LIVE.resume.run&&!running;   // 새로 고침 뒤 같은 회차
   if(!again&&LIVE.resume&&c.ph) LIVE.resume=null;
   if(c.ph==='go'&&c.id&&(c.id!==LIVE.ctlRun||again)){
-    LIVE.ctlRun=String(c.id); LIVE.ctlEnd=c.dur>0?c.at+c.dur*1000:0;
+    LIVE.ctlRun=String(c.id); { const gm=/g(\d{1,4})$/.exec(LIVE.ctlRun); LIVE.goal=gm?+gm[1]:0; }   /* 목표 횟수 회차(먼저 닿기) */ LIVE.ctlEnd=c.dur>0?c.at+c.dur*1000:0;
     if(LIVE.ctlEnd&&LIVE.T.now()>=LIVE.ctlEnd){ LIVE.resume=null; return; }   // 이미 끝난 회차에 늦게 들어온 경우 — 건드리지 않음
     $('saveModal').classList.remove('on'); if(running){ running=false; }
     $('btnStart').disabled=true; $('btnReset').disabled=true; $('btnStart').textContent='곧 시작해요'; LIVE.didRun=true; guideShow();
