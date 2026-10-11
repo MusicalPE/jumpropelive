@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.4.6</title>
+<title>점프 라이브 v0.4.7</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -187,7 +187,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.4.6</span></h1>
+    <h1>점프 라이브<span class="ver">v0.4.7</span></h1>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <div class="me" id="me" hidden><span id="meName"></span><button id="btnOut">로그아웃</button></div>
@@ -310,7 +310,7 @@
    서버에 올라가는 것: 방 주인(로그인 ID), 학년·반·인원, 시작·끝 신호, 학생 기기별 학년·반·번호·횟수·상태. 이름은 이 컴퓨터에만.
    전송 방식은 BACKEND 하나에 모음 (Firebase / 시험 모드) — 나중에 다른 서버로 바꿀 때 이것만 바꾸면 됨
    ========================================================================================= */
-const VER='0.4.6';
+const VER='0.4.7';
 const FB_CONFIG={ apiKey:'AIzaSyDimPwJ974Pmn9wcgwFZFWUBQPaOra5chQ', authDomain:'jumpropelive.firebaseapp.com',
   databaseURL:'https://jumpropelive-default-rtdb.asia-southeast1.firebasedatabase.app', projectId:'jumpropelive',
   storageBucket:'jumpropelive.firebasestorage.app', messagingSenderId:'727527484238', appId:'1:727527484238:web:aaed6e0585ee7db7228c1f' };
@@ -556,7 +556,7 @@ function render(){
   if(G&&B.now()>=S.ctl.at){ S.done=S.done||{};
     rows.forEach(r=>{ if(r.cnt>=G&&!S.done[r.k]) S.done[r.k]=B.now()-S.ctl.at; });
     const inR=rows.filter(r=>r.dup&&r.pick&&r.pick.ctl===runId);
-    if(inR.length&&inR.every(r=>r.cnt>=G)&&S.autoEnd!==S.ctl.id){ S.autoEnd=S.ctl.id; setTimeout(()=>{ if(S.ctl.ph==='go') end(); },1200); } }
+    if(inR.length&&inR.every(r=>r.cnt>=G)&&S.autoEnd!==S.ctl.id){ S.autoEnd=S.ctl.id; setTimeout(()=>{ if(S.ctl.ph==='go') end(true); },1200); } }
   $('pJoin').textContent=`${join} / ${total}`; $('pJump').textContent=jump; $('pSum').textContent=sum.toLocaleString();
   const order=S.sort==='cnt'?rows.slice().sort((a,b)=>(b.cnt-a.cnt)||((a.st==='none')-(b.st==='none'))||(a.g-b.g)||(a.c-b.c)||(a.n-b.n)):rows;
   const top=Math.max(0,...rows.map(r=>r.cnt));
@@ -806,10 +806,20 @@ async function go(){
   try{ await B.setControl(S.room,c); S.ctl=c; S.lastRun={id,dur,goal,at:c.at}; S.done={}; S.autoEnd=''; S.endShown=''; S.prevCnt={}; $('qr').hidden=true; $('btnResult').disabled=true; musicCountdown(); hubOnGo(id); }
   catch(e){ alert('시작 신호를 보내지 못했어요: '+e.message); }
 }
-async function end(){
+// 끝: 뛰는 중이면 바로 안 끊고 5·4·3·2·1 뒤에 끝 (회차 시간을 '지금+5초'로 줄여 학생 기기에도 같이 보냄)
+// 카운트다운 중에 한 번 더 누르면 바로 끝 · 시작 전(카운트다운 중)이나 목표 횟수 모두 도착이면 바로 끝
+async function end(now){
   if(S.ctl.ph!=='go') return;
-  const c={ph:'end',id:S.ctl.id};
-  try{ await B.setControl(S.room,c); S.ctl=c; }catch(e){ alert('끝 신호를 보내지 못했어요: '+e.message); return; }
+  const c=S.ctl, el=B.now()-c.at;
+  if(!now&&el>=0&&S.ending!==c.id){
+    const nd=Math.ceil(el/1000)+5;
+    if(c.dur&&c.dur<=nd){ S.ending=c.id; return; }   // 이미 5초 안 남음 — 그대로 끝나게 둠
+    const c2=Object.assign({},c,{dur:nd});
+    try{ await B.setControl(S.room,c2); S.ctl=c2; S.ending=c.id; $('btnEnd').textContent='바로 끝'; }catch(e){ alert('끝 신호를 보내지 못했어요: '+e.message); }
+    return;
+  }
+  const ce={ph:'end',id:S.ctl.id};
+  try{ await B.setControl(S.room,ce); S.ctl=ce; }catch(e){ alert('끝 신호를 보내지 못했어요: '+e.message); return; }
   finish();
 }
 function finish(){ // 학생 기기가 마지막 숫자를 보낼 시간을 2초 주고 결과
@@ -832,7 +842,7 @@ function clockTick(){
       else { const s=Math.floor(d/1000); el.textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); el.className='clock go'; }
     }
   } else { el.textContent=''; el.className='clock'; S.cdShown=null; S.endCd=null; }
-  const running=c.ph==='go'; $('btnGo').disabled=running; $('btnEnd').disabled=!running; $('selDur').disabled=running; $('btnClose').disabled=running;
+  const running=c.ph==='go'; $('btnGo').disabled=running; $('btnEnd').disabled=!running; if(!running) $('btnEnd').textContent='끝'; $('selDur').disabled=running; $('btnClose').disabled=running;
   $('btnGo').textContent=running?(now<c.at?'곧 시작':'뛰는 중'):'시작';
 }
 
@@ -903,7 +913,7 @@ $('btnPw').onclick=appPw; $('inPw').onkeydown=e=>{ if(e.key==='Enter') appPw(); 
 $('btnIn').onclick=async()=>{ $('loginErr').textContent=''; try{ await B.signIn(); }catch(e){ $('loginErr').textContent='로그인하지 못했어요: '+(e.code==='auth/unauthorized-domain'?'Firebase 승인된 도메인에 이 주소가 없어요':(e.code==='auth/operation-not-allowed'||e.code==='auth/configuration-not-found')?'Firebase에서 로그인 기능(Authentication → Google)이 아직 켜져 있지 않아요':e.code==='auth/popup-blocked'?'팝업이 막혔어요 — 주소창 오른쪽에서 팝업을 허용해 주세요':(e.message||e)); } };
 $('btnOut').onclick=async()=>{ if(S.room&&!confirm('방이 열려 있어요. 방을 그대로 두고 로그아웃할까요?')) return; await B.signOut(); };
 musicInit(); hubInit();
-$('btnOpen').onclick=openRoom; $('btnClose').onclick=closeRoom; $('btnGo').onclick=go; $('btnEnd').onclick=end;
+$('btnOpen').onclick=openRoom; $('btnClose').onclick=closeRoom; $('btnGo').onclick=go; $('btnEnd').onclick=()=>end();
 $('btnSort').onclick=()=>{ S.sort=S.sort==='no'?'cnt':'no'; $('btnSort').textContent=S.sort==='no'?'횟수순':'번호순'; render(); };
 $('btnQr').onclick=showQr; $('btnQrClose').onclick=()=>$('qr').hidden=true;
 $('btnCopy').onclick=async()=>{ try{ await navigator.clipboard.writeText(studentUrl()); $('btnCopy').textContent='복사했어요'; setTimeout(()=>$('btnCopy').textContent='주소 복사',1500); }catch(e){} };
