@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.4.2</title>
+<title>점프 라이브 v0.4.3</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -76,6 +76,8 @@
   .tile .rt{font-size:13px;color:var(--muted);font-weight:600;white-space:nowrap;flex:none}
   .tile .dup{flex:none;margin-left:auto;background:var(--red);color:#fff;border-radius:99px;padding:2px 8px;font-size:12px;font-weight:800;align-self:center}
   .tile .dup .w{margin-left:2px}
+  .tile .srcs{flex:none;display:inline-flex;gap:5px;align-self:center;margin-left:auto;color:var(--ink2);font-size:1.15em}
+  .tile .src{display:inline-flex;opacity:.7} .tile .src.rope{color:#E0552B;opacity:1} .tile .src.dim{opacity:.3}
   @container (max-width:170px){ .tile .rt{display:none} .tile .dup .w{display:none} .tile .st{font-size:13px} }
   .tile.s-jump{border-color:var(--mint);background:var(--mint-soft)} .tile.s-jump .st{color:var(--mint)}
   .tile.s-jump .st::before{animation:pulse .8s ease-in-out infinite}
@@ -184,7 +186,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.4.2</span></h1>
+    <h1>점프 라이브<span class="ver">v0.4.3</span></h1>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <div class="me" id="me" hidden><span id="meName"></span><button id="btnOut">로그아웃</button></div>
@@ -308,7 +310,7 @@
    서버에 올라가는 것: 방 주인(로그인 ID), 학년·반·인원, 시작·끝 신호, 학생 기기별 학년·반·번호·횟수·상태. 이름은 이 컴퓨터에만.
    전송 방식은 BACKEND 하나에 모음 (Firebase / 시험 모드) — 나중에 다른 서버로 바꿀 때 이것만 바꾸면 됨
    ========================================================================================= */
-const VER='0.4.2';
+const VER='0.4.3';
 const FB_CONFIG={ apiKey:'AIzaSyDimPwJ974Pmn9wcgwFZFWUBQPaOra5chQ', authDomain:'jumpropelive.firebaseapp.com',
   databaseURL:'https://jumpropelive-default-rtdb.asia-southeast1.firebasedatabase.app', projectId:'jumpropelive',
   storageBucket:'jumpropelive.firebasestorage.app', messagingSenderId:'727527484238', appId:'1:727527484238:web:aaed6e0585ee7db7228c1f' };
@@ -524,6 +526,12 @@ function rateOf(id,d){ const h=RATE[id]; if(!h||!h.length||!d.run) return 0; con
 function liveDevs(){ // 끊김 판정 포함
   const now=B.now(); return Object.entries(Object.assign({},S.devs,hubDevs())).map(([id,d])=>Object.assign({id},d,{rate:rateOf(id,d),best:d.best||0,st:(d.st!=='off'&&now-(d.t||0)>STALE_MS)?'off':d.st}));
 }
+// 들어온 방법 표시: 카메라 기기(휴대폰·태블릿·컴퓨터) · 줄넘기(허브). 둘 다면 둘 다, 지금 숫자를 쓰는 쪽은 진하게
+const IC_CAM='<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>';
+const IC_ROPE='<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M8 13.5 C3 4 9 1.5 12 1.5 S21 4 16 13.5" stroke-width="1.8"/><path d="M8.3 14 L5 21.5M15.7 14 L19 21.5" stroke-width="4"/></svg>';
+function srcIcons(r){ if(!r.cam&&!r.rope) return '';
+  const both=r.cam&&r.rope, one=(ic,k,t)=>`<span class="src ${k}${both&&r.src&&r.src!==k?' dim':''}" title="${t}">${ic}</span>`;
+  return `<span class="srcs"${both?' title="카메라 기기와 줄넘기 둘 다 들어왔어요 — 높은 횟수 하나만 기록해요"':''}>${r.cam?one(IC_CAM,'cam','카메라 기기로 들어왔어요'):''}${r.rope?one(IC_ROPE,'rope','줄넘기(허브)로 들어왔어요'):''}</span>`; }
 function render(){
   const all=liveDevs(), mine={}, others=[], gs=S.groups, M=multi();
   const inGroup=d=>gs.some(x=>x.g===d.g&&x.c===d.c&&d.n>=1&&d.n<=x.max);
@@ -536,7 +544,8 @@ function render(){
     const pick=(on.length?on:list).slice().sort((a,b)=>((b.ctl===runId)-(a.ctl===runId))||(b.cnt-a.cnt))[0];
     const st=pick?pick.st:'none', cnt=pick&&runId&&pick.ctl===runId?pick.cnt:0;   // 선생님이 시작한 회차의 횟수만 (학생이 혼자 센 건 안 셈)
     if(on.length) join++; if(st==='jump') jump++; sum+=cnt;
-    rows.push({k,g:x.g,c:x.c,n,name:x.names[n]||'',id:x.ids[n]||'',st,cnt,rate:pick&&pick.run?pick.rate:0,best:pick?pick.best:0,dup:on.length,pick});
+    const cam=on.filter(d=>!d.hub).length, rope=on.some(d=>d.hub);   // 카메라 기기 수 · 허브 줄넘기 여부 (같은 학생이면 높은 횟수 하나만 씀)
+    rows.push({k,g:x.g,c:x.c,n,name:x.names[n]||'',id:x.ids[n]||'',st,cnt,rate:pick&&pick.run?pick.rate:0,best:pick?pick.best:0,dup:on.length,cam,rope,src:pick&&runId&&pick.ctl===runId?(pick.hub?'rope':'cam'):'',pick});
   } });
   const total=rows.length;
   $('pJoin').textContent=`${join} / ${total}`; $('pJump').textContent=jump; $('pSum').textContent=sum.toLocaleString();
@@ -547,9 +556,9 @@ function render(){
   let best=110; for(let w=260;w>=110;w-=6){ const cols=Math.max(1,Math.floor((W+12)/(w+12))), rws=Math.ceil(total/cols); if(rws*(w*0.78+12)<=Math.max(H,300)){ best=w; break; } }
   $('grid').style.setProperty('--tw',best+'px'); $('grid').style.setProperty('--th',Math.round(best*0.78)+'px'); $('grid').style.setProperty('--nf',Math.round(best/3.6)+'px');
   const g=$('grid'); const html=order.map(r=>`<div class="tile s-${r.st}${r.cnt&&r.cnt===top&&S.sort==='cnt'?' rank1':''}" data-k="${r.k}">
-      <div class="who">${M?`<span class="gc">${r.g}-${r.c}</span>`:''}<span class="no">${r.n}</span><span class="nm">${esc(r.name)}</span>${r.dup>1?`<span class="dup" title="같은 번호로 기기 ${r.dup}대가 들어왔어요">⚠<span class="w"> 기기</span> ${r.dup}대</span>`:''}</div>
+      <div class="who">${M?`<span class="gc">${r.g}-${r.c}</span>`:''}<span class="no">${r.n}</span><span class="nm">${esc(r.name)}</span>${r.cam>1?`<span class="dup" title="같은 번호로 기기 ${r.cam}대가 들어왔어요">⚠<span class="w"> 기기</span> ${r.cam}대</span>`:''}</div>
       <div class="n">${r.st==='none'?'—':r.cnt}${r.st==='none'?'':'<small>회</small>'}</div>
-      <div class="foot"><span class="st">${LBL[r.st]||r.st}</span>${r.rate?`<span class="rt">분당 ${r.rate}</span>`:''}</div></div>`).join('');
+      <div class="foot"><span class="st">${LBL[r.st]||r.st}</span>${r.rate?`<span class="rt">분당 ${r.rate}</span>`:''}${srcIcons(r)}</div></div>`).join('');
   g.innerHTML=html;
   rows.forEach(r=>{ if(S.prevCnt[r.k]!==undefined&&r.cnt>S.prevCnt[r.k]){ const t=g.querySelector(`[data-k="${r.k}"]`); if(t) t.classList.add('bump'); } S.prevCnt[r.k]=r.cnt; });
   const ot=others.filter(d=>d.st!=='off');
