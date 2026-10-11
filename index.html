@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 판정기 v0.9.0 · 카메라로 진짜 뛰는지 보기</title>
+<title>줄넘기 판정기 v0.9.1 · 카메라로 진짜 뛰는지 보기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -49,6 +49,11 @@
 
   /* 무대 */
   .stage{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:minmax(0,1fr);gap:20px}
+  /* 블루투스 줄넘기로 들어온 학생: 카메라 관련 칸은 숨기고 숫자만 크게 */
+  body.rope .camSlot, body.rope .meterBox, body.rope .compare, body.rope #btnBig, body.rope #btnFlip, body.rope .stats .stat:not(:first-child), body.rope footer label:first-of-type{display:none!important}
+  body.rope .stage{grid-template-columns:1fr!important;grid-template-rows:minmax(0,1fr)!important}
+  .ropeBtn{margin-top:10px;background:#fff;border:2px solid #2BB3A3;color:#0E8F85;font-weight:800}
+  .ropeRe{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:30;background:#0E8F85;color:#fff;border:0;font-weight:800;padding:14px 22px;border-radius:14px;box-shadow:0 6px 18px rgba(0,0,0,.18)}
   .card{background:var(--card);border:1px solid var(--line);border-radius:24px;box-shadow:var(--shadow)}
   .main{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.4vh;padding:3vh 3vw;min-height:0;min-width:0;position:relative}
   .main .lab{font-size:clamp(15px,2vh,20px);color:var(--muted);font-weight:600;display:flex;align-items:center;gap:8px}
@@ -287,7 +292,7 @@
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
     <div class="titles">
-      <h1>줄넘기 판정기<span class="ver">v0.9.0</span></h1>
+      <h1>줄넘기 판정기<span class="ver">v0.9.1</span></h1>
       <span class="sub">머리부터 발까지 보이게 서서, 몸이 뜨고 팔이 돌 때만 1회로 세요</span>
     </div>
     <div class="who" id="who"></div>
@@ -356,6 +361,7 @@
 
 <canvas id="fx"></canvas>
 <div class="burst" id="burst"></div>
+<button class="ropeRe" id="ropeRe" hidden>줄넘기 다시 연결</button>
 <div aria-hidden="true" style="position:fixed;left:-9999px;top:0;font-size:clamp(44px,9vh,96px);font-weight:800;opacity:.01;pointer-events:none">0123456789시작초!회돌파끝</div>
 
 <div class="modal" id="saveModal"><div class="box">
@@ -390,6 +396,8 @@
       </ol>
       <div class="err" id="coverErr"></div>
       <button class="primary" id="btnCam">카메라 켜고 시작하기</button>
+      <button class="ropeBtn" id="btnRope" hidden>블루투스 줄넘기로 하기 (JUMPITNOW)</button>
+      <p class="small" id="ropeTip" hidden>스마트 줄넘기가 있으면 카메라 대신 줄넘기를 연결해도 돼요. 줄넘기를 켜고 누른 뒤 목록에서 JUMPITNOW를 골라요. (안드로이드·크롬북·PC 크롬)</p>
       <p class="small">처음 열 때는 인터넷이 필요해요(관절 인식 모델 약 6MB). 한 번 받으면 브라우저가 기억해요. 체육교사 보조 프로그램이나 줄넘기 기록 관리 프로그램의 "카메라로 뛰기"로 열었다면 끝낼 때 뛴 횟수가 앱에 바로 기록돼요.</p>
     </div>
   </div>
@@ -512,7 +520,7 @@ const $=id=>document.getElementById(id);
 const video=$('video'), cv=$('overlay'), cx=cv.getContext('2d');
 let landmarker=null, stream=null, facing='user', running=false, t0=0, raf=0, lastVideoT=-1, frames=0, fpsT=0;
 /* ---------- 앱 연동: 체육교사 보조 프로그램의 줄넘기 화면에서 열리면 ?app=앱주소&t=학생표&kind=종류 가 붙어 와요 ---------- */
-const VER='0.9.0';
+const VER='0.9.1';
 const Q=new URLSearchParams(location.search);
 const LINK={ app:Q.get('app')||'', t:Q.get('t')||'', kind:Q.get('kind')||'', sens:+(Q.get('sens')||0)||0, target:(Q.get('target')==='fit'?'fit':'rope'), who:null, saved:null,
   // mode=post : 오프라인판(파일로 여는 프로그램)이 연 창. 서버 대신 window.opener.postMessage 로 결과를 돌려준다.
@@ -806,6 +814,7 @@ function livePill(text,bad){
   p.innerHTML=(bad?'<span style="color:var(--red)">●</span> ':'<span style="color:var(--mint)">●</span> ')+text;
 }
 function liveState(st,t,seen){
+  if(ROPE.on){ if(!ROPE.tx) return 'away'; if(!running) return 'ready'; return performance.now()-ROPE.lastUp<1600?'jump':'stop'; }
   if(LIVE.hidden) return 'hidden';
   if(!running) return 'ready';
   if(!seen||!st.visible||st.tooClose||!st.full) return 'away';
@@ -822,7 +831,7 @@ function livePush(force){
   if(!LIVE.ok||!LIVE.me) return;
   const st=det.state(), t=(performance.now()-t0)/1000;
   const s=liveState(st,t,det.visible), now=performance.now();
-  const full={g:LIVE.me.g,c:LIVE.me.c,n:LIVE.me.n,cnt:st.count,st:s,run:running,ctl:LIVE.ctlRun,v:VER};
+  const full={g:LIVE.me.g,c:LIVE.me.c,n:LIVE.me.n,cnt:st.count,st:s,run:running,ctl:LIVE.ctlRun,v:VER+(ROPE.on?'-r':'')};   // -r: 블루투스 줄넘기로 셈 (선생님 화면이 줄넘기 아이콘)
   if(!running) full.best=st.best;
   const prev=LIVE.sent||{}, diff={};
   Object.keys(full).forEach(k=>{ if(prev[k]!==full[k]) diff[k]=full[k]; });
@@ -844,10 +853,12 @@ function runStart(){ // 시작 버튼을 누른 것과 같은 일 (선생님 신
   if(r&&r.run===LIVE.ctlRun){ det.count=lastCount=r.cnt||0; det.best=r.best||0; }   // 같은 회차를 이어서 셈
   $('count').innerHTML=det.count+'<small>회</small>'; beep(660,0.1,0.2);
   $('btnStart').textContent='선생님 신호로 뛰는 중'; $('btnStart').classList.add('warn'); $('btnStart').classList.remove('primary'); $('btnStart').disabled=true; $('btnReset').disabled=true;
+  if(ROPE.on) ropeRunStart();
 }
 function runEnd(){ // 선생님 신호로 끝 — 기록은 선생님 현황판이 한꺼번에 하므로 여기서는 저장 창을 띄우지 않음
   if(LIVE.cdTimer){ clearInterval(LIVE.cdTimer); LIVE.cdTimer=0; }
   const was=running&&LIVE.ctlRun; running=false;
+  if(ROPE.on) ropeRunEnd();
   $('btnStart').classList.remove('warn'); $('btnStart').classList.add('primary'); liveIdle();
   if(!was){ livePush(true); return; }
   beep(440,0.15,0.2); $('status').textContent='끝! 선생님 화면을 봐요'; $('status').className='status idle';
@@ -855,7 +866,7 @@ function runEnd(){ // 선생님 신호로 끝 — 기록은 선생님 현황판�
   const st=det.state();
   $('smTitle').textContent='끝났어요!'; $('smErr').textContent='';
   $('smCount').innerHTML=st.count+'<small style="font-size:.3em;color:var(--muted)"> 회</small>';
-  $('smNote').textContent=`최고 연속 ${st.best}회 · 기록은 선생님 화면에서 한꺼번에 해요`;
+  $('smNote').textContent=ROPE.on?'줄넘기가 센 횟수예요 · 기록은 선생님 화면에서 한꺼번에 해요':`최고 연속 ${st.best}회 · 기록은 선생님 화면에서 한꺼번에 해요`;
   $('smBtns').innerHTML='<button class="primary" id="smOk" style="font-size:18px;padding:12px 24px">확인</button>';
   $('smOk').onclick=()=>$('saveModal').classList.remove('on');
   $('saveModal').classList.add('on');
@@ -982,6 +993,65 @@ async function liveInit(){
     guideShow();
   }catch(e){ console.error(e); LIVE.ok=false; livePill('선생님 화면에 연결하지 못했어요 — 혼자 세기는 돼요',true); }
 }
+
+/* ---------- 블루투스 줄넘기 (JUMPITNOW) — 카메라 대신 줄넘기가 센 횟수를 선생님 화면으로 ----------
+   FFF0 서비스 · FFF6 쓰기 · FFF7 알림. 16바이트 명령(끝 바이트 = 앞 15바이트 합).
+   09 04 자유 시작(숫자 0부터, 답 0B 04) · 09 99 멈춤 · 01 YY MM DD hh mm ss 시각 맞춤.
+   자유 모드 알림(1초마다): 09 04 [초 2바이트] [횟수 4바이트] … */
+const ROPE={ on:false, dev:null, tx:null, cnt:0, base:0, armed:false, lastUp:0, busy:false };
+const ropeBcd=v=>parseInt(String(v),16);
+async function ropeSend(arr){ if(!ROPE.tx) return; const b=new Uint8Array(16); arr.forEach((v,i)=>b[i]=v); let sum=0; for(let i=0;i<15;i++) sum+=b[i]; b[15]=sum&255;
+  try{ await (ROPE.tx.writeValueWithResponse?ROPE.tx.writeValueWithResponse(b):ROPE.tx.writeValue(b)); }catch(e){ console.warn('rope send',e); } }
+function ropeShow(){ $('count').innerHTML=det.count+'<small>회</small>'; $('count').classList.remove('flash'); void $('count').offsetWidth; $('count').classList.add('flash'); }
+function ropeStatus(t,cls){ $('status').textContent=t; $('status').className='status '+(cls||'idle'); }
+function ropeOnData(ev){
+  const v=new Uint8Array(ev.target.value.buffer);
+  if(v[0]===0x0b&&v[1]===0x04){ if(running){ ROPE.armed=true; } return; }
+  if(!(v[0]===0x09&&v[1]===0x04&&v.length>=8)) return;
+  const c=((v[4]<<24)|(v[5]<<16)|(v[6]<<8)|v[7])>>>0, sec=(v[2]<<8)|v[3];
+  if(!running){ ROPE.cnt=c; return; }   // 회차 밖에 혼자 뛴 숫자는 안 보냄
+  if(!ROPE.armed){ if(c<=2||sec<=2) ROPE.armed=true; else return; }   // 시작 명령 전에 세던 숫자는 버림
+  if(c!==ROPE.cnt){ ROPE.lastUp=performance.now(); ROPE.cnt=c; const n=ROPE.base+c, prev=det.count;
+    if(n!==prev){ det.count=lastCount=n; ropeShow(); if(n>prev){ beep(880,0.05,0.1); if(Math.floor(n/10)>Math.floor(prev/10)) celebrate(Math.floor(n/10)*10); } } }
+  const m=Math.floor(sec/60), s2=sec%60; $('time').textContent=m+':'+String(s2).padStart(2,'0');
+  ropeStatus('줄넘기가 세는 중','jump'); livePush();
+}
+async function ropeConnect(){
+  if(ROPE.busy) return; ROPE.busy=true; $('ropeRe').hidden=true;
+  try{
+    ROPE.dev=ROPE.dev||await navigator.bluetooth.requestDevice({ filters:[{ namePrefix:'JUMPITNOW' }], optionalServices:[0xfff0] });
+    if(!ROPE.dev._jl){ ROPE.dev._jl=1; ROPE.dev.addEventListener('gattserverdisconnected',()=>{ ROPE.tx=null; $('ropeRe').hidden=false; ropeStatus('줄넘기 연결이 끊겼어요 — 아래 "줄넘기 다시 연결"을 눌러요','wait'); livePush(true); }); }
+    ropeStatus('줄넘기에 연결하는 중…');
+    const g=await ROPE.dev.gatt.connect(), sv=await g.getPrimaryService(0xfff0);
+    ROPE.tx=await sv.getCharacteristic(0xfff6); const rx=await sv.getCharacteristic(0xfff7);
+    rx.addEventListener('characteristicvaluechanged',ropeOnData); await rx.startNotifications();
+    const d=new Date(); await ropeSend([0x01,ropeBcd(d.getFullYear()%100),ropeBcd(d.getMonth()+1),ropeBcd(d.getDate()),ropeBcd(d.getHours()%12),ropeBcd(d.getMinutes()),ropeBcd(d.getSeconds())]);
+    if(running){ ROPE.base=det.count; ROPE.armed=false; ROPE.cnt=0; }
+    await ropeSend([0x09,0x04]);   // 자유 모드(혼자 뛸 때도 줄넘기에 숫자가 보이게) — 회차가 시작되면 다시 0부터
+    ropeStatus(running?'다시 연결됐어요 — 계속 뛰어요':'줄넘기 연결됨 — 선생님이 시작하면 줄넘기가 세요', running?'jump':'idle');
+    livePush(true); return true;
+  }catch(e){
+    ROPE.tx=null; $('ropeRe').hidden=!ROPE.on;
+    const E=e&&e.name;
+    ropeStatus(E==='NotFoundError'?'줄넘기를 고르지 않았어요 — 줄넘기를 켜고 다시 눌러요':'줄넘기에 연결하지 못했어요: '+(e.message||e),'wait');
+    if(/Android/i.test(navigator.userAgent)) $('coverErr').innerHTML='줄넘기 목록이 비어 있었다면: 휴대폰 <b>설정 → 애플리케이션 → '+(/SamsungBrowser/i.test(navigator.userAgent)?'삼성 인터넷(삼성 브라우저)':'Chrome')+' → 권한</b>에서 <b>근처 기기</b>·<b>위치</b>를 허용하고, 이 페이지를 닫았다 다시 열어요.';
+    return false;
+  }finally{ ROPE.busy=false; }
+}
+async function ropeRunStart(){ ROPE.cnt=0; ROPE.armed=false; ROPE.lastUp=0;
+  ROPE.base=det.count;   // 보통 0. 새로 고침 뒤 같은 회차를 이어 셀 때는 앞 숫자에 더함
+  await ropeSend([0x09,0x99]); setTimeout(()=>ropeSend([0x09,0x04]),250); ropeStatus('줄넘기가 세는 중','jump'); }
+async function ropeRunEnd(){ await ropeSend([0x09,0x99]); setTimeout(()=>ropeSend([0x09,0x04]),700); }   // 멈춘 뒤 다시 자유 모드로 — 혼자 뛸 때도 줄넘기가 셈
+window.addEventListener('pagehide',()=>{ if(ROPE.tx&&running) ropeSend([0x09,0x04]); });
+if(LIVE.on&&navigator.bluetooth){ $('btnRope').hidden=false; $('ropeTip').hidden=false; }
+$('btnRope').onclick=async()=>{
+  audioWarm(); $('coverErr').textContent='';
+  ROPE.on=true; const ok=await ropeConnect();
+  if(!ok){ ROPE.on=false; $('coverErr').prepend(document.createTextNode($('status').textContent+' ')); return; }
+  document.body.classList.add('rope'); $('cover').classList.add('hide'); LIVE.guideOff=true;
+  $('count').innerHTML=det.count+'<small>회</small>'; linkInit().then(liveInit);
+};
+$('ropeRe').onclick=()=>ropeConnect();
 
 /* ---------- 버튼 ---------- */
 $('btnCam').onclick=async()=>{
