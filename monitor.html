@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.4.4</title>
+<title>점프 라이브 v0.4.5</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -186,7 +186,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.4.4</span></h1>
+    <h1>점프 라이브<span class="ver">v0.4.5</span></h1>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <div class="me" id="me" hidden><span id="meName"></span><button id="btnOut">로그아웃</button></div>
@@ -310,7 +310,7 @@
    서버에 올라가는 것: 방 주인(로그인 ID), 학년·반·인원, 시작·끝 신호, 학생 기기별 학년·반·번호·횟수·상태. 이름은 이 컴퓨터에만.
    전송 방식은 BACKEND 하나에 모음 (Firebase / 시험 모드) — 나중에 다른 서버로 바꿀 때 이것만 바꾸면 됨
    ========================================================================================= */
-const VER='0.4.4';
+const VER='0.4.5';
 const FB_CONFIG={ apiKey:'AIzaSyDimPwJ974Pmn9wcgwFZFWUBQPaOra5chQ', authDomain:'jumpropelive.firebaseapp.com',
   databaseURL:'https://jumpropelive-default-rtdb.asia-southeast1.firebasedatabase.app', projectId:'jumpropelive',
   storageBucket:'jumpropelive.firebasestorage.app', messagingSenderId:'727527484238', appId:'1:727527484238:web:aaed6e0585ee7db7228c1f' };
@@ -497,7 +497,8 @@ async function openRoom(){
   $('btnOpen').disabled=false; $('btnOpen').textContent='방 열기';
 }
 async function closeRoom(){
-  if(!confirm('방을 닫을까요? 학생 기기와의 연결이 끊기고 이번 수업 기록이 서버에서 지워져요. (결과는 먼저 복사해 두세요)')) return;
+  const id=S.lastRun&&S.lastRun.id, unkept=id&&!runKept(id);
+  if(!confirm('방을 닫을까요? 학생 기기와의 연결이 끊기고 이번 수업 기록이 서버에서 지워져요.'+(unkept?'\n\n마지막 회차 결과가 아직 시트에 들어가지 않았어요!':''))) return;
   try{ await B.closeRoom(S.room); }catch(e){ alert('방을 닫지 못했어요: '+e.message); return; }
   store.set('jrl_open',''); S.room=''; $('vLive').style.display='none'; view('vSetup');
 }
@@ -798,6 +799,7 @@ function big(t){ const b=$('big'); b.textContent=t; b.classList.remove('on'); vo
 function audioWarm(){ try{ const ac=window.__ac=window.__ac||new (window.AudioContext||window.webkitAudioContext)(); if(ac.state==='suspended') ac.resume(); const b=ac.createBuffer(1,1,22050), s=ac.createBufferSource(); s.buffer=b; s.connect(ac.destination); s.start(0); }catch(e){} }
 async function go(){
   audioWarm();
+  { const id=S.lastRun&&S.lastRun.id; if(id&&!runKept(id)&&S.closeWarned!==id&&!confirm('지난 회차 결과가 아직 시트에 들어가지 않았어요. 새로 시작하면 지난 결과는 다시 볼 수 없어요. 그래도 시작할까요?')) return; }
   const dur=+$('selDur').value, id='r'+Date.now().toString(36);
   const c={ph:'go',id,at:B.now()+5000,dur};
   try{ await B.setControl(S.room,c); S.ctl=c; S.lastRun={id,dur,at:c.at}; S.endShown=''; S.prevCnt={}; $('qr').hidden=true; $('btnResult').disabled=true; musicCountdown(); hubOnGo(id); }
@@ -851,12 +853,14 @@ function showResult(){
   $('resTitle').textContent=`${clsLabel(S.groups)} · ${dur?(dur>=60?dur/60+'분':dur+'초'):'제한 없음'} 결과`;
   $('resNote').textContent=`${rows.length}명 · 합계 ${rows.reduce((s,r)=>s+r.cnt,0).toLocaleString()}회`+(missing.length?` · 기록 없음: ${missing.join(', ')}번`:'')+(APPM?'':' · 결과 복사로 시트에 옮겨 주세요');
   $('resSaveRow').hidden=!APPM; if(APPM) resSaveUi();
-  $('resMsg').textContent=''; $('resModal').classList.add('on');
+  $('resMsg').textContent=''; $('btnResClose').textContent=S.closeWarned===S.lastRun.id?'저장 안 하고 닫기':'닫기'; $('resModal').classList.add('on');
 }
+// 이 회차 결과를 남겼나: 앱에서 열었으면 시트 저장, 아니면 결과 복사. 뛴 학생이 없으면 남길 것도 없음
+function runKept(id){ if(!resultRows().some(r=>r.cnt>0)) return true; return APPM?!!savedRuns()[id]:S.copied===id; }
 async function copyResult(){
   const rows=resultRows().slice().sort((a,b)=>(a.g-b.g)||(a.c-b.c)||(a.n-b.n));
   const tsv=['학년\t반\t번호\t이름\t횟수\t최고연속',...rows.map(r=>`${r.g}\t${r.c}\t${r.n}\t${r.name}\t${r.cnt}\t${isRope(r.pick)?'':r.best}`)].join('\n');
-  try{ await navigator.clipboard.writeText(tsv); $('resMsg').textContent='복사했어요 — 시트의 칸을 누르고 붙여 넣기 (번호순)'; }
+  try{ await navigator.clipboard.writeText(tsv); S.copied=S.lastRun.id; $('btnResClose').textContent='닫기'; $('resMsg').textContent='복사했어요 — 시트의 칸을 누르고 붙여 넣기 (번호순)'; }
   catch(e){ $('resMsg').textContent='복사하지 못했어요'; }
 }
 
@@ -879,7 +883,7 @@ async function saveResult(){
   resSaveUi('시트에 저장하는 중…'); $('btnResSave').hidden=true;
   try{
     const r=await rpc('addLiveRecordsAdmin',[tok,S.type,rows,id]);
-    const m=savedRuns(); m[id]=r.already?rows.length:r.saved; store.set('jrl_saved',JSON.stringify(m));
+    const m=savedRuns(); m[id]=r.already?rows.length:r.saved; store.set('jrl_saved',JSON.stringify(m)); $('btnResClose').textContent='닫기';
     // 줄넘기 기록 관리 창에 알려 점퍼스(전국 현황판)로 바로 보내게 함 — 카메라 인증 기록으로 집계
     try{ if(window.opener&&!window.opener.closed) window.opener.postMessage({type:'jumplive-saved'},location.origin); }catch(e){}
     resSaveUi(r.already?'이미 저장한 회차예요':`✓ 시트에 ${r.saved}명 기록했어요 (${S.type}, 승인됨)`+(r.skipped&&r.skipped.length?` · ${r.skipped.length}명은 명단에 없어 뺐어요`:''));
@@ -902,7 +906,12 @@ $('btnOpen').onclick=openRoom; $('btnClose').onclick=closeRoom; $('btnGo').oncli
 $('btnSort').onclick=()=>{ S.sort=S.sort==='no'?'cnt':'no'; $('btnSort').textContent=S.sort==='no'?'횟수순':'번호순'; render(); };
 $('btnQr').onclick=showQr; $('btnQrClose').onclick=()=>$('qr').hidden=true;
 $('btnCopy').onclick=async()=>{ try{ await navigator.clipboard.writeText(studentUrl()); $('btnCopy').textContent='복사했어요'; setTimeout(()=>$('btnCopy').textContent='주소 복사',1500); }catch(e){} };
-$('btnResult').onclick=showResult; $('btnResClose').onclick=()=>$('resModal').classList.remove('on'); $('btnResCopy').onclick=copyResult;
+$('btnResult').onclick=showResult; $('btnResCopy').onclick=copyResult;
+// 저장(앱에서 연 경우 시트 저장, 아니면 결과 복사)을 안 하고 닫으면 한 번 알려 줌 — 한 번 더 누르면 그냥 닫힘
+$('btnResClose').onclick=()=>{ const id=S.lastRun&&S.lastRun.id;
+  if(id&&!runKept(id)&&S.closeWarned!==id){ S.closeWarned=id; $('resMsg').innerHTML='<b style="color:var(--red)">아직 시트에 들어가지 않았어요 — 이대로 닫아도 되면 한 번 더 눌러요</b>'; $('btnResClose').textContent='저장 안 하고 닫기'; return; }
+  $('resModal').classList.remove('on'); };
+window.addEventListener('beforeunload',e=>{ const id=S.lastRun&&S.lastRun.id; if(id&&!runKept(id)&&S.closeWarned!==id){ e.preventDefault(); e.returnValue=''; } });
 addEventListener('resize',()=>{ if(S.room) render(); });
 setInterval(clockTick,100);
 setInterval(()=>{ if(S.room) render(); },3000);   // 신호가 끊긴 기기를 "끊김"으로 바꾸려고
