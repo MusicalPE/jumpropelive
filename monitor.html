@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.4.8</title>
+<title>점프 라이브 v0.5.0</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -181,13 +181,56 @@
     .bar select{font-size:15px;padding:6px 8px}
     h1{font-size:20px} .mark{width:36px;height:36px} .demo{font-size:12px;padding:5px 10px}
   }
+
+  /* ---- 랜덤 한 명 도전 ---- */
+  .chal{position:fixed;inset:0;z-index:20;background:var(--bg);display:flex;flex-direction:column;gap:14px;padding:16px 20px}
+  .chal .ch-top{display:flex;align-items:center;gap:12px}
+  .chal .ch-top h2{margin:0;font-size:28px;letter-spacing:-.03em}
+  .chal .ch-main{flex:1;display:grid;grid-template-columns:1fr 360px;gap:14px;min-height:0}
+  .ch-stage{position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center}
+  .ch-eyebrow{font-weight:800;color:var(--muted);font-size:22px}
+  .ch-slot{position:relative;width:min(760px,92%);height:min(330px,40vh);margin:14px 0;border-radius:28px;background:linear-gradient(var(--soft),#fff 30%,#fff 70%,var(--soft));border:2px solid var(--line);overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .ch-slot .n{font-size:min(64px,7vh);font-weight:800;color:#C9CDD6;line-height:1.5;filter:blur(1.5px);white-space:nowrap}
+  .ch-slot .n.c{font-size:min(120px,13vh);color:var(--ink);filter:none;line-height:1.25}
+  .ch-slot .n small,.ch-who small{font-size:.32em;color:var(--muted);font-weight:700;margin-right:14px;vertical-align:.5em}
+  .ch-slot.stop .n.c{color:var(--accent-ink)}
+  .ch-btns{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:8px}
+  .ch-btns button{font-size:20px;padding:14px 26px;min-height:56px;border-radius:16px}
+  .ch-who{font-size:min(96px,11vh);font-weight:900;letter-spacing:-.04em;line-height:1}
+  .ch-ring{position:relative;width:min(360px,42vh);aspect-ratio:1;margin:16px 0 6px}
+  .ch-ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+  .ch-ring .num{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .ch-ring .num b{font-size:min(150px,17vh);font-weight:900;line-height:1;letter-spacing:-.05em}
+  .ch-ring .num span{font-size:24px;color:var(--muted);font-weight:800}
+  .ch-ring.hit circle.p{stroke:var(--mint)}
+  .ch-time{font-size:46px;font-weight:900;color:var(--accent-ink)} .ch-time small{font-size:.5em;color:var(--muted);margin-left:6px}
+  .ch-src{font-weight:700;color:var(--muted);font-size:16px;margin-top:6px}
+  .ch-ok{font-size:min(130px,15vh);font-weight:900;letter-spacing:-.04em;line-height:1}
+  .ch-ok.y{color:var(--mint)} .ch-ok.n{color:var(--amber)}
+  .ch-res{font-size:38px;font-weight:800;margin-top:12px} .ch-res b{font-size:1.5em}
+  .ch-msg{font-size:15px;font-weight:700;color:var(--muted);margin-top:10px;min-height:1.4em} .ch-msg.bad{color:var(--red)}
+  .ch-conf{position:absolute;inset:0;pointer-events:none}
+  .ch-conf i{position:absolute;width:14px;height:22px;border-radius:3px;opacity:0;animation:chf 2.2s ease-out forwards}
+  @keyframes chf{0%{opacity:0;transform:translateY(-40px) rotate(0)}15%{opacity:1}100%{opacity:.9;transform:translateY(60px) rotate(220deg)}}
+  .ch-side{display:flex;flex-direction:column;gap:14px;min-height:0}
+  .ch-box{padding:18px 20px} .ch-box h3{margin:0 0 10px;font-size:18px}
+  .ch-set{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0;font-weight:700;color:var(--ink2)}
+  .ch-set .chips{margin:0;gap:5px;flex-wrap:nowrap} .ch-set .chip{min-height:34px;padding:4px 9px;font-size:14px}
+  .ch-set input[type=number]{width:90px;text-align:center}
+  .ch-log{flex:1;overflow:auto}
+  .ch-score{display:flex;gap:8px;margin-bottom:8px} .ch-score div{flex:1;background:var(--soft);border-radius:14px;padding:8px 10px;font-weight:700;color:var(--muted);font-size:13px} .ch-score b{display:block;color:var(--ink);font-size:24px}
+  .ch-li{display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid var(--line);font-weight:700}
+  .ch-li .nm{flex:1} .ch-li .c{font-size:19px}
+  .ch-li .t{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:15px;flex:none} .t.y{background:var(--mint)} .t.n{background:#C9CDD6}
+  .ch-left{color:var(--muted);font-size:14px;font-weight:600;margin-top:8px}
+  @media (max-width:980px){ .chal .ch-main{grid-template-columns:1fr} .ch-side{display:none} }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.4.8</span></h1>
+    <h1>점프 라이브<span class="ver">v0.5.0</span></h1>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <div class="me" id="me" hidden><span id="meName"></span><button id="btnOut">로그아웃</button></div>
@@ -245,6 +288,7 @@
           <optgroup label="횟수 (먼저 닿기)"><option value="g50">50회</option><option value="g100">100회</option><option value="g200">200회</option><option value="g300">300회</option><option value="g500">500회</option></optgroup></select></label>
       <button class="primary" id="btnGo" style="min-width:120px;font-size:19px">시작</button>
       <button class="dark" id="btnEnd" disabled>끝</button>
+      <button id="btnChal" title="반 학생 중 한 명을 뽑아 짧게 도전">랜덤 도전</button>
       <button id="btnSort">횟수순</button>
       <button id="btnMusic" title="유튜브 배경음악">음악</button>
       <button id="btnHub" title="전자 줄넘기 허브(USB)">줄넘기 허브</button>
@@ -277,6 +321,21 @@
   <div class="row" id="resSaveRow" hidden><b id="resSave"></b><input type="password" id="resPw" placeholder="관리자 비밀번호" hidden style="font-size:16px;padding:8px 12px;border-radius:12px;border:1px solid var(--line);background:var(--soft)"><button id="btnResSave" hidden>다시 저장</button></div>
   <div class="row"><button class="primary" id="btnResCopy">결과 복사 (시트에 붙여 넣기)</button><button id="btnResClose">닫기</button><span class="small" id="resMsg"></span></div>
 </div></div>
+<div class="chal" id="chal" hidden>
+  <div class="ch-top"><h2>랜덤 한 명 도전</h2><span class="pill" id="chCls"></span><div class="spacer"></div><button id="chBack">다 같이 뛰기로</button></div>
+  <div class="ch-main">
+    <div class="card ch-stage" id="chStage"></div>
+    <div class="ch-side">
+      <div class="card ch-box"><h3>도전 규칙</h3>
+        <div class="ch-set">시간<div class="chips" id="chSecs"></div></div>
+        <div class="ch-set">목표 개수<input type="number" id="chGoal" min="1" max="999" value="20"></div>
+        <label class="ch-set">한 번 뽑힌 친구는 빼고 뽑기<input type="checkbox" id="chExcl" checked></label>
+        <label class="ch-set" id="chSaveRow">도전 결과를 시트에 기록<input type="checkbox" id="chSave" checked></label>
+      </div>
+      <div class="card ch-box ch-log"><h3>오늘의 도전</h3><div id="chLog"></div></div>
+    </div>
+  </div>
+</div>
 <div class="big" id="big"></div>
 <div class="hub" id="hub" hidden>
   <div class="mh">줄넘기 허브 <span class="hst" id="hubSt">연결 안 됨</span><button class="x" id="hubX">닫기</button></div>
@@ -310,7 +369,7 @@
    서버에 올라가는 것: 방 주인(로그인 ID), 학년·반·인원, 시작·끝 신호, 학생 기기별 학년·반·번호·횟수·상태. 이름은 이 컴퓨터에만.
    전송 방식은 BACKEND 하나에 모음 (Firebase / 시험 모드) — 나중에 다른 서버로 바꿀 때 이것만 바꾸면 됨
    ========================================================================================= */
-const VER='0.4.7';
+const VER='0.5.0';
 const FB_CONFIG={ apiKey:'AIzaSyDimPwJ974Pmn9wcgwFZFWUBQPaOra5chQ', authDomain:'jumpropelive.firebaseapp.com',
   databaseURL:'https://jumpropelive-default-rtdb.asia-southeast1.firebasedatabase.app', projectId:'jumpropelive',
   storageBucket:'jumpropelive.firebasestorage.app', messagingSenderId:'727527484238', appId:'1:727527484238:web:aaed6e0585ee7db7228c1f' };
@@ -375,7 +434,7 @@ function demoBackend(){
     watch(room,cb){ onDevs=cb; clearInterval(tick); tick=setInterval(()=>{
       const now=Date.now();
       Object.values(devs).forEach(d=>{
-        const go=ctl.ph==='go'&&now>=ctl.at&&(!ctl.dur||now<ctl.at+ctl.dur*1000);
+        const go=ctl.ph==='go'&&now>=ctl.at&&(!ctl.dur||now<ctl.at+ctl.dur*1000)&&(!ctl.who||ctl.who===d.g+'-'+d.c+'-'+d.n);
         if(go&&!d.run){ d.run=true; d.cnt=0; d.best=0; d.ctl=ctl.id; d._streak=0; }
         if(!go&&d.run){ d.run=false; d.st='ready'; }
         if(d.run){ const r=Math.random();
@@ -574,6 +633,7 @@ function render(){
   $('others').hidden=!ot.length;
   $('others').innerHTML=ot.length?`<b>⚠ 다른 반·명단 밖 접속 ${ot.length}대</b>`+ot.map(d=>`<span>${d.g}학년 ${d.c}반 ${d.n}번 · ${d.cnt}회</span>`).join(''):'';
   S.rows=rows;
+  if(CH.on) chalRender();
   // QR 창이 열려 있어도 몇 명 들어왔는지 · 아직 안 들어온 번호
   if(!$('qr').hidden){
     $('qjBig').innerHTML=`<b>${join}</b> / ${total}명<small>들어왔어요</small>`;
@@ -758,7 +818,7 @@ function hubModeCmd(){ const v=$('selDur').value, g=goalOf(v), d=durOf(v);
   return {m:'free',cmd:'free all'}; }
 function hubModeUi(){ const v=$('selDur').value, g=goalOf(v), d=durOf(v);
   $('hubModeTip').textContent='줄넘기 세기는 화면 위 "목표"를 따라가요 — '+(g?`${g}회가 되면 줄넘기가 스스로 멈춰요`:d?`${durTxt(d)}이 되면 줄넘기가 스스로 멈춰요`:'제한 없음: 끝을 누를 때까지 세요'); }
-function hubOnGo(id){ if(!HUB.on) return; HUB.runId=id; HUB.mode=hubModeCmd(); HUB.autoEnd=false;
+function hubOnGo(id){ if(!HUB.on) return; HUB.runId=id; HUB.mode=S.lastRun&&S.lastRun.chal?{m:'time',cmd:'time all '+S.lastRun.dur}:hubModeCmd(); HUB.autoEnd=false;
   Object.values(HUB.ropes).forEach(r=>{ r.cnt=0; r.ctl=''; r.lastUp=0; r.doneDs=0; });
   const cmd=HUB.mode.cmd; hubSend('stop all').then(()=>setTimeout(()=>hubSend(cmd),300)); hubPush(); }
 function hubOnStart(){ if(!HUB.on||!HUB.runId) return; HUB.startAt=Date.now(); HUB.accept=true; clearTimeout(HUB.freeT);
@@ -825,6 +885,7 @@ async function end(now){
 function finish(){ // 학생 기기가 마지막 숫자를 보낼 시간을 2초 주고 결과
   if(S.endShown===S.lastRun.id) return; S.endShown=S.lastRun.id;
   beep(440,.3,.25); big('끝!'); musicEnd(); hubOnEnd();
+  if(S.lastRun.chal){ setTimeout(()=>{ render(); chalFinish(); },2000); return; }   // 랜덤 한 명 도전은 결과 창 대신 도전 화면에
   setTimeout(()=>{ render(); showResult(); $('btnResult').disabled=false; if(APPM&&S.groups.some(x=>Object.keys(x.ids||{}).length)) saveResult(); },2000);
 }
 function clockTick(){
@@ -845,6 +906,93 @@ function clockTick(){
   const running=c.ph==='go'; $('btnGo').disabled=running; $('btnEnd').disabled=!running; if(!running) $('btnEnd').textContent='끝'; $('selDur').disabled=running; $('btnClose').disabled=running;
   $('btnGo').textContent=running?(now<c.at?'곧 시작':'뛰는 중'):'시작';
 }
+
+/* ---------- 랜덤 한 명 도전: 반 학생 중 한 명을 뽑아 그 친구만 짧게 뛰기 ----------
+   회차 신호에 who(학년-반-번호)를 넣어 보냄 → 그 학생 판정기만 세고(안드로이드는 진동), 다른 학생 화면엔 '○번 차례' 표시
+   허브 줄넘기면 뽑힌 친구 줄넘기만 진동. 셀 때는 뽑힌 친구 숫자만 봄 */
+const CH={ on:false, secs:10, goal:20, phase:'idle', k:'', used:{}, log:[], spinT:0, tickT:0, msg:'', bad:false };
+const CH_SECS=[5,10,15,20,30];
+function chalRow(k){ return (S.rows||[]).find(r=>r.k===k); }
+function chalLabel(r){ return r?`<small>${multi()?r.g+'-'+r.c+' ':''}${r.n}번</small>${esc(r.name||'')}`:''; }
+function chalRope(r){ if(!HUB.on||!r) return 0; const n=Object.keys(HUB.ropes).find(n=>{ const st=hubStudent(n); return st&&st.g==r.g&&st.c==r.c&&st.n==r.n; }); return n?+n:0; }
+function chalPool(){ return (S.rows||[]).filter(r=>r.dup>0&&!($('chExcl').checked&&CH.used[r.k])); }
+function chalOpen(){
+  if(S.ctl.ph==='go') return alert('지금 뛰는 중이에요. 끝난 뒤에 열어 주세요.');
+  CH.on=true; CH.phase='idle'; $('chal').hidden=false; $('chCls').textContent=clsLabel(S.groups)+(S.type?' · '+S.type:'');
+  $('chSaveRow').hidden=!APPM;
+  $('chSecs').innerHTML=CH_SECS.map(v=>`<button class="chip${v===CH.secs?' on':''}" data-s="${v}">${v}초</button>`).join('');
+  clearInterval(CH.tickT); CH.tickT=setInterval(()=>{ if(CH.phase==='run') chalRender(); },100);
+  chalRender(); chalLogRender();
+}
+function chalClose(){ if(S.ctl.ph==='go') return alert('도전이 끝난 뒤에 돌아가요.'); CH.on=false; clearInterval(CH.tickT); clearTimeout(CH.spinT); $('chal').hidden=true; render(); }
+function chalSpin(){
+  if(S.ctl.ph==='go') return;
+  let pool=chalPool();
+  if(!pool.length){
+    if($('chExcl').checked&&(S.rows||[]).some(r=>r.dup>0)){ if(!confirm('들어온 친구가 모두 한 번씩 도전했어요. 처음부터 다시 뽑을까요?')) return; CH.used={}; pool=chalPool(); }
+    if(!pool.length) return alert('판정기나 줄넘기로 들어온 친구가 없어요. QR로 먼저 들어오게 해 주세요.');
+  }
+  audioWarm(); clearTimeout(CH.spinT);
+  const pickR=pool[Math.floor(Math.random()*pool.length)], all=(S.rows||[]).filter(r=>r.dup>0);
+  const any=()=>all[Math.floor(Math.random()*all.length)]||pickR;
+  CH.phase='spin'; CH.msg=''; let t=0, step=55;
+  const slot=k=>{ const a=any(), b=any(); $('chStage').innerHTML=`<div class="ch-eyebrow">누가 뛸까요?</div><div class="ch-slot${k?' stop':''}"><div class="n">${chalLabel(a)}</div><div class="n c">${chalLabel(k||any())}</div><div class="n">${chalLabel(b)}</div></div><div class="ch-btns"><button disabled>뽑는 중…</button></div>`; };
+  const tick=()=>{ t+=step; if(t<2600){ slot(null); beep(520+Math.random()*200,.03,.08); step=Math.min(320,step*1.12); CH.spinT=setTimeout(tick,step); }
+    else { CH.k=pickR.k; CH.phase='ready'; beep(784,.12,.2); setTimeout(()=>beep(1046,.25,.25),130); chalRender();
+      const n=chalRope(pickR); if(n){ hubSend('vibrate '+n); setTimeout(()=>hubSend('vibrate '+n),900); } } };
+  tick();
+}
+async function chalGo(){
+  if(S.ctl.ph==='go'||!CH.k) return;
+  const r=chalRow(CH.k); if(!r) return;
+  { const id=S.lastRun&&S.lastRun.id; if(id&&!S.lastRun.chal&&!runKept(id)&&S.closeWarned!==id&&!confirm('지난 회차 결과가 아직 시트에 들어가지 않았어요. 그래도 시작할까요?')) return; }
+  audioWarm();
+  CH.goal=Math.max(1,Math.min(999,Math.round(+$('chGoal').value)||20)); $('chGoal').value=CH.goal;
+  const id='r'+Date.now().toString(36)+'c', c={ph:'go',id,at:B.now()+5000,dur:CH.secs,who:CH.k};
+  try{ await B.setControl(S.room,c); }catch(e){ return alert('시작 신호를 보내지 못했어요: '+e.message); }
+  S.ctl=c; S.lastRun={id,dur:CH.secs,goal:0,at:c.at,chal:{k:CH.k,goal:CH.goal}}; S.done={}; S.autoEnd=''; S.endShown=''; S.prevCnt={}; S.ending='';
+  CH.used[CH.k]=1; CH.phase='run'; musicCountdown(); hubOnGo(id); chalRender();
+}
+function chalRender(){
+  const st=$('chStage'); if(!st) return;
+  const r=chalRow(CH.k);
+  if(CH.phase==='idle'||!r&&CH.phase!=='spin'){ const n=(S.rows||[]).filter(x=>x.dup>0).length, left=chalPool().length;
+    st.innerHTML=`<div class="ch-eyebrow">들어온 친구 ${n}명 중 한 명을 뽑아요</div><div class="ch-slot"><div class="n">?</div><div class="n c">누가 뛸까요?</div><div class="n">?</div></div><div class="ch-btns"><button class="primary" data-ch="spin"${n?'':' disabled'}>뽑기</button></div><div class="ch-msg">${$('chExcl').checked?'아직 안 뽑힌 친구 '+left+'명':''}</div>`; return; }
+  if(CH.phase==='ready'){ const rope=chalRope(r);
+    st.innerHTML=`<div class="ch-eyebrow">이번 도전자!</div><div class="ch-slot stop"><div class="n">&nbsp;</div><div class="n c">${chalLabel(r)}</div><div class="n">&nbsp;</div></div><div class="ch-btns"><button data-ch="spin">다시 뽑기</button><button class="primary" data-ch="go">${esc(r.name||r.n+'번')} 도전 시작 · ${CH.secs}초 ${CH.goal=Math.max(1,Math.round(+$('chGoal').value)||20)}개</button></div><div class="ch-msg">${rope?rope+'번 줄넘기가 진동했어요':r.dup?'판정기 화면에 "내 차례!"가 떠요 (안드로이드는 진동)':''}</div>`; return; }
+  if(CH.phase==='run'){ const c=S.ctl, now=B.now(), g=CH.goal, cnt=r.cnt, p=Math.min(1,cnt/g), R=160, L=2*Math.PI*R;
+    const tm=c.ph!=='go'?'<div class="ch-time">끝!</div>':now<c.at?`<div class="ch-time">${Math.ceil((c.at-now)/1000)}<small>초 뒤 시작</small></div>`:`<div class="ch-time">${Math.max(0,(c.at+c.dur*1000-now)/1000).toFixed(1)}<small>초 남음</small></div>`;
+    st.innerHTML=`<div class="ch-who">${chalLabel(r)} 도전!</div><div class="ch-ring${cnt>=g?' hit':''}"><svg viewBox="0 0 360 360"><circle cx="180" cy="180" r="${R}" stroke="#EEF0F3" stroke-width="22" fill="none"/><circle class="p" cx="180" cy="180" r="${R}" stroke="#FF6B5B" stroke-width="22" fill="none" stroke-linecap="round" stroke-dasharray="${L}" stroke-dashoffset="${L*(1-p)}"/></svg><div class="num"><b>${cnt}</b><span>${cnt>=g?'목표 달성!':'목표 '+g+'개'}</span></div></div>${tm}<div class="ch-src">${r.src==='rope'?'줄넘기로 세는 중':r.src==='cam'?'판정기로 세는 중':'기다리는 중…'}</div>`; return; }
+  if(CH.phase==='done'){ const L=CH.log[CH.log.length-1]||{}; let cf='';
+    if(L.ok){ const col=['#FF6B5B','#2BB3A3','#F2A33A','#6E5BEF','#13A6E8']; for(let i=0;i<70;i++) cf+=`<i style="left:${(i*37)%100}%;top:${(i*53)%90}%;background:${col[i%5]};animation-delay:${(i%10)*60}ms"></i>`; }
+    st.innerHTML=`<div class="ch-conf">${cf}</div><div class="ch-who" style="font-size:min(64px,8vh)">${chalLabel(r)}</div><div class="ch-ok ${L.ok?'y':'n'}">${L.ok?'성공!':'아깝다!'}</div><div class="ch-res"><b>${L.cnt}</b>개 / 목표 ${L.goal}개 · ${L.secs}초</div><div class="ch-btns" style="margin-top:22px"><button class="primary" data-ch="spin">다음 친구 뽑기</button></div><div class="ch-msg${CH.bad?' bad':''}">${esc(CH.msg)}</div>`; }
+}
+function chalLogRender(){
+  const L=CH.log, ok=L.filter(x=>x.ok).length, best=Math.max(0,...L.map(x=>x.cnt));
+  $('chLog').innerHTML=`<div class="ch-score"><div>성공<b>${ok}명</b></div><div>도전<b>${L.length}명</b></div><div>최고<b>${best}개</b></div></div>`+
+    L.slice().reverse().map(x=>`<div class="ch-li"><span class="t ${x.ok?'y':'n'}">${x.ok?'✓':'✗'}</span><span class="nm">${esc(x.name)}</span><span class="c">${x.cnt}개</span></div>`).join('')+
+    `<div class="ch-left">${$('chExcl').checked?'아직 안 뽑힌 친구 '+chalPool().length+'명':''}</div>`;
+}
+async function chalFinish(){
+  const run=S.lastRun, ch=run.chal, r=chalRow(ch.k)||{}, cnt=r.cnt||0, ok=cnt>=ch.goal;
+  CH.log.push({k:ch.k,name:r.name||(r.n+'번'),cnt,goal:ch.goal,secs:run.dur,ok}); CH.phase='done'; CH.k=ch.k; CH.msg=''; CH.bad=false;
+  if(ok){ beep(1046,.15,.25); setTimeout(()=>beep(1318,.3,.25),160); } else beep(392,.35,.2);
+  const m=savedRuns(); m[run.id]=m[run.id]||'chal'; store.set('jrl_saved',JSON.stringify(m)); S.copied=run.id;   // 다음 시작 때 '저장 안 됨' 경고가 안 뜨게
+  chalRender(); chalLogRender();
+  if(APPM&&$('chSave').checked&&r.id&&cnt>0){
+    if(!JR.live){ CH.msg='자동 기록이 안 돼요 — 이 학교 껍데기가 점프 라이브판이 아니에요'; CH.bad=true; return chalRender(); }
+    const tok=JR.admin||sessGet(); if(!tok){ CH.msg='관리자 로그인이 끝나서 기록하지 못했어요 (도전 기록은 아래 목록에 남아 있어요)'; CH.bad=true; return chalRender(); }
+    try{ const res=await rpc('addLiveRecordsAdmin',[tok,S.type,[{id:r.id,count:cnt}],run.id]); CH.msg=res.already?'이미 기록한 도전이에요':`✓ 시트에 ${cnt}회 기록했어요 (${S.type})`;
+      try{ if(window.opener&&!window.opener.closed) window.opener.postMessage({type:'jumplive-saved'},location.origin); }catch(e){} }
+    catch(e){ CH.msg='기록하지 못했어요: '+e.message; CH.bad=true; }
+    chalRender();
+  }
+}
+$('btnChal').onclick=chalOpen; $('chBack').onclick=chalClose;
+$('chSecs').onclick=e=>{ const b=e.target.closest('[data-s]'); if(!b||S.ctl.ph==='go') return; CH.secs=+b.dataset.s; Array.prototype.forEach.call($('chSecs').children,x=>x.classList.toggle('on',x===b)); if(CH.phase==='ready') chalRender(); };
+$('chGoal').oninput=()=>{ if(CH.phase==='ready') chalRender(); };
+$('chExcl').onchange=()=>{ chalLogRender(); if(CH.phase==='idle') chalRender(); };
+$('chStage').onclick=e=>{ const b=e.target.closest('[data-ch]'); if(!b) return; if(b.dataset.ch==='spin') chalSpin(); else if(b.dataset.ch==='go') chalGo(); };
 
 /* ---------- 결과 ---------- */
 // 목표 횟수에 닿은 시간(0.1초 단위, 허브 줄넘기만). 못 닿았으면 0
