@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 판정기 v0.9.7 · 카메라로 진짜 뛰는지 보기</title>
+<title>줄넘기 판정기 v0.9.8 · 카메라로 진짜 뛰는지 보기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -292,7 +292,7 @@
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
     <div class="titles">
-      <h1>줄넘기 판정기<span class="ver">v0.9.7</span></h1>
+      <h1>줄넘기 판정기<span class="ver">v0.9.8</span></h1>
       <span class="sub">머리부터 발까지 보이게 서서, 몸이 뜨고 팔이 돌 때만 1회로 세요</span>
     </div>
     <div class="who" id="who"></div>
@@ -520,7 +520,7 @@ const $=id=>document.getElementById(id);
 const video=$('video'), cv=$('overlay'), cx=cv.getContext('2d');
 let landmarker=null, stream=null, facing='user', running=false, t0=0, raf=0, lastVideoT=-1, frames=0, fpsT=0;
 /* ---------- 앱 연동: 체육교사 보조 프로그램의 줄넘기 화면에서 열리면 ?app=앱주소&t=학생표&kind=종류 가 붙어 와요 ---------- */
-const VER='0.9.7';
+const VER='0.9.8';
 const Q=new URLSearchParams(location.search);
 const LINK={ app:Q.get('app')||'', t:Q.get('t')||'', kind:Q.get('kind')||'', sens:+(Q.get('sens')||0)||0, target:(Q.get('target')==='fit'?'fit':'rope'), who:null, saved:null,
   // mode=post : 오프라인판(파일로 여는 프로그램)이 연 창. 서버 대신 window.opener.postMessage 로 결과를 돌려준다.
@@ -835,7 +835,7 @@ function livePush(force){
   // 새 회차를 받고 아직 시작 전(5·4·3·2·1)이면 지난 회차 숫자를 보내지 않음 — 선생님 화면이 지난 숫자를 '바로 도착'으로 잘못 보지 않게
   const fresh=LIVE.ctlRun&&LIVE.startedRun!==LIVE.ctlRun;
   const full={g:LIVE.me.g,c:LIVE.me.c,n:LIVE.me.n,cnt:fresh?0:st.count,st:s,run:running,ctl:LIVE.ctlRun,v:VER+(ROPE.on?'-r':'')};   // -r: 블루투스 줄넘기로 셈 (선생님 화면이 줄넘기 아이콘)
-  if(!running) full.best=st.best;
+  if(!running){ full.best=st.best; if(ROPE.on&&ROPE.trk) full.trip=ROPE.trk.trip; }
   const prev=LIVE.sent||{}, diff={};
   Object.keys(full).forEach(k=>{ if(prev[k]!==full[k]) diff[k]=full[k]; });
   const changed=Object.keys(diff).length>0;
@@ -881,7 +881,7 @@ function runEnd(){ // 선생님 신호로 끝 — 기록은 선생님 현황판�
   const st=det.state();
   $('smTitle').textContent='끝났어요!'; $('smErr').textContent='';
   $('smCount').innerHTML=st.count+'<small style="font-size:.3em;color:var(--muted)"> 회</small>';
-  $('smNote').textContent=ROPE.on?'줄넘기가 센 횟수예요 · 기록은 선생님 화면에서 한꺼번에 해요':`최고 연속 ${st.best}회 · 기록은 선생님 화면에서 한꺼번에 해요`;
+  $('smNote').textContent=ROPE.on?`줄넘기가 센 횟수예요${ROPE.trk&&st.best?` · 최고 연속 ${st.best}회 · 걸림 ${ROPE.trk.trip}번`:''} · 기록은 선생님 화면에서 한꺼번에 해요`:`최고 연속 ${st.best}회 · 기록은 선생님 화면에서 한꺼번에 해요`;
   $('smBtns').innerHTML='<button class="primary" id="smOk" style="font-size:18px;padding:12px 24px">확인</button>';
   $('smOk').onclick=()=>$('saveModal').classList.remove('on');
   $('saveModal').classList.add('on');
@@ -1021,12 +1021,29 @@ async function liveInit(){
    FFF0 서비스 · FFF6 쓰기 · FFF7 알림. 16바이트 명령(끝 바이트 = 앞 15바이트 합).
    09 04 자유 시작(숫자 0부터, 답 0B 04) · 09 99 멈춤 · 01 YY MM DD hh mm ss 시각 맞춤.
    자유 모드 알림(1초마다): 09 04 [초 2바이트] [횟수 4바이트] … */
-const ROPE={ on:false, dev:null, tx:null, cnt:0, base:0, armed:false, lastUp:0, busy:false };
+const ROPE={ trk:null, on:false, dev:null, tx:null, cnt:0, base:0, armed:false, lastUp:0, busy:false };
 const ropeBcd=v=>parseInt(String(v),16);
 async function ropeSend(arr){ if(!ROPE.tx) return; const b=new Uint8Array(16); arr.forEach((v,i)=>b[i]=v); let sum=0; for(let i=0;i<15;i++) sum+=b[i]; b[15]=sum&255;
   try{ await (ROPE.tx.writeValueWithResponse?ROPE.tx.writeValueWithResponse(b):ROPE.tx.writeValue(b)); }catch(e){ console.warn('rope send',e); } }
 function ropeShow(){ $('count').innerHTML=det.count+'<small>회</small>'; $('count').classList.remove('flash'); void $('count').offsetWidth; $('count').classList.add('flash'); }
 function ropeStatus(t,cls){ $('status').textContent=t; $('status').className='status '+(cls||'idle'); }
+// 걸림 추정 (블루투스 줄넘기): 줄넘기는 횟수만 알려 줘서, 약 1초마다 오는 횟수로 봄.
+//  그 사이 늘어난 수가 0이거나 그 친구 평소 빠르기보다 확 줄면(한 번 사이 45%, 두 번 사이 62% 아래) '걸려서 멈춤'. 다시 제 빠르기로 뛰기 시작하면 걸림 1번.
+//  최고 연속 = 걸림과 걸림 사이에 이어 뛴 가장 많은 수 (1초 단위로 보는 거라 몇 개쯤 차이 날 수 있음)
+function trkNew(){ return {t:0,c:0,seg:0,best:0,trip:0,rates:[],dip:false,started:false,warm:false}; }
+function trkStep(o,c,t){
+  if(!o) return;
+  if(!o.started){ if(c>0){ o.started=true; o.best=c; } o.c=c; o.t=t; return; }
+  const dt=(t-o.t)/1000; if(dt<0.5) return;   // 같은 숫자가 겹쳐 온 것
+  const dc=c-o.c; if(dc<0){ o.c=c; o.t=t; return; }
+  const r=dc/dt, r2=o.pdt?(dc+o.pdc)/(dt+o.pdt):r, med=o.rates.length?o.rates.slice().sort((a,b)=>a-b)[o.rates.length>>1]:0;
+  const slow=dc===0||(o.rates.length>=2&&(r<med*0.45||(!o.dip&&r2<med*0.62)));   // 두 번에 걸쳐 나뉜 짧은 걸림도 잡음
+  o.pdc=dc; o.pdt=dt;
+  if(slow){ o.dip=true; o.seg=c; }
+  else { if(o.dip&&(o.rates.length<2||r>=med*0.6)){ o.dip=false; o.trip++; }
+    if(!o.dip){ if(o.warm){ o.rates.push(r); if(o.rates.length>8) o.rates.shift(); } o.warm=true; } }
+  o.c=c; o.t=t; if(!o.dip) o.best=Math.max(o.best,c-o.seg);
+}
 function ropeOnData(ev){
   const v=new Uint8Array(ev.target.value.buffer);
   if(v[0]===0x0b&&v[1]===0x04){ if(running){ ROPE.armed=true; } return; }
@@ -1036,6 +1053,7 @@ function ropeOnData(ev){
     if(c!==ROPE.cnt&&!LIVE.cdTimer) ropeStatus(`내 줄넘기 맞아요! 줄넘기가 센 숫자 ${c} — 선생님이 시작하면 0부터 세요`,'jump');
     ROPE.cnt=c; return; }
   if(!ROPE.armed){ if(c<=2||sec<=2) ROPE.armed=true; else return; }   // 시작 명령 전에 세던 숫자는 버림
+  trkStep(ROPE.trk,c,performance.now()); if(ROPE.trk) det.best=Math.max(det.best,ROPE.trk.best);
   if(c!==ROPE.cnt){ ROPE.lastUp=performance.now(); ROPE.cnt=c; const n=ROPE.base+c, prev=det.count;
     if(n!==prev){ det.count=lastCount=n; ropeShow(); if(n>prev){ beep(880,0.05,0.1); if(Math.floor(n/10)>Math.floor(prev/10)) celebrate(Math.floor(n/10)*10); } } }
   const m=Math.floor(sec/60), s2=sec%60, tt=m+':'+String(s2).padStart(2,'0'); $('time').textContent=tt;
@@ -1064,7 +1082,7 @@ async function ropeConnect(){
     return false;
   }finally{ ROPE.busy=false; }
 }
-async function ropeRunStart(){ ROPE.cnt=0; ROPE.armed=false; ROPE.lastUp=0;
+async function ropeRunStart(){ ROPE.trk=trkNew(); ROPE.cnt=0; ROPE.armed=false; ROPE.lastUp=0;
   ROPE.base=det.count;   // 보통 0. 새로 고침 뒤 같은 회차를 이어 셀 때는 앞 숫자에 더함
   await ropeSend([0x09,0x99]); setTimeout(()=>ropeSend([0x09,0x04]),250); ropeStatus('줄넘기가 세는 중','jump'); }
 async function ropeRunEnd(){ await ropeSend([0x09,0x99]); setTimeout(()=>ropeSend([0x09,0x04]),700); }   // 멈춘 뒤 다시 자유 모드로 — 혼자 뛸 때도 줄넘기가 셈
