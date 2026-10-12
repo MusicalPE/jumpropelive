@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.6.2</title>
+<title>점프 라이브 v0.6.3</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -264,7 +264,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.6.2</span></h1>
+    <h1>점프 라이브<span class="ver">v0.6.3</span></h1>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <div class="me" id="me" hidden><span id="meName"></span><button id="btnOut">로그아웃</button></div>
@@ -749,7 +749,21 @@ function render(){
 }
 
 /* ---------- 시작·끝 ---------- */
-function beep(f,d,v){ try{ const ac=window.__ac=window.__ac||new (window.AudioContext||window.webkitAudioContext)(); const o=ac.createOscillator(),g=ac.createGain(); o.frequency.value=f; o.type='triangle'; g.gain.setValueAtTime(v||.2,ac.currentTime); g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+d); o.connect(g).connect(ac.destination); o.start(); o.stop(ac.currentTime+d); }catch(e){} }
+// 소리는 모두 압축기를 거쳐 나감 → 크게 내도 찢어지지 않음
+function acOut(){ const ac=window.__ac=window.__ac||new (window.AudioContext||window.webkitAudioContext)(); if(!ac.__out){ const c=ac.createDynamicsCompressor(); c.threshold.value=-10; c.knee.value=6; c.ratio.value=8; c.attack.value=.003; c.release.value=.15; c.connect(ac.destination); ac.__out=c; } return ac; }
+function beep(f,d,v,type){ try{ const ac=acOut(); const o=ac.createOscillator(),g=ac.createGain(); o.frequency.value=f; o.type=type||'triangle'; g.gain.setValueAtTime(v||.2,ac.currentTime); g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+d); o.connect(g).connect(ac.__out); o.start(); o.stop(ac.currentTime+d); }catch(e){} }
+// 호루라기: 높은 소리(약 3kHz)를 안의 구슬처럼 빠르게 떨게 하고 바람 소리(잡음)를 조금 섞음
+function whistle(dur,vol){ try{ const ac=acOut(), t=ac.currentTime, out=ac.createGain(); vol=vol||.9;
+    out.gain.setValueAtTime(0,t); out.gain.linearRampToValueAtTime(vol,t+.02); out.gain.setValueAtTime(vol,t+dur-.06); out.gain.linearRampToValueAtTime(0,t+dur); out.connect(ac.__out);
+    const o=ac.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(2900,t); o.frequency.linearRampToValueAtTime(3150,t+.05);
+    const lfo=ac.createOscillator(); lfo.frequency.value=27; const lg=ac.createGain(); lg.gain.value=160; lfo.connect(lg).connect(o.frequency);
+    const am=ac.createGain(); am.gain.value=.7; const lg2=ac.createGain(); lg2.gain.value=.3; lfo.connect(lg2).connect(am.gain);
+    o.connect(am).connect(out);
+    const h=ac.createOscillator(); h.type='sine'; h.frequency.value=6000; const hg=ac.createGain(); hg.gain.value=.08; lg.connect(h.frequency); h.connect(hg).connect(out);
+    const nb=ac.createBuffer(1,Math.ceil(ac.sampleRate*dur),ac.sampleRate), nd=nb.getChannelData(0); for(let i=0;i<nd.length;i++) nd[i]=Math.random()*2-1;
+    const n=ac.createBufferSource(); n.buffer=nb; const bp=ac.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=3000; bp.Q.value=3; const ng=ac.createGain(); ng.gain.value=.25; n.connect(bp).connect(ng).connect(out);
+    [o,lfo,h,n].forEach(x=>{ x.start(t); x.stop(t+dur+.02); });
+  }catch(e){} }
 let renderRaf=0, renderLast=0;
 function renderSoon(){ if(renderRaf) return; const wait=Math.max(0,150-(performance.now()-renderLast)); renderRaf=setTimeout(()=>requestAnimationFrame(()=>{ renderRaf=0; renderLast=performance.now(); render(); }),wait); }
 /* ---------- 배경음악 (유튜브) ----------
@@ -1007,7 +1021,7 @@ async function end(now){
 function finish(){ // 학생 기기가 마지막 숫자를 보낼 시간을 2초 주고 결과
   if(S.endShown===S.lastRun.id) return; S.endShown=S.lastRun.id;
   const rl=(S.lastRun.relay&&RL.phase==='run'&&RL.i+1<RL.order.length)||(S.lastRun.trel&&TR.phase==='run'&&TR.leg+1<TR.legs);   // 릴레이 중간 주자: '다음!'만
-  beep(440,.3,.25); big(rl?'다음!':'끝!'); if(!rl) musicEnd(); hubOnEnd();
+  if(rl) whistle(.3,.8); else { whistle(.45); setTimeout(()=>whistle(1.1),600); } big(rl?'다음!':'끝!'); if(!rl) musicEnd(); hubOnEnd();
   if(S.lastRun.chal){ setTimeout(()=>{ render(); chalFinish(); },2000); return; }
   if(S.lastRun.relay){ setTimeout(()=>{ render(); relayLeg(); },1600); return; }   // 릴레이: 이 주자 끝 → 다음 주자
   if(S.lastRun.mode){ setTimeout(()=>{ render(); if(S.lastRun.mode==='bak') bakFinish(); else if(S.lastRun.mode==='rot') rotFinish(); else if(S.lastRun.mode==='trel') trelLeg(); else teamFinish(); $('btnResult').disabled=false; if(APPM&&S.groups.some(x=>Object.keys(x.ids||{}).length)) saveResult(); },2000); return; }   // 박·팀전: 도전 화면에서 끝 보여 주고, 기록은 다 같이 뛰기처럼 시트에   // 랜덤 한 명 도전은 결과 창 대신 도전 화면에
@@ -1018,12 +1032,12 @@ function clockTick(){
   const c=S.ctl, now=B.now(), el=$('clock');
   if(c.ph==='go'){
     const d=now-c.at;
-    if(d<0){ const left=Math.ceil(-d/1000); el.textContent=left+''; el.className='clock cd'; if(left!==S.cdShown&&left<=5){ S.cdShown=left; big(left); beep(660,.08,.18); } }
+    if(d<0){ const left=Math.ceil(-d/1000); el.textContent=left+''; el.className='clock cd'; if(left!==S.cdShown&&left<=5){ S.cdShown=left; big(left); beep(660,.14,.6,'square'); } }
     else{
       // 시작 표시는 회차마다 한 번만 (끝 카운트다운과 따로 기억 — 같이 쓰면 '시작!'이 되풀이됨)
-      if(S.startShown!==c.id){ S.startShown=c.id; big('시작!'); beep(1046,.25,.25); musicStart(); hubOnStart(); }
+      if(S.startShown!==c.id){ S.startShown=c.id; big('시작!'); whistle(.55); musicStart(); hubOnStart(); }
       if(c.dur){ const r=Math.max(0,Math.ceil(c.dur-d/1000)); el.textContent=Math.floor(r/60)+':'+String(r%60).padStart(2,'0'); el.className='clock go';
-        if(r<=5&&r>0&&S.endCd!==r){ if(S.endCd==null) musicLast5(); S.endCd=r; if(!(S.lastRun&&(S.lastRun.relay||S.lastRun.trel))) big(r); beep(990,.06,.15); }   // 릴레이는 짧아서 큰 숫자 대신 소리만
+        if(r<=5&&r>0&&S.endCd!==r){ if(S.endCd==null) musicLast5(); S.endCd=r; if(!(S.lastRun&&(S.lastRun.relay||S.lastRun.trel))) big(r); beep(880,.12,.55,'square'); }   // 릴레이는 짧아서 큰 숫자 대신 소리만
         if(d>=c.dur*1000){ S.ctl={ph:'end',id:c.id}; B.setControl(S.room,S.ctl).catch(()=>{}); finish(); } }
       else { const s=Math.floor(d/1000); el.textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); el.className='clock go'; }
     }
