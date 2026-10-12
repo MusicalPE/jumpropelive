@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.5.4</title>
+<title>점프 라이브 v0.5.5</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -262,7 +262,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.5.4</span></h1>
+    <h1>점프 라이브<span class="ver">v0.5.5</span></h1>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <div class="me" id="me" hidden><span id="meName"></span><button id="btnOut">로그아웃</button></div>
@@ -324,6 +324,7 @@
       <button id="btnRelay" title="한 명씩 차례로 짧게 이어 뛰기">릴레이</button>
       <button id="btnRot" title="줄넘기가 모자랄 때 조를 나눠 차례로 돌려 쓰기">조별 차례</button>
       <button id="btnTeam" title="팀을 나눠 합계·평균으로 겨루기">팀전</button>
+      <button id="btnTrel" title="팀마다 줄넘기 하나로 한 명씩 이어 뛰기">팀 릴레이</button>
       <button id="btnBak" title="반 전체 합계로 박 터트리기">박 터트리기</button>
       <button id="btnSort">횟수순</button>
       <button id="btnMusic" title="유튜브 배경음악">음악</button>
@@ -417,6 +418,13 @@
     </div>
   </div>
 </div>
+<div class="chal" id="trel" hidden>
+  <div class="ch-top"><h2>팀 릴레이</h2><span class="pill" id="trCls"></span><div class="spacer"></div><span class="clock go" id="trClock" style="font-size:30px"></span><button class="dark" id="trStop" disabled>멈추기</button><button id="trBack">다 같이 뛰기로</button></div>
+  <div class="tm-wrap">
+    <div class="card tm-ctl" id="trCtl"></div>
+    <div class="tm-cols" id="trCols"></div>
+  </div>
+</div>
 <div class="chal" id="team" hidden>
   <div class="ch-top"><h2>팀전</h2><span class="pill" id="tmCls"></span><div class="spacer"></div><button id="tmBack">다 같이 뛰기로</button></div>
   <div class="tm-wrap">
@@ -457,7 +465,7 @@
    서버에 올라가는 것: 방 주인(로그인 ID), 학년·반·인원, 시작·끝 신호, 학생 기기별 학년·반·번호·횟수·상태. 이름은 이 컴퓨터에만.
    전송 방식은 BACKEND 하나에 모음 (Firebase / 시험 모드) — 나중에 다른 서버로 바꿀 때 이것만 바꾸면 됨
    ========================================================================================= */
-const VER='0.5.4';
+const VER='0.5.5';
 const FB_CONFIG={ apiKey:'AIzaSyDimPwJ974Pmn9wcgwFZFWUBQPaOra5chQ', authDomain:'jumpropelive.firebaseapp.com',
   databaseURL:'https://jumpropelive-default-rtdb.asia-southeast1.firebasedatabase.app', projectId:'jumpropelive',
   storageBucket:'jumpropelive.firebasestorage.app', messagingSenderId:'727527484238', appId:'1:727527484238:web:aaed6e0585ee7db7228c1f' };
@@ -724,6 +732,7 @@ function render(){
   if(CH.on) chalRender();
   if(RL.on) relayRender();
   if(RO.on) rotRender();
+  if(TR.on) trelRender();
   if(BK.on) bakRender();
   if(TM.on) teamRender();
   // QR 창이 열려 있어도 몇 명 들어왔는지 · 아직 안 들어온 번호
@@ -977,11 +986,11 @@ async function end(now){
 }
 function finish(){ // 학생 기기가 마지막 숫자를 보낼 시간을 2초 주고 결과
   if(S.endShown===S.lastRun.id) return; S.endShown=S.lastRun.id;
-  const rl=S.lastRun.relay&&RL.phase==='run'&&RL.i+1<RL.order.length;   // 릴레이 중간 주자: '다음!'만
+  const rl=(S.lastRun.relay&&RL.phase==='run'&&RL.i+1<RL.order.length)||(S.lastRun.trel&&TR.phase==='run'&&TR.leg+1<TR.legs);   // 릴레이 중간 주자: '다음!'만
   beep(440,.3,.25); big(rl?'다음!':'끝!'); if(!rl) musicEnd(); hubOnEnd();
   if(S.lastRun.chal){ setTimeout(()=>{ render(); chalFinish(); },2000); return; }
   if(S.lastRun.relay){ setTimeout(()=>{ render(); relayLeg(); },1600); return; }   // 릴레이: 이 주자 끝 → 다음 주자
-  if(S.lastRun.mode){ setTimeout(()=>{ render(); if(S.lastRun.mode==='bak') bakFinish(); else if(S.lastRun.mode==='rot') rotFinish(); else teamFinish(); $('btnResult').disabled=false; if(APPM&&S.groups.some(x=>Object.keys(x.ids||{}).length)) saveResult(); },2000); return; }   // 박·팀전: 도전 화면에서 끝 보여 주고, 기록은 다 같이 뛰기처럼 시트에   // 랜덤 한 명 도전은 결과 창 대신 도전 화면에
+  if(S.lastRun.mode){ setTimeout(()=>{ render(); if(S.lastRun.mode==='bak') bakFinish(); else if(S.lastRun.mode==='rot') rotFinish(); else if(S.lastRun.mode==='trel') trelLeg(); else teamFinish(); $('btnResult').disabled=false; if(APPM&&S.groups.some(x=>Object.keys(x.ids||{}).length)) saveResult(); },2000); return; }   // 박·팀전: 도전 화면에서 끝 보여 주고, 기록은 다 같이 뛰기처럼 시트에   // 랜덤 한 명 도전은 결과 창 대신 도전 화면에
   setTimeout(()=>{ render(); showResult(); $('btnResult').disabled=false; if(APPM&&S.groups.some(x=>Object.keys(x.ids||{}).length)) saveResult(); },2000);
 }
 function clockTick(){
@@ -994,7 +1003,7 @@ function clockTick(){
       // 시작 표시는 회차마다 한 번만 (끝 카운트다운과 따로 기억 — 같이 쓰면 '시작!'이 되풀이됨)
       if(S.startShown!==c.id){ S.startShown=c.id; big('시작!'); beep(1046,.25,.25); musicStart(); hubOnStart(); }
       if(c.dur){ const r=Math.max(0,Math.ceil(c.dur-d/1000)); el.textContent=Math.floor(r/60)+':'+String(r%60).padStart(2,'0'); el.className='clock go';
-        if(r<=5&&r>0&&S.endCd!==r){ if(S.endCd==null) musicLast5(); S.endCd=r; if(!(S.lastRun&&S.lastRun.relay)) big(r); beep(990,.06,.15); }   // 릴레이는 짧아서 큰 숫자 대신 소리만
+        if(r<=5&&r>0&&S.endCd!==r){ if(S.endCd==null) musicLast5(); S.endCd=r; if(!(S.lastRun&&(S.lastRun.relay||S.lastRun.trel))) big(r); beep(990,.06,.15); }   // 릴레이는 짧아서 큰 숫자 대신 소리만
         if(d>=c.dur*1000){ S.ctl={ph:'end',id:c.id}; B.setControl(S.room,S.ctl).catch(()=>{}); finish(); } }
       else { const s=Math.floor(d/1000); el.textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); el.className='clock go'; }
     }
@@ -1091,12 +1100,12 @@ $('chExcl').onchange=()=>{ chalLogRender(); if(CH.phase==='idle') chalRender(); 
 $('chStage').onclick=e=>{ const b=e.target.closest('[data-ch]'); if(!b) return; if(b.dataset.ch==='spin') chalSpin(); else if(b.dataset.ch==='go') chalGo(); };
 
 /* ---------- 놀이 공통: 박 터트리기 · 팀전 회차 시작 (모두 같이 뛰고, 숫자를 묶어서 보여 줌) ---------- */
-function modeCloseAll(){ ['chal','bak','team','relay','rot'].forEach(id=>$(id).hidden=true); CH.on=BK.on=TM.on=RL.on=RO.on=false; clearInterval(CH.tickT); clearInterval(BK.tickT); clearInterval(TM.tickT); clearInterval(RL.tickT); clearInterval(RO.tickT); }
+function modeCloseAll(){ ['chal','bak','team','relay','rot','trel'].forEach(id=>$(id).hidden=true); CH.on=BK.on=TM.on=RL.on=RO.on=TR.on=false; clearInterval(TR.tickT); clearInterval(CH.tickT); clearInterval(BK.tickT); clearInterval(TM.tickT); clearInterval(RL.tickT); clearInterval(RO.tickT); }
 async function modeGo(kind,dur,extra){
   if(S.ctl.ph==='go') return false;
-  { const id=S.lastRun&&S.lastRun.id; if(id&&!S.lastRun.chal&&!runKept(id)&&S.closeWarned!==id&&!confirm('지난 회차 결과가 아직 시트에 들어가지 않았어요. 그래도 시작할까요?')) return false; }
+  { const id=S.lastRun&&S.lastRun.id; if(id&&!S.lastRun.chal&&!S.lastRun.trel&&!S.lastRun.rot&&!runKept(id)&&S.closeWarned!==id&&!confirm('지난 회차 결과가 아직 시트에 들어가지 않았어요. 그래도 시작할까요?')) return false; }   // 조별 차례·팀 릴레이는 구간마다 묻지 않음
   audioWarm();
-  const id='r'+Date.now().toString(36)+({bak:'b',team:'t',rot:'o'}[kind]||'m'), c={ph:'go',id,at:B.now()+5000,dur};
+  const id='r'+Date.now().toString(36)+({bak:'b',team:'t',rot:'o',trel:'e'}[kind]||'m'), c={ph:'go',id,at:B.now()+5000,dur};
   try{ await B.setControl(S.room,c); }catch(e){ alert('시작 신호를 보내지 못했어요: '+e.message); return false; }
   S.ctl=c; S.lastRun=Object.assign({id,dur,goal:0,at:c.at,mode:kind},extra||{}); S.done={}; S.autoEnd=''; S.endShown=''; S.prevCnt={}; S.ending='';
   $('btnResult').disabled=true; musicCountdown(); hubOnGo(id); return true;
@@ -1352,6 +1361,74 @@ $('roDur').onclick=e=>{ const b=e.target.closest('[data-d]'); if(!b||RO.phase===
 $('roN').oninput=()=>{ if(RO.phase==='setup') rotRender(); };
 $('roStage').onclick=e=>{ const b=e.target.closest('[data-ro]'); if(!b) return; const a=b.dataset.ro; if(a==='go') rotGo(); else if(a==='next') rotNext(); else if(a==='again'){ RO.phase='setup'; RO.groups=[]; rotRender(); } };
 
+/* ---------- 팀 릴레이: 팀마다 줄넘기 하나(허브)로 한 명씩 이어 뛰기. 모든 팀이 같은 구간을 동시에 ----------
+   인원이 적은 팀은 미리 정한 친구가 한 번 더 뜀. 구간이 끝나면 '빨강 팀: 김하늘 → 이도윤' 건네기 안내 + 줄넘기 번호 자동 이어 주기 */
+const TR={ on:false, secs:10, ord:'no', auto:true, phase:'setup', order:[], extra:{}, legs:0, leg:0, res:[], ropes:[], tickT:0, autoT:0, saved:'' };
+function trTeams(){ if(!tmLoad()){ TM.n=TM.n||2; tmShuffle(); } return tmTeams(); }
+function trPlan(){ const T=trTeams(); const max=Math.max(...T.map(m=>m.length));
+  TR.order=T.map((m,i)=>{ const ks=m.map(r=>r.k); if(TR.ord==='rand') for(let a=ks.length-1;a>0;a--){ const b=Math.floor(Math.random()*(a+1)); [ks[a],ks[b]]=[ks[b],ks[a]]; }
+    const ex=(TR.extra[i]||[]).filter(k=>ks.includes(k)); while(ks.length+ex.length<max) ex.push(ks[ex.length%Math.max(1,ks.length)]); TR.extra[i]=ex.slice(0,max-ks.length); return ks.concat(TR.extra[i]); });
+  TR.legs=max; }
+function trRunners(j){ return TR.order.map(o=>o[j]).filter(Boolean); }
+function trApply(j){ if(!TR.ropes.length) return; TR.order.forEach((o,i)=>{ const n=TR.ropes[i]; if(n) HUB.map[n]=o[j]||'-'; }); store.set('jl_hubmap',JSON.stringify(HUB.map)); hubPush(); if(HUB.on) TR.ropes.forEach(n=>hubSend('vibrate '+n)); }
+function trelOpen(){ if(S.ctl.ph==='go') return alert('지금 뛰는 중이에요. 끝난 뒤에 열어 주세요.'); modeCloseAll(); TR.on=true; $('trel').hidden=false; $('trCls').textContent=clsLabel(S.groups)+(S.type?' · '+S.type:'');
+  if(TR.phase!=='run'&&TR.phase!=='between'){ TR.phase='setup'; trPlan(); }
+  clearInterval(TR.tickT); TR.tickT=setInterval(()=>{ if(TR.phase==='run'){ $('trClock').textContent=modeTime(); trelRender(); } },250); trelRender(); }
+function trelClose(){ if(TR.phase==='run'||TR.phase==='between') return alert('릴레이가 끝난 뒤에 돌아가요. 그만하려면 "멈추기"를 눌러요.');
+  if(TR.saved){ HUB.map=JSON.parse(TR.saved); TR.saved=''; store.set('jl_hubmap',JSON.stringify(HUB.map)); hubPush(); }
+  TR.on=false; clearInterval(TR.tickT); $('trel').hidden=true; render(); }
+async function trelStart(){ trPlan(); TR.res=TR.order.map(()=>[]); TR.leg=0; TR.ropes=HUB.on?roRopes(TR.order.length):[]; if(HUB.on&&!TR.saved) TR.saved=JSON.stringify(HUB.map); trApply(0); trelRunLeg(); }
+async function trelRunLeg(){
+  clearTimeout(TR.autoT);
+  const runners=trRunners(TR.leg);
+  if(await modeGo('trel',TR.secs,{trel:{leg:TR.leg,runners}})){ TR.phase='run'; trelRender(); }
+}
+function trDone(){ TR.phase='done'; $('trClock').textContent=''; const sc=TR.res.map(a=>a.reduce((s,x)=>s+(x?x.cnt:0),0)), best=Math.max(0,...sc); TR.win=best>0?sc.map((x,i)=>x===best?i:-1).filter(i=>i>=0):[];
+  if(TR.win.length){ big(TR.win.map(i=>TEAM_C[i][0]).join('·')+' 팀!'); beep(1046,.15,.25); setTimeout(()=>beep(1318,.3,.25),160); } trelRender(); }
+function trelLeg(){   // 한 구간 끝 (finish 에서 부름)
+  const id=S.lastRun.id; TR.order.forEach((o,i)=>{ const k=o[TR.leg], r=(S.rows||[]).find(x=>x.k===k); TR.res[i][TR.leg]={k,cnt:r&&r.pick&&r.pick.ctl===id?r.cnt:0}; });
+  if(TR.phase==='stopping'||TR.leg+1>=TR.legs) return trDone();
+  TR.leg++; TR.phase='between'; trApply(TR.leg); trelRender();
+  if(TR.auto) TR.autoT=setTimeout(()=>{ if(TR.phase==='between') trelRunLeg(); },3000);
+}
+async function trelStop(){ if(TR.phase==='run'){ TR.phase='stopping'; await end(true); } else if(TR.phase==='between'){ clearTimeout(TR.autoT); TR.leg--; trDone(); } }
+const trName=k=>{ const r=(S.rows||[]).find(x=>x.k===k); return r?(r.name||r.n+'번'):''; };
+function trelRender(){
+  if(!TR.on) return;
+  const busy=TR.phase==='run'||TR.phase==='between'||TR.phase==='stopping';
+  $('trStop').disabled=!busy; $('trBack').disabled=busy;
+  const T=trTeams(), n=TR.order.length, sc=TR.res.length?TR.res.map(a=>a.reduce((s,x)=>s+(x?x.cnt:0),0)):TR.order.map(()=>0);
+  const curCnt=i=>{ if(TR.phase!=='run') return 0; const k=TR.order[i][TR.leg], r=(S.rows||[]).find(x=>x.k===k); return r&&r.pick&&S.lastRun&&r.pick.ctl===S.lastRun.id?r.cnt:0; };
+  const tot=TR.order.map((o,i)=>sc[i]+curCnt(i)), best=Math.max(1,...tot);
+  let ctl;
+  if(TR.phase==='setup') ctl=`<b style="font-size:20px">팀 릴레이</b><span class="small" style="color:var(--muted);font-weight:700">팀은 "팀전"에서 나눈 대로 · 팀마다 줄넘기 하나${HUB.on?' (허브 줄넘기 '+roRopes(n).join(', ')+'번)':''}</span><div class="spacer"></div>
+    <div class="chips">한 사람 ${[5,10,15,20,30].map(v=>`<button class="chip${v===TR.secs?' on':''}" data-s="${v}">${v}초</button>`).join('')}</div>
+    <div class="chips">${[['no','번호순'],['rand','랜덤']].map(([k,t])=>`<button class="chip${k===TR.ord?' on':''}" data-o="${k}">${t}</button>`).join('')}</div>
+    <div class="chips">${[[1,'넘기면 자동 시작'],[0,'눌러서 시작']].map(([k,t])=>`<button class="chip${(k===1)===TR.auto?' on':''}" data-a="${k}">${t}</button>`).join('')}</div><button class="primary" data-tr="go" style="min-height:44px;font-size:18px">릴레이 시작</button>`;
+  else if(TR.phase==='between') ctl=`<b style="font-size:22px">${TR.leg+1}번째 주자에게 줄넘기를 넘겨요!</b><div class="spacer"></div>${TR.auto?'<span class="pill">넘기면 곧 시작해요</span>':''}<button class="primary" data-tr="next" style="min-height:44px;font-size:18px">${TR.leg+1}번째 주자 시작</button>`;
+  else if(TR.phase==='done') ctl=`<b style="font-size:22px">팀 릴레이 끝!</b><div class="spacer"></div><button data-tr="reset">다시 준비</button><button class="primary" data-tr="go">같은 팀으로 한 번 더</button>`;
+  else ctl=`<b style="font-size:22px">${TR.leg+1}번째 주자 / ${TR.legs}명</b><div class="spacer"></div>`;
+  if($('trCtl').dataset.k!==ctl){ $('trCtl').innerHTML=ctl; $('trCtl').dataset.k=ctl; }
+  $('trCols').style.gridTemplateColumns=`repeat(${n},minmax(0,1fr))`;
+  const html=TR.order.map((o,i)=>{ const [nm,c,bg]=TEAM_C[i], m=T[i]||[], short=TR.legs-m.length, win=TR.phase==='done'&&(TR.win||[]).includes(i);
+    let mid='';
+    if(TR.phase==='setup') mid=`<div class="avg">${m.length}명${short>0?' · '+short+'명 모자라요':''}</div>${short>0?Array.from({length:short},(_,x)=>`<label class="avg" style="display:flex;gap:6px;align-items:center">한 번 더 뛸 친구 <select data-ex="${i}-${x}" style="font-size:15px;padding:4px 8px">${m.map(r=>`<option value="${r.k}"${(TR.extra[i]||[])[x]===r.k?' selected':''}>${esc(r.name||r.n+'번')}</option>`).join('')}</select></label>`).join(''):''}
+      <div class="mem">${o.map((k,j)=>`<span style="border-color:${c};background:${bg}">${j+1}. ${esc(trName(k))}${j>=m.length?' (한 번 더)':''}</span>`).join('')}</div>`;
+    else { const k=TR.order[i][TR.leg], prev=TR.leg>0?TR.order[i][TR.leg-1]:'';
+      mid=`<div class="sum" style="color:${c}">${tot[i].toLocaleString()}<small>회</small></div><div class="g"><b style="width:${(tot[i]/best*100).toFixed(0)}%;background:${c}"></b></div>
+        ${TR.phase==='between'?`<div style="font-size:min(30px,3.6vh);font-weight:900;margin:6px 0">${esc(trName(prev))} <span style="color:var(--muted)">→</span> <span style="color:${c}">${esc(trName(k))}</span></div><div class="avg">${TR.ropes[i]?TR.ropes[i]+'번 줄넘기를 넘겨요':'줄넘기를 넘겨요'}</div>`
+        :TR.phase==='run'?`<div style="font-size:min(36px,4.4vh);font-weight:900;margin-top:6px">${esc(trName(k))} <span style="color:${c}">${curCnt(i)}</span><small style="font-size:.5em;color:var(--muted)">회</small></div><div class="avg">다음: ${esc(trName(TR.order[i][TR.leg+1]))||'마지막 주자!'}</div>`:''}
+        <div class="mem">${o.map((kk,j)=>{ const x=TR.res[i]&&TR.res[i][j]; return `<span class="${j>TR.leg&&TR.phase!=='done'?'off':''}" style="${j===TR.leg&&TR.phase==='run'?`border-color:${c}`:''}">${esc(trName(kk))}${x?`<b>${x.cnt}</b>`:''}</span>`; }).join('')}</div>`; }
+    return `<div class="tm${win?' champ':''}" style="border-color:${c}">${win?'<span class="win">우승!</span>':''}<h3><i style="background:${c}"></i>${nm} 팀</h3>${mid}</div>`; }).join('');
+  if($('trCols').dataset.k!==html){ $('trCols').innerHTML=html; $('trCols').dataset.k=html; }
+}
+$('btnTrel').onclick=trelOpen; $('trBack').onclick=trelClose; $('trStop').onclick=trelStop;
+$('trCtl').onclick=e=>{ const b=e.target.closest('button'); if(!b) return;
+  if(b.dataset.s){ TR.secs=+b.dataset.s; } else if(b.dataset.o){ TR.ord=b.dataset.o; trPlan(); } else if(b.dataset.a){ TR.auto=b.dataset.a==='1'; }
+  else if(b.dataset.tr==='go') return trelStart(); else if(b.dataset.tr==='next') return trelRunLeg(); else if(b.dataset.tr==='reset'){ TR.phase='setup'; TR.res=[]; trPlan(); }
+  trelRender(); };
+$('trCols').onchange=e=>{ const s=e.target.closest('[data-ex]'); if(!s) return; const [i,x]=s.dataset.ex.split('-').map(Number); (TR.extra[i]=TR.extra[i]||[])[x]=s.value; trPlan(); trelRender(); };
+
 /* ---------- 결과 ---------- */
 // 목표 횟수에 닿은 시간(0.1초 단위, 허브 줄넘기만). 못 닿았으면 0
 function doneDs(r){ if(!S.lastRun||!S.lastRun.goal) return 0;
@@ -1359,7 +1436,7 @@ function doneDs(r){ if(!S.lastRun||!S.lastRun.goal) return 0;
   return S.done&&S.done[r.k]?Math.max(1,Math.round(S.done[r.k]/100)):0; }
 function resultRows(){
   const fin=r=>doneDs(r)||1e9;
-  const only=S.lastRun.rot&&RO.groups[S.lastRun.rot.g];   // 조별 차례: 이번 조만
+  const only=S.lastRun.rot?RO.groups[S.lastRun.rot.g]:S.lastRun.trel?S.lastRun.trel.runners:null;   // 조별 차례: 이번 조만 · 팀 릴레이: 이번 주자들만
   return (S.rows||[]).filter(r=>r.pick&&r.pick.ctl===S.lastRun.id&&(!only||only.includes(r.k))).sort((a,b)=>(b.cnt-a.cnt)||(fin(a)-fin(b))||(a.g-b.g)||(a.c-b.c)||(a.n-b.n));
 }
 function showResult(){
