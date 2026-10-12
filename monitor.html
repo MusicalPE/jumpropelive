@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.5.6</title>
+<title>점프 라이브 v0.5.7</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -262,7 +262,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.5.6</span></h1>
+    <h1>점프 라이브<span class="ver">v0.5.7</span></h1>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <div class="me" id="me" hidden><span id="meName"></span><button id="btnOut">로그아웃</button></div>
@@ -430,6 +430,7 @@
   <div class="tm-wrap">
     <div class="card tm-ctl" id="tmCtl"></div>
     <div class="tm-cols" id="tmCols"></div>
+    <div id="tmHand"></div>
   </div>
 </div>
 <div class="big" id="big"></div>
@@ -1103,7 +1104,7 @@ $('chStage').onclick=e=>{ const b=e.target.closest('[data-ch]'); if(!b) return; 
 function modeCloseAll(){ ['chal','bak','team','relay','rot','trel'].forEach(id=>$(id).hidden=true); CH.on=BK.on=TM.on=RL.on=RO.on=TR.on=false; clearInterval(TR.tickT); clearInterval(CH.tickT); clearInterval(BK.tickT); clearInterval(TM.tickT); clearInterval(RL.tickT); clearInterval(RO.tickT); }
 async function modeGo(kind,dur,extra){
   if(S.ctl.ph==='go') return false;
-  { const id=S.lastRun&&S.lastRun.id; if(id&&!S.lastRun.chal&&!S.lastRun.trel&&!S.lastRun.rot&&!(S.lastRun.bak&&S.lastRun.bak.seq)&&!runKept(id)&&S.closeWarned!==id&&!confirm('지난 회차 결과가 아직 시트에 들어가지 않았어요. 그래도 시작할까요?')) return false; }   // 조별 차례·팀 릴레이는 구간마다 묻지 않음
+  { const id=S.lastRun&&S.lastRun.id; if(id&&!S.lastRun.chal&&!S.lastRun.trel&&!S.lastRun.rot&&!(S.lastRun.bak&&S.lastRun.bak.seq)&&!(S.lastRun.team&&S.lastRun.team.seq)&&!runKept(id)&&S.closeWarned!==id&&!confirm('지난 회차 결과가 아직 시트에 들어가지 않았어요. 그래도 시작할까요?')) return false; }   // 조별 차례·팀 릴레이는 구간마다 묻지 않음
   audioWarm();
   const id='r'+Date.now().toString(36)+({bak:'b',team:'t',rot:'o',trel:'e'}[kind]||'m'), c={ph:'go',id,at:B.now()+5000,dur};
   try{ await B.setControl(S.room,c); }catch(e){ alert('시작 신호를 보내지 못했어요: '+e.message); return false; }
@@ -1183,40 +1184,70 @@ function bakFinish(){ if(S.lastRun.bak.seq) return bakSeqFinish();
   BK.res={ok:sum>=goal,sum}; BK.phase='done'; if(!BK.res.ok) beep(392,.4,.2); bakRender(); BK.burst=''; }
 
 /* ---------- 팀전: 2~4팀으로 나눠 합계(또는 1인당 평균)로 겨루기. 팀은 반마다 이 기기에 기억 ---------- */
-const TEAM_C=[['빨강','#FF6B5B','#FFF0EE'],['파랑','#3B82F6','#EAF2FF'],['초록','#2BB3A3','#E7F7F5'],['노랑','#F2A33A','#FFF5E6']];
-const TM={ on:false, n:2, map:{}, by:'sum', dur:60, phase:'setup', tickT:0, res:null };
+const TEAM_C=[['빨강','#FF6B5B','#FFF0EE'],['파랑','#3B82F6','#EAF2FF'],['초록','#2BB3A3','#E7F7F5'],['노랑','#F2A33A','#FFF5E6'],['보라','#6E5BEF','#F0EEFF'],['하늘','#13A6E8','#E6F6FD']];
+const TM={ on:false, n:2, map:{}, by:'sum', dur:60, phase:'setup', tickT:0, res:null, way:'all', ropes:0, sq:null };
 const tmKey=()=>'jl_team|'+S.groups.map(x=>gkey(x.g,x.c)).join(',');
-function tmLoad(){ try{ const v=JSON.parse(store.get(tmKey())||'null'); if(v&&v.map){ TM.map=v.map; TM.n=v.n||2; return true; } }catch(e){} return false; }
+function tmLoad(){ try{ const v=JSON.parse(store.get(tmKey())||'null'); if(v&&v.map){ TM.map=v.map; TM.n=Math.min(TEAM_C.length,v.n||2); return true; } }catch(e){} return false; }
 function tmSave(){ store.set(tmKey(),JSON.stringify({n:TM.n,map:TM.map})); }
 function tmShuffle(){ const rows=(S.rows||[]).slice(), on=rows.filter(r=>r.dup>0), off=rows.filter(r=>!r.dup);
   const mix=a=>{ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; };
   TM.map={}; [...mix(on),...mix(off)].forEach((r,i)=>{ TM.map[r.k]=i%TM.n; }); tmSave(); }
 function tmTeams(){ const T=Array.from({length:TM.n},()=>[]); (S.rows||[]).forEach(r=>{ let t=TM.map[r.k]; if(!(t>=0&&t<TM.n)){ t=T.reduce((m,x,i)=>x.length<T[m].length?i:m,0); TM.map[r.k]=t; } T[t].push(r); }); return T; }
-function teamOpen(){ if(S.ctl.ph==='go') return alert('지금 뛰는 중이에요. 끝난 뒤에 열어 주세요.'); modeCloseAll(); TM.on=true; TM.phase='setup'; TM.res=null; $('team').hidden=false; $('tmCls').textContent=clsLabel(S.groups);
+function teamOpen(){ if(S.ctl.ph==='go') return alert('지금 뛰는 중이에요. 끝난 뒤에 열어 주세요.'); modeCloseAll(); TM.on=true; TM.phase='setup'; TM.res=null; tmSeqRestore(); TM.sq=null; $('team').hidden=false;
+  if(!TM.ropes) TM.ropes=Object.keys(HUB.ropes).filter(n=>+n>0).length||9; $('tmCls').textContent=clsLabel(S.groups);
   if(!tmLoad()) tmShuffle(); clearInterval(TM.tickT); TM.tickT=setInterval(()=>{ if(TM.phase==='run') teamRender(); },250); teamRender(); }
-function teamClose(){ if(S.ctl.ph==='go') return alert('끝난 뒤에 돌아가요.'); TM.on=false; clearInterval(TM.tickT); $('team').hidden=true; render(); }
-async function teamGo(){ tmSave(); if(await modeGo('team',TM.dur,{team:{n:TM.n,map:Object.assign({},TM.map),by:TM.by}})){ TM.phase='run'; TM.res=null; teamRender(); } }
+function teamClose(){ if(S.ctl.ph==='go') return alert('끝난 뒤에 돌아가요.'); tmSeqRestore(); TM.on=false; clearInterval(TM.tickT); $('team').hidden=true; render(); }
+async function teamGo(){ tmSave(); if(TM.way==='seq') return teamSeqGo(); if(await modeGo('team',TM.dur,{team:{n:TM.n,map:Object.assign({},TM.map),by:TM.by}})){ TM.phase='run'; TM.res=null; teamRender(); } }
 function teamScore(T,live){ return T.map(m=>{ const act=live?m.filter(r=>r.dup>0||r.cnt>0):m, sum=m.reduce((a,r)=>a+r.cnt,0), n=Math.max(1,act.length); return {sum,n:act.length,avg:sum/n}; }); }
 function teamRender(){
   if(!TM.on) return;
   const running=S.ctl.ph==='go'&&S.lastRun&&S.lastRun.mode==='team', setup=TM.phase==='setup';
   $('tmBack').disabled=running;
-  const T=tmTeams(), sc=teamScore(T,true), key=TM.by==='avg'?'avg':'sum', best=Math.max(1,...sc.map(x=>x[key])), lead=sc.findIndex(x=>x[key]===best&&best>0);
-  const ctl=setup?`<b style="font-size:20px">팀 나누기</b><div class="chips" id="tmN">팀 수 ${[2,3,4].map(n=>`<button class="chip${n===TM.n?' on':''}" data-n="${n}">${n}팀</button>`).join('')}</div><button class="primary" data-t="mix" style="min-height:40px">랜덤으로 다시 나누기</button><span class="small" style="color:var(--muted);font-weight:700">이름을 누르면 다음 팀으로 옮겨요 · 이 반 팀은 이 기기에 기억돼요</span><div class="spacer"></div>
+  const sq=setup?null:TM.sq, T=tmTeams(), key=TM.by==='avg'?'avg':'sum', uneven=setup&&new Set(T.map(m=>m.length)).size>1;
+  const sc=sq?T.map((m,i)=>sq.res[i]||(i===sq.i&&TM.phase==='run'?tmSeqScore(sq.teams[i],tmSeqCnt(sq.teams[i])):null)):teamScore(T,true);
+  const best=Math.max(1,...sc.map(x=>x?x[key]:0)), lead=sc.findIndex(x=>x&&x[key]===best&&best>0);
+  const ctl=setup?`<b style="font-size:20px">팀 나누기</b><div class="chips">${[['all','다 같이'],['seq','팀 차례로']].map(([k,t])=>`<button class="chip${k===TM.way?' on':''}" data-w="${k}">${t}</button>`).join('')}</div><div class="chips" id="tmN">팀 수 ${[2,3,4,5,6].map(n=>`<button class="chip${n===TM.n?' on':''}" data-n="${n}">${n}팀</button>`).join('')}</div><button class="primary" data-t="mix" style="min-height:40px">랜덤으로 다시 나누기</button><span class="chips" style="align-items:center;font-weight:800">줄넘기 <input id="tmRopes" type="number" min="1" max="60" value="${TM.ropes}" style="width:64px;min-height:38px;font-size:16px;text-align:center"> 개<button class="chip" data-t="fit">개수에 맞춰 팀 나누기</button></span><span class="small" style="color:var(--muted);font-weight:700">이름을 누르면 다음 팀으로 옮겨요 · 이 반 팀은 이 기기에 기억돼요${uneven&&TM.by==='sum'?' · <b style="color:var(--amber)">팀 인원이 달라요 — 1인당 평균으로 겨루기를 권해요</b>':''}</span><div class="spacer"></div>
       <div class="chips">${[30,60,120].map(d=>`<button class="chip${d===TM.dur?' on':''}" data-d="${d}">${durTxt(d)}</button>`).join('')}</div>
-      <div class="chips">${[['sum','합계로'],['avg','1인당 평균으로']].map(([k,t])=>`<button class="chip${k===TM.by?' on':''}" data-b="${k}">${t} 겨루기</button>`).join('')}</div><button class="primary" data-t="go" style="min-height:44px;font-size:18px">팀전 시작</button>`
+      <div class="chips">${[['sum','합계로'],['avg','1인당 평균으로']].map(([k,t])=>`<button class="chip${k===TM.by?' on':''}" data-b="${k}">${t} 겨루기</button>`).join('')}</div><button class="primary" data-t="go" style="min-height:44px;font-size:18px">${TM.way==='seq'?'팀 차례로 시작':'팀전 시작'}</button>`
+    :sq?`<b style="font-size:22px">팀 차례로 · ${durTxt(TM.dur)}</b><span class="pill">${TM.by==='avg'?'1인당 평균으로 겨루기':'합계로 겨루기'}</span>${TM.phase!=='done'?`<span class="pill" style="background:${TEAM_C[sq.i][2]};color:${TEAM_C[sq.i][1]}">${TEAM_C[sq.i][0]} 팀 차례 · ${sq.i+1}/${sq.teams.length}</span>`:''}<div class="spacer"></div>${running?`<span class="clock go" style="font-size:34px">${modeTime()}</span><button class="dark" data-t="end">끝</button>`:TM.phase==='run'?'<span class="clock go" style="font-size:34px">끝!</span>':TM.phase==='between'?`<button data-t="stop">여기서 끝내기</button><button class="primary" data-t="next" style="min-height:44px;font-size:18px;background:${TEAM_C[sq.i][1]};border-color:${TEAM_C[sq.i][1]}">${TEAM_C[sq.i][0]} 팀 시작</button>`:'<span class="clock go" style="font-size:34px">끝!</span><button data-t="again">팀 다시 나누기</button><button class="primary" data-t="go2">같은 팀으로 한 번 더</button>'}`
     :`<b style="font-size:22px">팀전 · ${durTxt(S.lastRun.dur)}</b><span class="pill">${TM.by==='avg'?'1인당 평균으로 겨루기':'합계로 겨루기'}</span><div class="spacer"></div><span class="clock go" style="font-size:34px">${running?modeTime():'끝!'}</span>${running?'<button class="dark" data-t="end">끝</button>':'<button data-t="again">팀 다시 나누기</button><button class="primary" data-t="go2">같은 팀으로 한 번 더</button>'}`;
   const ck=ctl; if($('tmCtl').dataset.k!==ck){ $('tmCtl').innerHTML=ck; $('tmCtl').dataset.k=ck; }
   $('tmCols').style.gridTemplateColumns=`repeat(${TM.n},minmax(0,1fr))`;
   const win=TM.res&&TM.res.win;
   const html=T.map((m,i)=>{ const [nm,c,bg]=TEAM_C[i], s=sc[i];
-    const mem=(setup?m:m.slice().sort((a,b)=>b.cnt-a.cnt)).map(r=>`<span data-k="${r.k}" class="${r.dup>0?'':'off'}" style="${setup?`border-color:${c};background:${bg}`:''}">${esc(r.name||r.n+'번')}${setup?'':`<b>${r.cnt}</b>`}</span>`).join('');
+    if(sq&&!s){ const cur=i===sq.i&&TM.phase!=='done';   // 팀 차례로: 아직 안 뛴 팀
+      return `<div class="tm" style="border-color:${c};${cur?'':'opacity:.6'}"><h3><i style="background:${c}"></i>${nm} 팀 <small>${m.length}명</small></h3><div class="avg" style="font-size:22px;color:${cur?c:'var(--muted)'}">${cur?'다음 차례!':TM.phase==='done'?'안 뛰었어요':'기다리는 중'}</div><div class="mem">${m.map(r=>`<span>${esc(r.name||r.n+'번')}</span>`).join('')}</div></div>`; }
+    const cn=sq?(sq.res[i]?sq.res[i].cnt:tmSeqCnt(sq.teams[i])):null, cv=r=>cn?(cn[r.k]||0):r.cnt;
+    const mem=(setup?m:m.slice().sort((a,b)=>cv(b)-cv(a))).map(r=>`<span data-k="${r.k}" class="${r.dup>0||(cn&&cv(r)>0)?'':'off'}" style="${setup?`border-color:${c};background:${bg}`:''}">${esc(r.name||r.n+'번')}${setup?'':`<b>${cv(r)}</b>`}</span>`).join('');
     return `<div class="tm${setup?' setup':''}${win&&win.includes(i)?' champ':''}" style="border-color:${c}"><h3><i style="background:${c}"></i>${nm} 팀 <small>${m.length}명${setup?' · 들어옴 '+m.filter(r=>r.dup>0).length:''}</small></h3>
       ${setup?'':`${(win?win.includes(i):i===lead&&running)?`<span class="win">${win?'우승!':'1위'}</span>`:''}<div class="sum" style="color:${c}">${key==='avg'?s.avg.toFixed(1):s.sum.toLocaleString()}<small>${key==='avg'?'회 (1인당)':'회'}</small></div><div class="avg">${key==='avg'?'합계 '+s.sum.toLocaleString()+'회':'1인당 '+s.avg.toFixed(1)+'회'} · ${s.n}명</div><div class="g"><b style="width:${(s[key]/best*100).toFixed(0)}%;background:${c}"></b></div>`}
       <div class="mem">${mem}</div></div>`; }).join('');
   if($('tmCols').dataset.k!==html){ $('tmCols').innerHTML=html; $('tmCols').dataset.k=html; }
+  // 팀 사이: 줄넘기를 누가 누구에게 넘겨줄지
+  let hand='';
+  if(sq&&TM.phase==='between'&&sq.ropes.length){ const i=sq.i, prev=sq.teams[i-1]||[], cur=sq.teams[i], nm=k=>{ const r=(S.rows||[]).find(x=>x.k===k); return r?(r.name||r.n+'번'):''; };
+    hand=`<div class="res" style="margin:0"><table style="width:100%"><thead><tr><th>줄넘기</th><th>주는 친구</th><th></th><th>받는 친구 (${TEAM_C[i][0]} 팀)</th></tr></thead><tbody>${sq.ropes.map((n,j)=>cur[j]?`<tr><td style="font-weight:900;color:var(--accent-ink)">${n}번</td><td>${esc(nm(prev[j]))||'<span style="color:var(--muted)">(바구니에서)</span>'}</td><td>→</td><td style="font-weight:800">${esc(nm(cur[j]))}</td></tr>`:'').join('')}</tbody></table></div>`; }
+  if($('tmHand').dataset.k!==hand){ $('tmHand').innerHTML=hand; $('tmHand').dataset.k=hand; $('tmHand').hidden=!hand; }
 }
-function teamFinish(){ const T=tmTeams(), sc=teamScore(T,true), key=TM.by==='avg'?'avg':'sum', best=Math.max(...sc.map(x=>x[key]));
+/* 팀전 · 팀 차례로: 줄넘기가 적을 때 한 팀씩 뛰고 팀 기록(합계/평균)으로 겨루기 */
+function tmSeqCnt(mem){ const id=S.lastRun&&S.lastRun.id, o={}; mem.forEach(k=>{ const r=(S.rows||[]).find(x=>x.k===k); o[k]=r&&r.pick&&r.pick.ctl===id?r.cnt:0; }); return o; }
+function tmSeqScore(mem,cnt){ const sum=mem.reduce((a,k)=>a+(cnt[k]||0),0), act=mem.filter(k=>{ const r=(S.rows||[]).find(x=>x.k===k); return (cnt[k]||0)>0||(r&&r.dup>0); }).length; return {sum,n:act,avg:sum/Math.max(1,act),cnt}; }
+function tmSeqApply(i){ const sq=TM.sq; if(!sq||!sq.ropes.length) return; const m=sq.teams[i]||[]; sq.ropes.forEach((n,j)=>{ HUB.map[n]=m[j]||'-'; }); store.set('jl_hubmap',JSON.stringify(HUB.map)); hubPush(); if(HUB.on) hubSend('vibrate all'); }
+function tmSeqRestore(){ const sq=TM.sq; if(sq&&sq.saved){ HUB.map=JSON.parse(sq.saved); sq.saved=''; store.set('jl_hubmap',JSON.stringify(HUB.map)); hubPush(); } }
+async function teamSeqGo(){
+  if(!TM.sq||TM.phase==='setup'||TM.phase==='done'){ tmSeqRestore(); const teams=tmTeams().map(m=>m.map(r=>r.k));
+    TM.sq={ i:0, teams, res:[], ropes:HUB.on?roRopes(Math.max(...teams.map(t=>t.length))):[], saved:HUB.on?JSON.stringify(HUB.map):'' }; tmSeqApply(0); }
+  const sq=TM.sq, i=sq.i;
+  if(await modeGo('team',TM.dur,{team:{n:TM.n,map:Object.assign({},TM.map),by:TM.by,seq:{i,members:sq.teams[i]}}})){ TM.phase='run'; TM.res=null; teamRender(); }
+}
+function teamSeqFinish(){ const sq=TM.sq, i=sq.i; sq.res[i]=tmSeqScore(sq.teams[i],tmSeqCnt(sq.teams[i])); sq.i++;
+  if(sq.i<sq.teams.length&&!TM.stopReq){ TM.phase='between'; tmSeqApply(sq.i); teamRender(); return; }
+  tmSeqDone(); }
+function tmSeqDone(){ const sq=TM.sq, key=TM.by==='avg'?'avg':'sum', best=Math.max(0,...sq.res.map(x=>x?x[key]:0)); TM.stopReq=false;
+  TM.res={win:best>0?sq.res.map((x,i)=>x&&x[key]===best?i:-1).filter(i=>i>=0):[]}; TM.phase='done'; tmSeqRestore();
+  if(TM.res.win.length){ big(TM.res.win.map(i=>TEAM_C[i][0]).join('·')+' 팀!'); beep(1046,.15,.25); setTimeout(()=>beep(1318,.3,.25),160); }
+  teamRender(); }
+function teamFinish(){ if(S.lastRun.team&&S.lastRun.team.seq&&TM.sq) return teamSeqFinish(); const T=tmTeams(), sc=teamScore(T,true), key=TM.by==='avg'?'avg':'sum', best=Math.max(...sc.map(x=>x[key]));
   TM.res={win:best>0?sc.map((x,i)=>x[key]===best?i:-1).filter(i=>i>=0):[]}; TM.phase='done';
   if(TM.res.win.length){ big(TM.res.win.map(i=>TEAM_C[i][0]).join('·')+' 팀!'); beep(1046,.15,.25); setTimeout(()=>beep(1318,.3,.25),160); }
   teamRender(); }
@@ -1228,13 +1259,20 @@ $('bkWay').onclick=e=>{ const b=e.target.closest('[data-w]'); if(!b||BK.phase===
 $('btnTeam').onclick=teamOpen; $('tmBack').onclick=teamClose;
 $('tmCtl').onclick=e=>{ const b=e.target.closest('button'); if(!b) return;
   if(b.dataset.n){ TM.n=+b.dataset.n; tmShuffle(); }
+  else if(b.dataset.w){ TM.way=b.dataset.w; }
+  else if(b.dataset.t==='fit'){ const R=Math.max(1,Math.round(+$('tmRopes').value)||0), N=(S.rows||[]).length; TM.ropes=R; const need=Math.ceil(N/R);
+    if(need>TEAM_C.length) return alert(`줄넘기 ${R}개로는 ${need}팀이 필요해요. 팀은 ${TEAM_C.length}팀까지 돼요. 조별 차례를 써 주세요.`);
+    TM.n=Math.max(2,need); tmShuffle(); if(need>1) TM.way='seq'; }
+  else if(b.dataset.t==='next') return teamSeqGo();
+  else if(b.dataset.t==='stop') return tmSeqDone();
   else if(b.dataset.d) TM.dur=+b.dataset.d;
   else if(b.dataset.b) TM.by=b.dataset.b;
   else if(b.dataset.t==='mix') tmShuffle();
   else if(b.dataset.t==='go'||b.dataset.t==='go2') return teamGo();
   else if(b.dataset.t==='end') return end();
-  else if(b.dataset.t==='again'){ TM.phase='setup'; TM.res=null; }
+  else if(b.dataset.t==='again'){ TM.phase='setup'; TM.res=null; TM.sq=null; }
   teamRender(); };
+$('tmCtl').oninput=e=>{ if(e.target.id==='tmRopes') TM.ropes=Math.max(1,Math.round(+e.target.value)||0); };
 $('tmCols').onclick=e=>{ if(TM.phase!=='setup') return; const sp=e.target.closest('[data-k]'); if(!sp) return; TM.map[sp.dataset.k]=((TM.map[sp.dataset.k]||0)+1)%TM.n; tmSave(); teamRender(); };
 
 /* ---------- 릴레이: 들어온 친구가 한 명씩 차례로 짧게(5~20초) 이어 뛰기 ----------
@@ -1484,7 +1522,7 @@ function doneDs(r){ if(!S.lastRun||!S.lastRun.goal) return 0;
   return S.done&&S.done[r.k]?Math.max(1,Math.round(S.done[r.k]/100)):0; }
 function resultRows(){
   const fin=r=>doneDs(r)||1e9;
-  const only=S.lastRun.rot?RO.groups[S.lastRun.rot.g]:S.lastRun.trel?S.lastRun.trel.runners:S.lastRun.bak&&S.lastRun.bak.seq?S.lastRun.bak.seq.members:null;   // 조별 차례: 이번 조만 · 팀 릴레이: 이번 주자들만
+  const only=S.lastRun.rot?RO.groups[S.lastRun.rot.g]:S.lastRun.trel?S.lastRun.trel.runners:S.lastRun.bak&&S.lastRun.bak.seq?S.lastRun.bak.seq.members:S.lastRun.team&&S.lastRun.team.seq?S.lastRun.team.seq.members:null;   // 조별 차례: 이번 조만 · 팀 릴레이: 이번 주자들만
   return (S.rows||[]).filter(r=>r.pick&&r.pick.ctl===S.lastRun.id&&(!only||only.includes(r.k))).sort((a,b)=>(b.cnt-a.cnt)||(fin(a)-fin(b))||(a.g-b.g)||(a.c-b.c)||(a.n-b.n));
 }
 function showResult(){
