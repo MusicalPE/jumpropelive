@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 판정기 v0.9.4 · 카메라로 진짜 뛰는지 보기</title>
+<title>줄넘기 판정기 v0.9.5 · 카메라로 진짜 뛰는지 보기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -292,7 +292,7 @@
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
     <div class="titles">
-      <h1>줄넘기 판정기<span class="ver">v0.9.4</span></h1>
+      <h1>줄넘기 판정기<span class="ver">v0.9.5</span></h1>
       <span class="sub">머리부터 발까지 보이게 서서, 몸이 뜨고 팔이 돌 때만 1회로 세요</span>
     </div>
     <div class="who" id="who"></div>
@@ -1049,8 +1049,9 @@ async function ropeConnect(){
   }catch(e){
     ROPE.tx=null; $('ropeRe').hidden=!ROPE.on;
     const E=e&&e.name;
-    ropeStatus(E==='NotFoundError'?'줄넘기를 고르지 않았어요 — 줄넘기를 켜고 다시 눌러요':'줄넘기에 연결하지 못했어요: '+(e.message||e),'wait');
-    if(/Android/i.test(navigator.userAgent)) $('coverErr').innerHTML='줄넘기 목록이 비어 있었다면: 휴대폰 <b>설정 → 애플리케이션 → '+(/SamsungBrowser/i.test(navigator.userAgent)?'삼성 인터넷(삼성 브라우저)':'Chrome')+' → 권한</b>에서 <b>근처 기기</b>·<b>위치</b>를 허용하고, 이 페이지를 닫았다 다시 열어요.';
+    const lost=/GATT|disconnect|NetworkError/i.test(String(E||'')+' '+String((e&&e.message)||e));   // 연결하는 사이 줄넘기와 멀어짐
+    ropeStatus(E==='NotFoundError'?'줄넘기를 고르지 않았어요 — 줄넘기를 켜고 다시 눌러요':lost?'연결하는 동안 줄넘기에서 멀어지면 안 돼요. 줄넘기를 껐다가 켜면 다시 연결할 수 있어요.':'줄넘기에 연결하지 못했어요: '+(e.message||e),'wait');
+    if(!lost&&/Android/i.test(navigator.userAgent)) $('coverErr').innerHTML='줄넘기 목록이 비어 있었다면: 휴대폰 <b>설정 → 애플리케이션 → '+(/SamsungBrowser/i.test(navigator.userAgent)?'삼성 인터넷(삼성 브라우저)':'Chrome')+' → 권한</b>에서 <b>근처 기기</b>·<b>위치</b>를 허용하고, 이 페이지를 닫았다 다시 열어요.';
     return false;
   }finally{ ROPE.busy=false; }
 }
