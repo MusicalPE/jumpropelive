@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.4.7</title>
+<title>점프 라이브 v0.4.8</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -187,7 +187,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.4.7</span></h1>
+    <h1>점프 라이브<span class="ver">v0.4.8</span></h1>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <div class="me" id="me" hidden><span id="meName"></span><button id="btnOut">로그아웃</button></div>
@@ -554,7 +554,7 @@ function render(){
   // 목표 횟수 회차: 닿은 시각 기록 · 들어온 학생이 모두 닿으면 저절로 끝
   const G=S.lastRun&&S.lastRun.goal&&S.ctl.ph==='go'&&S.lastRun.id===S.ctl.id?S.lastRun.goal:0;
   if(G&&B.now()>=S.ctl.at){ S.done=S.done||{};
-    rows.forEach(r=>{ if(r.cnt>=G&&!S.done[r.k]) S.done[r.k]=B.now()-S.ctl.at; });
+    if(B.now()-S.ctl.at>=3000) rows.forEach(r=>{ if(r.cnt>=G&&!S.done[r.k]) S.done[r.k]=B.now()-S.ctl.at; });   // 시작 3초 안의 '도착'은 지난 회차 숫자가 남은 것 — 세지 않음
     const inR=rows.filter(r=>r.dup&&r.pick&&r.pick.ctl===runId);
     if(inR.length&&inR.every(r=>r.cnt>=G)&&S.autoEnd!==S.ctl.id){ S.autoEnd=S.ctl.id; setTimeout(()=>{ if(S.ctl.ph==='go') end(true); },1200); } }
   $('pJoin').textContent=`${join} / ${total}`; $('pJump').textContent=jump; $('pSum').textContent=sum.toLocaleString();
