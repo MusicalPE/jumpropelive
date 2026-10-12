@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.5.2</title>
+<title>점프 라이브 v0.5.3</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -262,7 +262,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.5.2</span></h1>
+    <h1>점프 라이브<span class="ver">v0.5.3</span></h1>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <div class="me" id="me" hidden><span id="meName"></span><button id="btnOut">로그아웃</button></div>
@@ -321,6 +321,7 @@
       <button class="primary" id="btnGo" style="min-width:120px;font-size:19px">시작</button>
       <button class="dark" id="btnEnd" disabled>끝</button>
       <button id="btnChal" title="반 학생 중 한 명을 뽑아 짧게 도전">랜덤 도전</button>
+      <button id="btnRelay" title="한 명씩 차례로 짧게 이어 뛰기">릴레이</button>
       <button id="btnTeam" title="팀을 나눠 합계·평균으로 겨루기">팀전</button>
       <button id="btnBak" title="반 전체 합계로 박 터트리기">박 터트리기</button>
       <button id="btnSort">횟수순</button>
@@ -386,6 +387,20 @@
     </div>
   </div>
 </div>
+<div class="chal" id="relay" hidden>
+  <div class="ch-top"><h2>릴레이</h2><span class="pill" id="rlCls"></span><span class="pill">이어 뛴 합계<b id="rlSum">0</b></span><div class="spacer"></div><button class="primary" id="rlGo">릴레이 시작</button><button class="dark" id="rlStop" disabled>멈추기</button><button id="rlBack">다 같이 뛰기로</button></div>
+  <div class="ch-main">
+    <div class="card ch-stage" id="rlStage"></div>
+    <div class="ch-side">
+      <div class="card ch-box"><h3>릴레이 규칙</h3>
+        <div class="ch-set">한 사람<div class="chips" id="rlSecs"><button class="chip" data-s="5">5초</button><button class="chip on" data-s="10">10초</button><button class="chip" data-s="15">15초</button><button class="chip" data-s="20">20초</button></div></div>
+        <div class="ch-set">순서<div class="chips" id="rlOrd"><button class="chip on" data-o="rand">랜덤</button><button class="chip" data-o="no">번호순</button></div></div>
+        <label class="ch-set" id="rlSaveRow">뛴 횟수를 시트에 기록<input type="checkbox" id="rlSave" checked></label>
+      </div>
+      <div class="card ch-box ch-log"><h3>주자 순서</h3><div id="rlList"></div></div>
+    </div>
+  </div>
+</div>
 <div class="chal" id="team" hidden>
   <div class="ch-top"><h2>팀전</h2><span class="pill" id="tmCls"></span><div class="spacer"></div><button id="tmBack">다 같이 뛰기로</button></div>
   <div class="tm-wrap">
@@ -426,7 +441,7 @@
    서버에 올라가는 것: 방 주인(로그인 ID), 학년·반·인원, 시작·끝 신호, 학생 기기별 학년·반·번호·횟수·상태. 이름은 이 컴퓨터에만.
    전송 방식은 BACKEND 하나에 모음 (Firebase / 시험 모드) — 나중에 다른 서버로 바꿀 때 이것만 바꾸면 됨
    ========================================================================================= */
-const VER='0.5.2';
+const VER='0.5.3';
 const FB_CONFIG={ apiKey:'AIzaSyDimPwJ974Pmn9wcgwFZFWUBQPaOra5chQ', authDomain:'jumpropelive.firebaseapp.com',
   databaseURL:'https://jumpropelive-default-rtdb.asia-southeast1.firebasedatabase.app', projectId:'jumpropelive',
   storageBucket:'jumpropelive.firebasestorage.app', messagingSenderId:'727527484238', appId:'1:727527484238:web:aaed6e0585ee7db7228c1f' };
@@ -691,6 +706,7 @@ function render(){
   $('others').innerHTML=ot.length?`<b>⚠ 다른 반·명단 밖 접속 ${ot.length}대</b>`+ot.map(d=>`<span>${d.g}학년 ${d.c}반 ${d.n}번 · ${d.cnt}회</span>`).join(''):'';
   S.rows=rows;
   if(CH.on) chalRender();
+  if(RL.on) relayRender();
   if(BK.on) bakRender();
   if(TM.on) teamRender();
   // QR 창이 열려 있어도 몇 명 들어왔는지 · 아직 안 들어온 번호
@@ -877,7 +893,7 @@ function hubModeCmd(){ const v=$('selDur').value, g=goalOf(v), d=durOf(v);
   return {m:'free',cmd:'free all'}; }
 function hubModeUi(){ const v=$('selDur').value, g=goalOf(v), d=durOf(v);
   $('hubModeTip').textContent='줄넘기 세기는 화면 위 "목표"를 따라가요 — '+(g?`${g}회가 되면 줄넘기가 스스로 멈춰요`:d?`${durTxt(d)}이 되면 줄넘기가 스스로 멈춰요`:'제한 없음: 끝을 누를 때까지 세요'); }
-function hubOnGo(id){ if(!HUB.on) return; HUB.runId=id; HUB.mode=S.lastRun&&(S.lastRun.chal||S.lastRun.mode)?(S.lastRun.dur?{m:'time',cmd:'time all '+S.lastRun.dur}:{m:'free',cmd:'free all'}):hubModeCmd(); HUB.autoEnd=false;
+function hubOnGo(id){ if(!HUB.on) return; clearTimeout(HUB.freeT); HUB.runId=id; HUB.mode=S.lastRun&&(S.lastRun.chal||S.lastRun.mode||S.lastRun.relay)?(S.lastRun.dur?{m:'time',cmd:'time all '+S.lastRun.dur}:{m:'free',cmd:'free all'}):hubModeCmd(); HUB.autoEnd=false;
   Object.values(HUB.ropes).forEach(r=>{ r.cnt=0; r.ctl=''; r.lastUp=0; r.doneDs=0; });
   const cmd=HUB.mode.cmd; hubSend('stop all').then(()=>setTimeout(()=>hubSend(cmd),300)); hubPush(); }
 function hubOnStart(){ if(!HUB.on||!HUB.runId) return; HUB.startAt=Date.now(); HUB.accept=true; clearTimeout(HUB.freeT);
@@ -943,8 +959,10 @@ async function end(now){
 }
 function finish(){ // 학생 기기가 마지막 숫자를 보낼 시간을 2초 주고 결과
   if(S.endShown===S.lastRun.id) return; S.endShown=S.lastRun.id;
-  beep(440,.3,.25); big('끝!'); musicEnd(); hubOnEnd();
+  const rl=S.lastRun.relay&&RL.phase==='run'&&RL.i+1<RL.order.length;   // 릴레이 중간 주자: '다음!'만
+  beep(440,.3,.25); big(rl?'다음!':'끝!'); if(!rl) musicEnd(); hubOnEnd();
   if(S.lastRun.chal){ setTimeout(()=>{ render(); chalFinish(); },2000); return; }
+  if(S.lastRun.relay){ setTimeout(()=>{ render(); relayLeg(); },1600); return; }   // 릴레이: 이 주자 끝 → 다음 주자
   if(S.lastRun.mode){ setTimeout(()=>{ render(); if(S.lastRun.mode==='bak') bakFinish(); else teamFinish(); $('btnResult').disabled=false; if(APPM&&S.groups.some(x=>Object.keys(x.ids||{}).length)) saveResult(); },2000); return; }   // 박·팀전: 도전 화면에서 끝 보여 주고, 기록은 다 같이 뛰기처럼 시트에   // 랜덤 한 명 도전은 결과 창 대신 도전 화면에
   setTimeout(()=>{ render(); showResult(); $('btnResult').disabled=false; if(APPM&&S.groups.some(x=>Object.keys(x.ids||{}).length)) saveResult(); },2000);
 }
@@ -958,7 +976,7 @@ function clockTick(){
       // 시작 표시는 회차마다 한 번만 (끝 카운트다운과 따로 기억 — 같이 쓰면 '시작!'이 되풀이됨)
       if(S.startShown!==c.id){ S.startShown=c.id; big('시작!'); beep(1046,.25,.25); musicStart(); hubOnStart(); }
       if(c.dur){ const r=Math.max(0,Math.ceil(c.dur-d/1000)); el.textContent=Math.floor(r/60)+':'+String(r%60).padStart(2,'0'); el.className='clock go';
-        if(r<=5&&r>0&&S.endCd!==r){ if(S.endCd==null) musicLast5(); S.endCd=r; big(r); beep(990,.06,.15); }
+        if(r<=5&&r>0&&S.endCd!==r){ if(S.endCd==null) musicLast5(); S.endCd=r; if(!(S.lastRun&&S.lastRun.relay)) big(r); beep(990,.06,.15); }   // 릴레이는 짧아서 큰 숫자 대신 소리만
         if(d>=c.dur*1000){ S.ctl={ph:'end',id:c.id}; B.setControl(S.room,S.ctl).catch(()=>{}); finish(); } }
       else { const s=Math.floor(d/1000); el.textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); el.className='clock go'; }
     }
@@ -1055,7 +1073,7 @@ $('chExcl').onchange=()=>{ chalLogRender(); if(CH.phase==='idle') chalRender(); 
 $('chStage').onclick=e=>{ const b=e.target.closest('[data-ch]'); if(!b) return; if(b.dataset.ch==='spin') chalSpin(); else if(b.dataset.ch==='go') chalGo(); };
 
 /* ---------- 놀이 공통: 박 터트리기 · 팀전 회차 시작 (모두 같이 뛰고, 숫자를 묶어서 보여 줌) ---------- */
-function modeCloseAll(){ ['chal','bak','team'].forEach(id=>$(id).hidden=true); CH.on=BK.on=TM.on=false; clearInterval(CH.tickT); clearInterval(BK.tickT); clearInterval(TM.tickT); }
+function modeCloseAll(){ ['chal','bak','team','relay'].forEach(id=>$(id).hidden=true); CH.on=BK.on=TM.on=RL.on=false; clearInterval(CH.tickT); clearInterval(BK.tickT); clearInterval(TM.tickT); clearInterval(RL.tickT); }
 async function modeGo(kind,dur,extra){
   if(S.ctl.ph==='go') return false;
   { const id=S.lastRun&&S.lastRun.id; if(id&&!S.lastRun.chal&&!runKept(id)&&S.closeWarned!==id&&!confirm('지난 회차 결과가 아직 시트에 들어가지 않았어요. 그래도 시작할까요?')) return false; }
@@ -1185,6 +1203,73 @@ $('tmCtl').onclick=e=>{ const b=e.target.closest('button'); if(!b) return;
   else if(b.dataset.t==='again'){ TM.phase='setup'; TM.res=null; }
   teamRender(); };
 $('tmCols').onclick=e=>{ if(TM.phase!=='setup') return; const sp=e.target.closest('[data-k]'); if(!sp) return; TM.map[sp.dataset.k]=((TM.map[sp.dataset.k]||0)+1)%TM.n; tmSave(); teamRender(); };
+
+/* ---------- 릴레이: 들어온 친구가 한 명씩 차례로 짧게(5~20초) 이어 뛰기 ----------
+   주자마다 랜덤 도전처럼 who 를 넣은 짧은 회차를 차례로 보냄 → 그 친구 기기만 셈(허브 줄넘기는 차례가 오면 진동) */
+const RL={ on:false, secs:10, ord:'rand', phase:'idle', order:[], i:0, legs:[], id:'', tickT:0, msg:'', bad:false };
+function relayOpen(){ if(S.ctl.ph==='go') return alert('지금 뛰는 중이에요. 끝난 뒤에 열어 주세요.'); modeCloseAll(); RL.on=true; if(RL.phase!=='run') RL.phase='idle'; $('relay').hidden=false; $('rlCls').textContent=clsLabel(S.groups)+(S.type?' · '+S.type:''); $('rlSaveRow').hidden=!APPM;
+  clearInterval(RL.tickT); RL.tickT=setInterval(()=>{ if(RL.phase==='run') relayRender(); },150); relayRender(); }
+function relayClose(){ if(RL.phase==='run') return alert('릴레이가 끝난 뒤에 돌아가요. 그만하려면 "멈추기"를 눌러요.'); RL.on=false; clearInterval(RL.tickT); $('relay').hidden=true; render(); }
+function relayPlan(){ const on=(S.rows||[]).filter(r=>r.dup>0).map(r=>r.k);
+  if(RL.ord==='rand'){ for(let i=on.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [on[i],on[j]]=[on[j],on[i]]; } } return on; }
+async function relayGo(){
+  if(S.ctl.ph==='go') return;
+  { const id=S.lastRun&&S.lastRun.id; if(id&&!S.lastRun.chal&&!S.lastRun.relay&&!runKept(id)&&S.closeWarned!==id&&!confirm('지난 회차 결과가 아직 시트에 들어가지 않았어요. 그래도 시작할까요?')) return; }
+  RL.order=relayPlan(); if(!RL.order.length) return alert('판정기나 줄넘기로 들어온 친구가 없어요. QR로 먼저 들어오게 해 주세요.');
+  audioWarm(); RL.legs=[]; RL.i=0; RL.id='L'+Date.now().toString(36); RL.phase='run'; RL.msg=''; RL.bad=false; relayRun(5000);
+}
+async function relayRun(lead){
+  const k=RL.order[RL.i], r=chalRow(k); if(!r){ RL.legs.push({k,name:'',cnt:0,skip:true}); RL.i++; return RL.i<RL.order.length?relayRun(3000):relayDone(); }
+  const id='r'+Date.now().toString(36)+'l', c={ph:'go',id,at:B.now()+lead,dur:RL.secs,who:k};
+  try{ await B.setControl(S.room,c); }catch(e){ RL.msg='신호를 보내지 못했어요: '+e.message; RL.bad=true; RL.phase='done'; return relayRender(); }
+  S.ctl=c; S.lastRun={id,dur:RL.secs,goal:0,at:c.at,relay:{k,leg:RL.i}}; S.done={}; S.endShown=''; S.prevCnt={}; S.ending=''; S.startShown=''; S.cdShown=null; S.endCd=null;
+  hubOnGo(id); const n=chalRope(r); if(n){ hubSend('vibrate '+n); }
+  beep(784,.12,.2); relayRender();
+}
+function relayLeg(){   // 한 주자 끝 (finish 에서 부름)
+  const run=S.lastRun, r=chalRow(run.relay.k)||{};
+  RL.legs.push({k:run.relay.k,name:r.name||(r.n+'번'),id:r.id,cnt:r.cnt||0});
+  RL.i++;
+  if(RL.phase==='run'&&RL.i<RL.order.length) relayRun(3000); else relayDone();
+}
+async function relayDone(){
+  RL.phase='done'; S.copied=S.lastRun&&S.lastRun.id; const m=savedRuns(); if(S.lastRun) m[S.lastRun.id]=m[S.lastRun.id]||'relay'; store.set('jrl_saved',JSON.stringify(m));
+  const sum=RL.legs.reduce((a,x)=>a+x.cnt,0); big('끝!'); beep(1046,.15,.25); setTimeout(()=>beep(1318,.3,.25),160); relayRender();
+  const rows=RL.legs.filter(x=>x.id&&x.cnt>0).map(x=>({id:x.id,count:x.cnt}));
+  if(APPM&&$('rlSave').checked&&rows.length){
+    if(!JR.live){ RL.msg='자동 기록이 안 돼요 — 이 학교 껍데기가 점프 라이브판이 아니에요'; RL.bad=true; return relayRender(); }
+    const tok=JR.admin||sessGet(); if(!tok){ RL.msg='관리자 로그인이 끝나서 기록하지 못했어요'; RL.bad=true; return relayRender(); }
+    try{ const res=await rpc('addLiveRecordsAdmin',[tok,S.type,rows,RL.id]); RL.msg=res.already?'이미 기록한 릴레이예요':`✓ 시트에 ${res.saved}명 기록했어요 (${S.type})`;
+      try{ if(window.opener&&!window.opener.closed) window.opener.postMessage({type:'jumplive-saved'},location.origin); }catch(e){} }
+    catch(e){ RL.msg='기록하지 못했어요: '+e.message; RL.bad=true; }
+    relayRender();
+  }
+}
+async function relayStop(){ if(RL.phase!=='run') return; RL.phase='stopping'; if(S.ctl.ph==='go'){ await end(true); } else relayDone(); }
+function relayRender(){
+  if(!RL.on) return;
+  const run=RL.phase==='run'||RL.phase==='stopping';
+  $('rlGo').disabled=run; $('rlStop').disabled=!run; $('rlBack').disabled=run;
+  Array.prototype.forEach.call(document.querySelectorAll('#rlSecs .chip,#rlOrd .chip'),b=>b.disabled=run);
+  const cur=run&&S.lastRun&&S.lastRun.relay?chalRow(S.lastRun.relay.k):null, curCnt=cur&&S.ctl.ph==='go'?cur.cnt:0;
+  const sum=RL.legs.reduce((a,x)=>a+x.cnt,0)+(run&&S.ctl.ph==='go'?curCnt:0); $('rlSum').textContent=sum.toLocaleString();
+  const nextK=RL.order[RL.i+1], nx=nextK?chalRow(nextK):null;
+  let body;
+  if(RL.phase==='idle'){ const n=(S.rows||[]).filter(r=>r.dup>0).length; body=`<div class="ch-eyebrow">들어온 친구 ${n}명이 한 명씩 ${RL.secs}초씩 이어 뛰어요</div><div class="ch-slot"><div class="n">&nbsp;</div><div class="n c">릴레이</div><div class="n">&nbsp;</div></div><div class="ch-msg">모두 ${Math.ceil(n*(RL.secs+5)/60)}분쯤 걸려요 · 위의 "릴레이 시작"을 눌러요</div>`; }
+  else if(run&&cur){ const c=S.ctl, now=B.now(), R=160, L=2*Math.PI*R, p=c.ph==='go'&&now>=c.at?Math.min(1,(now-c.at)/(c.dur*1000)):0;
+    const tm=c.ph!=='go'?'<div class="ch-time">다음 주자!</div>':now<c.at?`<div class="ch-time">${Math.ceil((c.at-now)/1000)}<small>초 뒤 시작</small></div>`:`<div class="ch-time">${Math.max(0,(c.at+c.dur*1000-now)/1000).toFixed(1)}<small>초 남음</small></div>`;
+    body=`<div class="ch-eyebrow">${RL.i+1}번째 주자 / ${RL.order.length}명</div><div class="ch-who">${chalLabel(cur)}</div><div class="ch-ring"><svg viewBox="0 0 360 360"><circle cx="180" cy="180" r="${R}" stroke="#EEF0F3" stroke-width="22" fill="none"/><circle class="p" cx="180" cy="180" r="${R}" stroke="#2BB3A3" stroke-width="22" fill="none" stroke-linecap="round" stroke-dasharray="${L}" stroke-dashoffset="${L*p}"/></svg><div class="num"><b>${curCnt}</b><span>회</span></div></div>${tm}<div class="ch-src">${nx?'다음 주자: '+esc(nx.name||nx.n+'번')+' — 준비해요!':'마지막 주자예요!'}</div>`; }
+  else { const best=RL.legs.reduce((m,x)=>x.cnt>(m?m.cnt:-1)?x:m,null);
+    body=`<div class="ch-eyebrow">릴레이 끝!</div><div class="ch-ok y" style="font-size:min(110px,13vh)">${sum.toLocaleString()}<span style="font-size:.35em;color:var(--muted)">회</span></div><div class="ch-res" style="font-size:28px">${RL.legs.length}명이 이어 뛰었어요${best&&best.cnt?` · 최고 ${esc(best.name)} ${best.cnt}회`:''}</div><div class="ch-btns" style="margin-top:20px"><button class="primary" data-rl="again">한 번 더</button></div><div class="ch-msg${RL.bad?' bad':''}">${esc(RL.msg)}</div>`; }
+  const st=$('rlStage'); if(st.dataset.k!==body){ st.innerHTML=body; st.dataset.k=body; }
+  const list=(RL.order.length?RL.order:[]).map((k,i)=>{ const r=chalRow(k)||{}, leg=RL.legs[i], now=run&&i===RL.i;
+    return `<div class="ch-li" style="${now?'background:var(--mint-soft);border-radius:10px':''}"><span class="t ${leg?'y':'n'}" style="${now?'background:var(--accent)':''}">${leg?'✓':now?'▶':i+1}</span><span class="nm">${esc(r.name||r.n+'번')}</span><span class="c">${leg?leg.cnt+'회':now?curCnt+'회':''}</span></div>`; }).join('');
+  $('rlList').innerHTML=list||'<div class="ch-left">시작하면 순서가 정해져요</div>';
+}
+$('btnRelay').onclick=relayOpen; $('rlBack').onclick=relayClose; $('rlGo').onclick=relayGo; $('rlStop').onclick=relayStop;
+$('rlSecs').onclick=e=>{ const b=e.target.closest('[data-s]'); if(!b||RL.phase==='run') return; RL.secs=+b.dataset.s; Array.prototype.forEach.call($('rlSecs').children,x=>x.classList.toggle('on',x===b)); relayRender(); };
+$('rlOrd').onclick=e=>{ const b=e.target.closest('[data-o]'); if(!b||RL.phase==='run') return; RL.ord=b.dataset.o; Array.prototype.forEach.call($('rlOrd').children,x=>x.classList.toggle('on',x===b)); };
+$('rlStage').onclick=e=>{ const b=e.target.closest('[data-rl]'); if(b) relayGo(); };
 
 /* ---------- 결과 ---------- */
 // 목표 횟수에 닿은 시간(0.1초 단위, 허브 줄넘기만). 못 닿았으면 0
