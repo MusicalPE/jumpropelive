@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.5.5</title>
+<title>점프 라이브 v0.5.6</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -262,7 +262,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.5.5</span></h1>
+    <h1>점프 라이브<span class="ver">v0.5.6</span></h1>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <div class="me" id="me" hidden><span id="meName"></span><button id="btnOut">로그아웃</button></div>
@@ -381,8 +381,8 @@
       <div class="card ch-box"><h3>박 설정</h3>
         <div class="ch-set">목표<input type="number" id="bkGoal" min="10" max="99999" value="500"></div>
         <div class="ch-set">목표 정하기<div class="chips" id="bkAuto"><button class="chip on" data-a="1">들어온 인원×30</button><button class="chip" data-a="0">직접</button></div></div>
-        <label class="ch-set">팀마다 박 하나 (먼저 터뜨린 팀 승리)<input type="checkbox" id="bkTeams"></label>
-        <div class="small" id="bkTeamTip" style="color:var(--muted);font-size:13px;margin:-4px 0 6px" hidden>팀은 "팀전"에서 나눈 대로 써요 · 목표는 팀마다 따로</div>
+        <div class="ch-set">방식<div class="chips" id="bkWay"><button class="chip on" data-w="all">반 전체</button><button class="chip" data-w="teams">팀마다 동시에</button><button class="chip" data-w="seq">팀 차례로</button></div></div>
+        <div class="small" id="bkTeamTip" style="color:var(--muted);font-size:13px;margin:-4px 0 6px" hidden></div>
         <div class="ch-set">시간 제한<div class="chips" id="bkDur"><button class="chip" data-d="0">없음</button><button class="chip on" data-d="60">1분</button><button class="chip" data-d="120">2분</button><button class="chip" data-d="180">3분</button></div></div>
       </div>
       <div class="card ch-box ch-log bk-top"><h3>많이 넣은 친구</h3><div id="bkTop"></div></div>
@@ -465,7 +465,7 @@
    서버에 올라가는 것: 방 주인(로그인 ID), 학년·반·인원, 시작·끝 신호, 학생 기기별 학년·반·번호·횟수·상태. 이름은 이 컴퓨터에만.
    전송 방식은 BACKEND 하나에 모음 (Firebase / 시험 모드) — 나중에 다른 서버로 바꿀 때 이것만 바꾸면 됨
    ========================================================================================= */
-const VER='0.5.5';
+const VER='0.5.6';
 const FB_CONFIG={ apiKey:'AIzaSyDimPwJ974Pmn9wcgwFZFWUBQPaOra5chQ', authDomain:'jumpropelive.firebaseapp.com',
   databaseURL:'https://jumpropelive-default-rtdb.asia-southeast1.firebasedatabase.app', projectId:'jumpropelive',
   storageBucket:'jumpropelive.firebasestorage.app', messagingSenderId:'727527484238', appId:'1:727527484238:web:aaed6e0585ee7db7228c1f' };
@@ -1103,7 +1103,7 @@ $('chStage').onclick=e=>{ const b=e.target.closest('[data-ch]'); if(!b) return; 
 function modeCloseAll(){ ['chal','bak','team','relay','rot','trel'].forEach(id=>$(id).hidden=true); CH.on=BK.on=TM.on=RL.on=RO.on=TR.on=false; clearInterval(TR.tickT); clearInterval(CH.tickT); clearInterval(BK.tickT); clearInterval(TM.tickT); clearInterval(RL.tickT); clearInterval(RO.tickT); }
 async function modeGo(kind,dur,extra){
   if(S.ctl.ph==='go') return false;
-  { const id=S.lastRun&&S.lastRun.id; if(id&&!S.lastRun.chal&&!S.lastRun.trel&&!S.lastRun.rot&&!runKept(id)&&S.closeWarned!==id&&!confirm('지난 회차 결과가 아직 시트에 들어가지 않았어요. 그래도 시작할까요?')) return false; }   // 조별 차례·팀 릴레이는 구간마다 묻지 않음
+  { const id=S.lastRun&&S.lastRun.id; if(id&&!S.lastRun.chal&&!S.lastRun.trel&&!S.lastRun.rot&&!(S.lastRun.bak&&S.lastRun.bak.seq)&&!runKept(id)&&S.closeWarned!==id&&!confirm('지난 회차 결과가 아직 시트에 들어가지 않았어요. 그래도 시작할까요?')) return false; }   // 조별 차례·팀 릴레이는 구간마다 묻지 않음
   audioWarm();
   const id='r'+Date.now().toString(36)+({bak:'b',team:'t',rot:'o',trel:'e'}[kind]||'m'), c={ph:'go',id,at:B.now()+5000,dur};
   try{ await B.setControl(S.room,c); }catch(e){ alert('시작 신호를 보내지 못했어요: '+e.message); return false; }
@@ -1114,17 +1114,19 @@ const modeTime=()=>{ const c=S.ctl, now=B.now(); if(c.ph!=='go') return ''; if(n
 const runRows=()=>(S.rows||[]).filter(r=>S.lastRun&&r.pick&&r.pick.ctl===S.lastRun.id);
 
 /* ---------- 박 터트리기: 반 전체 합계가 목표에 닿으면 박이 터짐 (25%마다 금이 감) ---------- */
-const BK={ on:false, dur:60, auto:true, phase:'idle', stage:0, tickT:0, res:null };
+const BK={ on:false, dur:60, auto:true, way:'all', phase:'idle', stage:0, tickT:0, res:null, sq:null };
 const BK_IMG=n=>'img/bak'+n+'.webp';
 [0,1,2,3,4].forEach(n=>{ const im=new Image(); im.src=BK_IMG(n); });   // 미리 받아 둠
 function bakGoal(){ if(BK.auto){ const n=(S.rows||[]).filter(r=>r.dup>0).length||(S.rows||[]).length; $('bkGoal').value=Math.max(10,n*30); } return Math.max(10,Math.round(+$('bkGoal').value)||500); }
 function bakOpen(){ if(S.ctl.ph==='go') return alert('지금 뛰는 중이에요. 끝난 뒤에 열어 주세요.'); modeCloseAll(); BK.on=true; BK.phase='idle'; BK.stage=0; $('bak').hidden=false; $('bkCls').textContent=clsLabel(S.groups); bakGoal();
   clearInterval(BK.tickT); BK.tickT=setInterval(()=>{ if(BK.phase==='run') bakRender(); },250); bakRender(); }
 function bakClose(){ if(S.ctl.ph==='go') return alert('끝난 뒤에 돌아가요.'); BK.on=false; clearInterval(BK.tickT); $('bak').hidden=true; render(); }
-function bkTeamOn(){ return $('bkTeams').checked; }
+function bkTeamOn(){ return BK.way==='teams'; }
+function bkSeqOn(){ return BK.way==='seq'; }
 // 팀마다 박: 목표는 자동이면 팀 인원(들어온)×30, 직접이면 모든 팀 같은 값
 function bakTeamGoals(T){ return T.map(m=>BK.auto?Math.max(10,(m.filter(r=>r.dup>0).length||m.length)*30):Math.max(10,Math.round(+$('bkGoal').value)||500)); }
 async function bakGo(){
+  if(bkSeqOn()) return bakSeqGo();
   let extra={bak:{goal:bakGoal()}};
   if(bkTeamOn()){ if(!tmLoad()){ TM.n=TM.n||2; tmShuffle(); } const T=tmTeams(); extra.bak.teams={n:TM.n,map:Object.assign({},TM.map),goals:bakTeamGoals(T)}; }
   if(await modeGo('bak',BK.dur,extra)){ BK.phase='run'; BK.stage=0; BK.tstage={}; BK.res=null; BK.burst=''; bakRender(); } }
@@ -1152,7 +1154,10 @@ function bakTeamsRender(st,running){
 function bakRender(){
   const st=$('bkStage'); if(!st||!BK.on) return;
   const running=S.ctl.ph==='go'&&S.lastRun&&S.lastRun.mode==='bak';
-  $('bkGo').disabled=running; $('bkEnd').disabled=!running; $('bkBack').disabled=running; $('bkTeams').disabled=running; $('bkTeamTip').hidden=!bkTeamOn();
+  $('bkGo').disabled=running||BK.phase==='sqbetween'; $('bkEnd').disabled=!running; $('bkBack').disabled=running||BK.phase==='sqbetween';
+  Array.prototype.forEach.call($('bkWay').children,b=>b.disabled=running||BK.phase==='sqbetween');
+  $('bkTeamTip').hidden=BK.way==='all'; $('bkTeamTip').textContent=BK.way==='seq'?'팀은 "팀전"에서 나눈 대로 · 한 팀씩 차례로 깨고 빨리 깬 팀이 이겨요 (줄넘기가 적어도 돼요)':'팀은 "팀전"에서 나눈 대로 · 목표는 팀마다 따로 · 먼저 터뜨린 팀이 이겨요';
+  if(BK.sq||(BK.phase==='idle'&&bkSeqOn())){ ['bkGoal'].forEach(id=>$(id).disabled=running||BK.auto); return bakSeqRender(st,running); }
   if(BK.phase==='idle'?bkTeamOn():S.lastRun&&S.lastRun.bak&&S.lastRun.bak.teams){ ['bkGoal'].forEach(id=>$(id).disabled=running||BK.auto); return bakTeamsRender(st,running); }
   ['bkGoal'].forEach(id=>$(id).disabled=running||BK.auto); Array.prototype.forEach.call(document.querySelectorAll('#bkDur .chip,#bkAuto .chip'),b=>b.disabled=running);
   const goal=BK.phase==='idle'?bakGoal():S.lastRun.bak.goal;
@@ -1172,7 +1177,8 @@ function bakRender(){
   else body=`${img}<div class="bk-cnt">${sum.toLocaleString()}<small>/ ${goal.toLocaleString()}회</small></div><div class="bk-g"><b style="width:${f*100}%"></b></div><div class="bk-tip">${goal-sum>0?(goal-sum).toLocaleString()+'회만 더!':''}${stage>=1?' 금이 가고 있어요':''} · ${modeTime()}</div>`;
   if(st.dataset.k!==body){ st.innerHTML=body; st.dataset.k=body; }
 }
-function bakFinish(){ const rows=runRows(), sum=rows.reduce((a,r)=>a+r.cnt,0), goal=S.lastRun.bak.goal;
+function bakFinish(){ if(S.lastRun.bak.seq) return bakSeqFinish();
+  const rows=runRows(), sum=rows.reduce((a,r)=>a+r.cnt,0), goal=S.lastRun.bak.goal;
   if(S.lastRun.bak.teams){ BK.res={win:BK.burst?(BK.win||[]):[]}; BK.phase='done'; if(!BK.res.win.length) beep(392,.4,.2); bakRender(); BK.burst=''; BK.win=null; return; }
   BK.res={ok:sum>=goal,sum}; BK.phase='done'; if(!BK.res.ok) beep(392,.4,.2); bakRender(); BK.burst=''; }
 
@@ -1218,7 +1224,7 @@ $('btnBak').onclick=bakOpen; $('bkBack').onclick=bakClose; $('bkGo').onclick=bak
 $('bkDur').onclick=e=>{ const b=e.target.closest('[data-d]'); if(!b) return; BK.dur=+b.dataset.d; Array.prototype.forEach.call($('bkDur').children,x=>x.classList.toggle('on',x===b)); };
 $('bkAuto').onclick=e=>{ const b=e.target.closest('[data-a]'); if(!b) return; BK.auto=b.dataset.a==='1'; Array.prototype.forEach.call($('bkAuto').children,x=>x.classList.toggle('on',x===b)); BK.phase='idle'; bakRender(); };
 $('bkGoal').oninput=()=>{ if(BK.phase!=='run'){ BK.phase='idle'; bakRender(); } };
-$('bkTeams').onchange=()=>{ if(BK.phase!=='run'){ BK.phase='idle'; BK.res=null; $('bkStage').dataset.k=''; bakRender(); } };
+$('bkWay').onclick=e=>{ const b=e.target.closest('[data-w]'); if(!b||BK.phase==='run'||BK.phase==='sqbetween') return; BK.way=b.dataset.w; Array.prototype.forEach.call($('bkWay').children,x=>x.classList.toggle('on',x===b)); BK.phase='idle'; BK.res=null; BK.sq=null; $('bkStage').dataset.k=''; bakRender(); };
 $('btnTeam').onclick=teamOpen; $('tmBack').onclick=teamClose;
 $('tmCtl').onclick=e=>{ const b=e.target.closest('button'); if(!b) return;
   if(b.dataset.n){ TM.n=+b.dataset.n; tmShuffle(); }
@@ -1429,6 +1435,48 @@ $('trCtl').onclick=e=>{ const b=e.target.closest('button'); if(!b) return;
   trelRender(); };
 $('trCols').onchange=e=>{ const s=e.target.closest('[data-ex]'); if(!s) return; const [i,x]=s.dataset.ex.split('-').map(Number); (TR.extra[i]=TR.extra[i]||[])[x]=s.value; trPlan(); trelRender(); };
 
+/* ---------- 박 터트리기 · 팀 차례로: 한 팀씩 박을 깨고 걸린 시간으로 겨루기 (줄넘기가 적어도 됨) ---------- */
+function bakSeqTeams(){ if(!tmLoad()){ TM.n=TM.n||2; tmShuffle(); } return tmTeams(); }
+function bakSeqApply(i){ const sq=BK.sq; if(!sq||!sq.ropes.length) return; const m=sq.teams[i]||[]; sq.ropes.forEach((n,j)=>{ HUB.map[n]=m[j]||'-'; }); store.set('jl_hubmap',JSON.stringify(HUB.map)); hubPush(); if(HUB.on) hubSend('vibrate all'); }
+async function bakSeqGo(){
+  if(!BK.sq||BK.phase==='sqdone'||BK.phase==='idle'){ const T=bakSeqTeams(); const teams=T.map(m=>m.map(r=>r.k));
+    BK.sq={ i:0, teams, goals:bakTeamGoals(T), res:[], ropes:HUB.on?roRopes(Math.max(...teams.map(t=>t.length))):[], saved:BK.sq&&BK.sq.saved||(HUB.on?JSON.stringify(HUB.map):'') }; bakSeqApply(0); }
+  const sq=BK.sq, i=sq.i;
+  if(await modeGo('bak',BK.dur,{bak:{goal:sq.goals[i],seq:{i,members:sq.teams[i]}}})){ BK.phase='run'; BK.stage=0; BK.res=null; BK.burst=''; bakRender(); }
+}
+function bakSeqFinish(){ const sq=BK.sq, i=sq.i, mem=sq.teams[i], id=S.lastRun.id;
+  const sum=(S.rows||[]).filter(r=>mem.includes(r.k)&&r.pick&&r.pick.ctl===id).reduce((a,r)=>a+r.cnt,0), goal=sq.goals[i], ok=!!BK.burst;
+  sq.res[i]={sum,goal,ok,ms:ok?BK.burstAt-S.lastRun.at:null}; BK.burst='';
+  if(!ok) beep(392,.4,.2);
+  sq.i++; BK.phase=sq.i<sq.teams.length?'sqbetween':'sqdone';
+  if(BK.phase==='sqbetween') bakSeqApply(sq.i);
+  else { const rk=bakSeqRank(); if(rk[0]&&rk[0].r.ok){ big(TEAM_C[rk[0].i][0]+' 팀!'); beep(1046,.15,.25); setTimeout(()=>beep(1318,.3,.25),160); }
+    if(sq.saved){ HUB.map=JSON.parse(sq.saved); sq.saved=''; store.set('jl_hubmap',JSON.stringify(HUB.map)); hubPush(); } }
+  bakRender(); }
+function bakSeqRank(){ const sq=BK.sq; return sq.res.map((r,i)=>({i,r})).filter(x=>x.r).sort((a,b)=>(b.r.ok-a.r.ok)||(a.r.ok?a.r.ms-b.r.ms:(b.r.sum/b.r.goal)-(a.r.sum/a.r.goal))); }
+const secTxt=ms=>(ms/1000).toFixed(1)+'초';
+function bakSeqRender(st,running){
+  const sq=BK.sq, T=sq?null:bakSeqTeams(), teams=sq?sq.teams:T.map(m=>m.map(r=>r.k)), goals=sq?sq.goals:bakTeamGoals(T);
+  const nm=k=>{ const r=(S.rows||[]).find(x=>x.k===k); return r?(r.name||r.n+'번'):''; };
+  const resTbl=()=>{ const rk=sq?bakSeqRank():[]; let n=0; return `<div class="res" style="width:min(820px,96%);margin-top:8px"><table style="width:100%"><thead><tr><th>순위</th><th>팀</th><th>결과</th><th>횟수</th></tr></thead><tbody>${teams.map((t,i)=>{ const x=rk.findIndex(z=>z.i===i), r=sq&&sq.res[i];
+      return `<tr class="${r&&x===0&&r.ok?'top':''}"><td>${r?x+1:'—'}</td><td style="color:${TEAM_C[i][1]};font-weight:800">${TEAM_C[i][0]} 팀 <small style="color:var(--muted)">${t.length}명</small></td><td class="c">${r?(r.ok?secTxt(r.ms)+' 만에 깸':'못 깼어요'):(sq&&i===sq.i?'지금 차례':'기다리는 중')}</td><td>${r?r.sum+' / '+r.goal:'목표 '+goals[i]}</td></tr>`; }).join('')}</tbody></table></div>`; };
+  let body;
+  if(!sq||BK.phase==='idle') body=`<div class="ch-eyebrow">팀 차례로 박 깨기 — 한 팀씩, 빨리 깬 팀이 이겨요</div>${resTbl()}<div class="bk-tip">위의 "시작"을 누르면 ${TEAM_C[0][0]} 팀부터 시작해요${HUB.on?' · 줄넘기는 그 팀 친구들에게 차례로 이어 줘요':''}</div>`;
+  else if(BK.phase==='run'){ const i=sq.i, mem=teams[i], id=S.lastRun.id, rows=(S.rows||[]).filter(r=>mem.includes(r.k)&&r.pick&&r.pick.ctl===id), sum=rows.reduce((a,r)=>a+r.cnt,0), goal=goals[i], f=Math.min(1,sum/goal), stage=f>=1?4:Math.floor(f*4);
+    const hit=stage>BK.stage; if(hit){ BK.stage=stage; if(stage<4) beep(220,.15,.25); }
+    if(f>=1&&running&&!BK.burst){ BK.burst=id; BK.burstAt=B.now(); beep(1046,.15,.3); setTimeout(()=>beep(1568,.4,.3),200); setTimeout(()=>{ if(S.ctl.ph==='go') end(true); },1200); }
+    const el=S.ctl.ph==='go'&&B.now()>=S.ctl.at?(BK.burst?BK.burstAt:B.now())-S.ctl.at:0;
+    body=`<div class="ch-eyebrow" style="color:${TEAM_C[i][1]};font-size:28px">${TEAM_C[i][0]} 팀 차례 · ${i+1}/${teams.length}</div><img class="bk-img${hit?' hit':''}" src="${BK_IMG(stage)}" alt="박" style="width:min(420px,40vh)"><div class="bk-cnt" style="color:${TEAM_C[i][1]}">${sum}<small>/ ${goal}회</small></div><div class="bk-g"><b style="width:${f*100}%;background:${TEAM_C[i][1]}"></b></div><div class="bk-tip" style="font-size:30px;color:var(--ink)">${S.ctl.ph==='go'&&B.now()<S.ctl.at?Math.ceil((S.ctl.at-B.now())/1000)+'초 뒤 시작':BK.burst?'깼다! '+secTxt(el):secTxt(el)}</div>`;
+    $('bkTop').innerHTML=rows.slice().sort((a,b)=>b.cnt-a.cnt).slice(0,8).map(r=>`<div class="ch-li"><span class="nm">${esc(r.name||r.n+'번')}</span><b>${r.cnt}회</b></div>`).join(''); }
+  else if(BK.phase==='sqbetween'){ const i=sq.i, prev=teams[i-1]||[], cur=teams[i];
+    const hand=sq.ropes.length?`<div class="res" style="width:min(820px,96%);margin-top:10px"><table style="width:100%"><thead><tr><th>줄넘기</th><th>주는 친구</th><th></th><th>받는 친구 (${TEAM_C[i][0]} 팀)</th></tr></thead><tbody>${sq.ropes.map((n,j)=>cur[j]?`<tr><td style="font-weight:900;color:var(--accent-ink)">${n}번</td><td>${esc(nm(prev[j]))||'<span style="color:var(--muted)">(바구니에서)</span>'}</td><td>→</td><td style="font-weight:800">${esc(nm(cur[j]))}</td></tr>`:'').join('')}</tbody></table></div>`:'';
+    body=`<div class="ch-eyebrow">${TEAM_C[i-1][0]} 팀 ${sq.res[i-1].ok?secTxt(sq.res[i-1].ms)+' 만에 깼어요!':'못 깼어요 ('+sq.res[i-1].sum+'/'+sq.res[i-1].goal+')'}</div>${resTbl()}${hand}<div class="ch-btns" style="margin-top:12px"><button class="primary" data-bk="next" style="background:${TEAM_C[i][1]};border-color:${TEAM_C[i][1]}">${TEAM_C[i][0]} 팀 시작</button></div>`; }
+  else { const rk=bakSeqRank(), w=rk[0]&&rk[0].r.ok?rk[0]:null; let cf=''; if(w){ const col=['#FF6B5B','#2BB3A3','#F2A33A','#6E5BEF','#13A6E8']; for(let k=0;k<70;k++) cf+=`<i style="left:${(k*37)%100}%;top:${(k*53)%90}%;background:${col[k%5]};animation-delay:${(k%10)*60}ms"></i>`; }
+    body=`<div class="ch-conf">${cf}</div><img class="bk-img" src="${BK_IMG(4)}" alt="박" style="width:min(320px,30vh)">${w?`<div class="bk-banner" style="margin-top:-20px">${TEAM_C[w.i][0]} 팀 승리! ${secTxt(w.r.ms)}</div>`:'<div class="bk-tip" style="font-size:30px;color:var(--amber)">아무 팀도 못 깼어요</div>'}${resTbl()}<div class="ch-btns" style="margin-top:12px"><button data-bk="again">처음부터 다시</button></div>`; }
+  if(st.dataset.k!==body){ st.innerHTML=body; st.dataset.k=body; }
+}
+$('bkStage').onclick=e=>{ const b=e.target.closest('[data-bk]'); if(!b) return; if(b.dataset.bk==='next') bakSeqGo(); else if(b.dataset.bk==='again'){ BK.sq=null; BK.phase='idle'; bakRender(); } };
+
 /* ---------- 결과 ---------- */
 // 목표 횟수에 닿은 시간(0.1초 단위, 허브 줄넘기만). 못 닿았으면 0
 function doneDs(r){ if(!S.lastRun||!S.lastRun.goal) return 0;
@@ -1436,7 +1484,7 @@ function doneDs(r){ if(!S.lastRun||!S.lastRun.goal) return 0;
   return S.done&&S.done[r.k]?Math.max(1,Math.round(S.done[r.k]/100)):0; }
 function resultRows(){
   const fin=r=>doneDs(r)||1e9;
-  const only=S.lastRun.rot?RO.groups[S.lastRun.rot.g]:S.lastRun.trel?S.lastRun.trel.runners:null;   // 조별 차례: 이번 조만 · 팀 릴레이: 이번 주자들만
+  const only=S.lastRun.rot?RO.groups[S.lastRun.rot.g]:S.lastRun.trel?S.lastRun.trel.runners:S.lastRun.bak&&S.lastRun.bak.seq?S.lastRun.bak.seq.members:null;   // 조별 차례: 이번 조만 · 팀 릴레이: 이번 주자들만
   return (S.rows||[]).filter(r=>r.pick&&r.pick.ctl===S.lastRun.id&&(!only||only.includes(r.k))).sort((a,b)=>(b.cnt-a.cnt)||(fin(a)-fin(b))||(a.g-b.g)||(a.c-b.c)||(a.n-b.n));
 }
 function showResult(){
