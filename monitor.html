@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.6.1</title>
+<title>점프 라이브 v0.6.2</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -264,7 +264,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.6.1</span></h1>
+    <h1>점프 라이브<span class="ver">v0.6.2</span></h1>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <div class="me" id="me" hidden><span id="meName"></span><button id="btnOut">로그아웃</button></div>
@@ -1584,7 +1584,7 @@ async function saveResult(){
   const id=S.lastRun&&S.lastRun.id; if(!id) return;
   if(!JR.live) return resSaveUi('자동 저장이 안 돼요 — 이 학교 껍데기가 점프 라이브판이 아니에요. 결과 복사로 옮겨 주세요',true);
   if(savedRuns()[id]) return resSaveUi();
-  const rows=resultRows().filter(r=>r.id&&r.cnt>0).map(r=>({id:r.id,count:r.cnt}));
+  const rows=resultRows().filter(r=>r.id&&r.cnt>0).map(r=>({id:r.id,count:r.cnt,best:Math.min(r.best||0,r.cnt)}));   // best: 한 번에 최고 연속 (점프 라이브판 5판부터 시트에 남음)
   if(!rows.length) return resSaveUi('저장할 기록이 없어요',true);
   const tok=JR.admin||sessGet();
   if(!tok) return resSaveUi('관리자 로그인이 끝났어요 — 비밀번호를 넣고 저장해 주세요',true,true);

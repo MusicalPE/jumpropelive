@@ -1,6 +1,6 @@
 /*************************************************************
  * 줄넘기 기록 관리 v2 — 학교 시트용 껍데기 (Shell.gs) · 점프 라이브판
- * (일반 껍데기 3판 + 점프 라이브: 반 전체 실시간 줄넘기 결과를 한꺼번에 기록)
+ * (일반 껍데기 5판 + 점프 라이브: 반 전체 실시간 줄넘기 결과를 한꺼번에 기록)
  * ------------------------------------------------------------
  * 이 파일 하나만 스프레드시트의 Apps Script 에 붙여넣고 웹앱으로 배포하면 됩니다.
  * 화면은 GitHub(musicalpe.github.io/jumprope)에서 열리고, 이 파일은 뒤에서
@@ -10,7 +10,7 @@
  * 배포 설정: 다음 사용자로 실행 = 나, 액세스 권한 = 모든 사용자
  *************************************************************/
 
-const SHELL_VERSION = 3;                      // 껍데기 판 (화면이 확인함)  2: 새 학교는 승인 절차 기본 켜짐, 카메라 기록은 기본 바로 승인  3: 급수(Levels 시트)
+const SHELL_VERSION = 5;                      // 껍데기 판 (화면이 확인함)  2: 새 학교는 승인 절차 기본 켜짐, 카메라 기록은 기본 바로 승인  3: 급수(Levels 시트)  4: 전국 현황판 비밀 키를 학생 화면에 내보내지 않음(오늘 기록은 이 껍데기가 직접 보냄)  5: 한 번에 최고 연속(스마트 줄넘기·카메라 판정기) 기록·전국 현황판 보고
 const APP_URL = 'https://musicalpe.github.io/jumprope/';
 const BETA_URL = 'https://musicalpe.github.io/jumprope/beta/';
 
@@ -75,7 +75,8 @@ const RPC_ALLOW_ = [
   'getRecentRecordsPublic', 'getPendingRecords', 'approveRecord', 'rejectRecord', 'getStudentRecordsForAdmin',
   'updateRecordAdmin', 'deleteRecordAdmin', 'getTheme', 'setTheme', 'getCameraSettings', 'getCameraSettingsAdmin',
   'setCameraSettings', 'issueCameraToken', 'generateMotivationMessage', 'getGeminiModelList', 'getMotivationSettings',
-  'saveGeminiApiKey', 'regenerateMotivationNow', 'getLevelsPublic', 'saveLevelPasses', 'addLiveRecordsAdmin'
+  'saveGeminiApiKey', 'regenerateMotivationNow', 'getLevelsPublic', 'saveLevelPasses',
+  'getExtraSettingsAdmin', 'natReportToday', 'addLiveRecordsAdmin'
 ];
 function doPost(e) {
   let out;
@@ -99,7 +100,7 @@ function ping() {
 }
 
 /************ 점프 라이브 — 선생님 화면(현황판)이 끝난 회차 결과를 한꺼번에 기록 ************
- * rows: [{ id: 학생ID, count: 횟수 }, ...]  · 선생님이 지켜본 카메라 판정이므로 승인된 카메라 기록으로 넣음
+ * rows: [{ id: 학생ID, count: 횟수, best: 한 번에 최고 연속(5판) }, ...]  · 선생님이 지켜본 카메라·스마트 줄넘기 기록이므로 승인된 카메라 기록으로 넣음
  * runId 가 같은 요청이 다시 오면(다시 보내기) 두 번 넣지 않음 */
 function addLiveRecordsAdmin(token, typeStr, rows, runId) {
   if (!checkAdminToken_(token)) throw new Error('권한이 없습니다. 관리자 비밀번호로 다시 로그인해 주세요.');
@@ -120,7 +121,8 @@ function addLiveRecordsAdmin(token, typeStr, rows, runId) {
       if (!ids[sid]) { skipped.push(sid); return; }
       if (!cnt || cnt < 1) return;
       if (cnt > 5000) { skipped.push(sid); return; }
-      out.push([Utilities.getUuid(), now, sid, dateStr, cnt, 'approved', timeStr, type, 'camera']);
+      const bst = Math.max(0, Math.min(Math.round(Number(r && r.best) || 0), cnt));
+      out.push([Utilities.getUuid(), now, sid, dateStr, cnt, 'approved', timeStr, type, 'camera', bst > 0 ? bst : '']);
     });
     if (out.length) {
       const sh = getRecordsSheet_();
@@ -149,18 +151,107 @@ function setAppSettings(token, obj) {
   return { ok: true, settings: getAppSettingsPublic() };
 }
 // 앞으로 화면에 새 설정이 생겨도 껍데기를 바꾸지 않도록 마련한 자유 저장칸 (JSON)
-function getExtraSettings() {
+function extraRaw_() {
   try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('EXTRA_SETTINGS') || '{}'); } catch (e) { return {}; }
+}
+// 누구나 읽는 설정: 전국 현황판 비밀 키(nat.key)는 빼고, 대신 학교 공개 번호(nat.pid)만 (4판)
+function getExtraSettings() {
+  const x = extraRaw_();
+  if (x.nat && typeof x.nat === 'object') {
+    const n = Object.assign({}, x.nat);
+    if (n.key) n.pid = natPid_(n.key);
+    delete n.key;
+    x.nat = n;
+  }
+  return x;
+}
+// 관리자: 비밀 키까지 (참여 켜기·끄기, 한 달 다시 보내기, 상장 등)
+function getExtraSettingsAdmin(token) {
+  if (!checkAdminToken_(token)) throw new Error('권한이 없습니다.');
+  return extraRaw_();
 }
 function setExtraSettings(token, patch) {
   if (!checkAdminToken_(token)) throw new Error('권한이 없습니다.');
-  const cur = getExtraSettings();
-  Object.keys(patch || {}).forEach(function (k) { if (patch[k] === null) delete cur[k]; else cur[k] = patch[k]; });
+  const cur = extraRaw_();
+  patch = Object.assign({}, patch || {});
+  // 이미 있는 비밀 키는 화면이 무엇을 보내든 그대로 둠 (키가 바뀌면 전국 현황판에서 다른 학교가 되어 버려요)
+  if (patch.nat && typeof patch.nat === 'object') {
+    const n = Object.assign({}, patch.nat);
+    delete n.pid;
+    if (cur.nat && cur.nat.key) n.key = cur.nat.key;
+    patch.nat = n;
+  }
+  Object.keys(patch).forEach(function (k) { if (patch[k] === null) delete cur[k]; else cur[k] = patch[k]; });
   const text = JSON.stringify(cur);
   if (text.length > 8000) return { ok: false, message: '저장할 설정이 너무 큽니다.' };
   PropertiesService.getScriptProperties().setProperty('EXTRA_SETTINGS', text);
   return { ok: true, settings: cur };
 }
+/************ 전국 현황판: 오늘 기록 보내기 (4판) ************
+ * 학생 기기는 비밀 키를 모르니까, 기록을 저장한 뒤 이 함수를 부르면 껍데기가 오늘 승인된 기록을 모아 수집기로 보냄.
+ * 학교 밖으로 나가는 것: 가린 이름(김*늘)·학년·횟수·카메라 횟수·한 번에 최고 연속(5판)·등록 학생 수 (반·번호·실명·비밀번호는 안 나감) */
+const DEFAULT_COLLECTOR_URL = 'https://script.google.com/macros/s/AKfycbx8T0Jbj9HGNVtoAq7QpiUZLlqDa6x2qgluIuoviXXf1_qgGfqQUhL-_Aua8ucizJ1-mA/exec';
+function natPid_(key) { return hashPw_('jr-school|' + key).slice(0, 10); }
+function natMask_(n) {
+  const c = Array.from(String(n == null ? '' : n).trim());
+  if (c.length <= 1) return c.join('');
+  if (c.length === 2) return c[0] + '*';
+  return c[0] + new Array(c.length - 1).join('*') + c[c.length - 1];
+}
+// 수집기 주소: 화면 저장소의 national.json (6시간 저장), 못 읽으면 기본 주소
+function natCollector_() {
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get('nat_collector');
+  if (hit) return hit;
+  let url = DEFAULT_COLLECTOR_URL;
+  try {
+    const j = JSON.parse(UrlFetchApp.fetch(APP_URL + 'national.json', { muteHttpExceptions: true }).getContentText() || '{}');
+    if (j && /^https:\/\/script\.google\.com\//.test(String(j.collector || ''))) url = String(j.collector);
+  } catch (e) {}
+  cache.put('nat_collector', url, 21600);
+  return url;
+}
+function natReportToday(app) {
+  const c = extraRaw_().nat || {};
+  if (!c.on || !c.key) return { skipped: 'off' };
+  if (!approvalOn_()) return { skipped: 'approval' };   // 승인 절차가 켜진 학교만 (학생이 마구 넣은 숫자가 바로 순위에 오르지 않게)
+  const self = String(ScriptApp.getService().getUrl() || ''), m = self.match(/\/s\/([A-Za-z0-9_-]{20,})\//);
+  if (c.shell && c.shell !== (m ? m[1] : self)) return { skipped: 'moved' };   // 복사한 시트면 보내지 않음
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(15000)) return { skipped: 'busy' };
+  try {
+    const st = getStudentsSheet_().getDataRange().getValues();
+    const rc = getRecordsSheet_().getDataRange().getValues();
+    const today = formatDate_(new Date()), per = {};
+    for (let i = 1; i < rc.length; i++) {
+      if ((rc[i][5] || 'approved') !== 'approved' || formatDate_(rc[i][3]) !== today) continue;
+      const sid = String(rc[i][2]).trim(), n = Number(rc[i][4]) || 0;
+      const v = per[sid] || (per[sid] = [0, 0, 0]);
+      v[0] += n; if (String(rc[i][8] || '') === 'camera') v[1] += n;
+      v[2] = Math.max(v[2], Number(rc[i][9]) || 0);   // 5판: 그날 한 번에 최고 연속
+    }
+    const rows = [], byGrade = {};
+    for (let i = 1; i < st.length; i++) {
+      const sid = String(st[i][0]).trim(), g = String(st[i][1] || '').trim();
+      if (g) byGrade[g] = (byGrade[g] || 0) + 1;
+      const v = per[sid];
+      if (v && v[0] > 0) rows.push([hashPw_('jr-student|' + c.key + '|' + sid).slice(0, 10), natMask_(st[i][4]), g, v[0], Math.min(v[1], v[0]), Math.min(v[2], v[0])]);
+    }
+    if (!rows.length) return { skipped: 'empty' };
+    const payload = {
+      key: c.key, name: c.showName ? (c.name || '') : '', showName: !!c.showName, schoolName: c.name || '',
+      registered: st.length - 1, registeredByGrade: byGrade, app: String(app || '').slice(0, 20),
+      days: [{ date: today, students: rows }]
+    };
+    const res = UrlFetchApp.fetch(natCollector_(), { method: 'post', contentType: 'text/plain;charset=utf-8', payload: JSON.stringify({ fn: 'report', args: [payload] }), muteHttpExceptions: true, followRedirects: true });
+    const j = JSON.parse(res.getContentText() || '{}');
+    if (!j.ok) throw new Error(j.error || '전국 현황판 응답 오류');
+    return { ok: true, students: rows.length };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 // 화면에서 새 통계·기능을 직접 계산할 수 있게 전체 자료를 내려줌 (관리자만, 비밀번호 제외)
 function getAllDataAdmin(token) {
   if (!checkAdminToken_(token)) throw new Error('권한이 없습니다.');
@@ -169,7 +260,7 @@ function getAllDataAdmin(token) {
   for (let i = 1; i < st.length; i++) students.push({ id: String(st[i][0]).trim(), grade: st[i][1], cls: st[i][2], number: st[i][3], name: st[i][4], order: st[i][6] });
   const rc = getRecordsSheet_().getDataRange().getValues();
   const records = [];
-  for (let i = 1; i < rc.length; i++) records.push({ recordId: rc[i][0], studentId: String(rc[i][2]).trim(), date: formatDate_(rc[i][3]), count: Number(rc[i][4]) || 0, status: rc[i][5] || 'approved', time: formatTime_(rc[i][6]), type: typeLabel_(rc[i][7]), source: String(rc[i][8] || '') });
+  for (let i = 1; i < rc.length; i++) records.push({ recordId: rc[i][0], studentId: String(rc[i][2]).trim(), date: formatDate_(rc[i][3]), count: Number(rc[i][4]) || 0, status: rc[i][5] || 'approved', time: formatTime_(rc[i][6]), type: typeLabel_(rc[i][7]), source: String(rc[i][8] || ''), best: Number(rc[i][9]) || 0 });
   return { students: students, records: records };
 }
 // 승인 절차: 한 번도 정한 적이 없으면 새 학교(기록 없음)는 켜짐, 이미 쓰던 학교(기록 있음)는 예전처럼 꺼짐으로 정해 둔다
@@ -204,7 +295,7 @@ function getStudentsSheet_() {
   return sh;
 }
 
-const RECORDS_HEADER_ = ['RecordID', 'Timestamp', 'StudentID', 'Date', 'Count', 'Status', 'Time', 'Type', 'Source'];
+const RECORDS_HEADER_ = ['RecordID', 'Timestamp', 'StudentID', 'Date', 'Count', 'Status', 'Time', 'Type', 'Source', 'Best'];   // Best(5판): 한 번에 최고 연속 — 스마트 줄넘기·카메라 판정기로 잰 기록만
 // Source 열: 'camera' = 카메라 판정기(줄넘기 판정기)가 자동으로 넣은 기록, 비어 있으면 직접 입력
 
 /************ 줄넘기 종류 설정 (관리자 메뉴에서 변경) ************/
@@ -710,7 +801,8 @@ function getStudentDetailAuthed(id, password) {
 }
 
 /************ 기록 입력 (비밀번호 없이, 승인 대기로 저장) ************/
-function addRecord(id, dateStr, count, timeStr, typeStr) {
+// best(5판): 스마트 줄넘기("내 줄넘기로 뛰기")가 잰 한 번에 최고 연속. 손으로 넣는 기록은 비워 둠
+function addRecord(id, dateStr, count, timeStr, typeStr, best) {
   const students = getStudentsSheet_().getDataRange().getValues();
   const target = String(id).trim();
   let found = false;
@@ -727,7 +819,8 @@ function addRecord(id, dateStr, count, timeStr, typeStr) {
 
   // v2: 입력할 때마다 한 줄씩 쌓는다 (그날 여러 번 뛰면 모두 더해짐). 승인 절차를 켰으면 한 건씩 승인 대기.
   if (cnt > 5000) return { ok: false, message: '한 번에 5000회까지만 입력할 수 있어요.' };
-  getRecordsSheet_().appendRow([Utilities.getUuid(), new Date(), target, String(dateStr).trim(), Math.round(cnt), approvalOn_() ? 'pending' : 'approved', time, type, '']);
+  const bst = Math.min(Math.round(Number(best) || 0), Math.round(cnt));
+  getRecordsSheet_().appendRow([Utilities.getUuid(), new Date(), target, String(dateStr).trim(), Math.round(cnt), approvalOn_() ? 'pending' : 'approved', time, type, bst > 0 ? 'rope' : '', bst > 0 ? bst : '']);
   return { ok: true, approval: approvalOn_(), message: approvalOn_() ? '입력되었습니다! 선생님 승인 후 그래프에 반영됩니다.' : '저장되었습니다! 그래프에 바로 반영됩니다.' };
 }
 
@@ -1158,6 +1251,7 @@ function handleCameraApi_(q) {
     if (api === 'rope_x_save') {
       const cnt = Math.round(Number(q.count));
       if (!cnt || cnt < 1) return cameraJson_({ ok: false, error: '1회 이상일 때만 기록할 수 있어요.' });
+      const bst = Math.max(0, Math.min(Math.round(Number(q.best) || 0), cnt));   // 5판: 판정기가 센 한 번에 최고 연속
       if (cnt > 5000) return cameraJson_({ ok: false, error: '횟수가 너무 큽니다.' });
       const type = link.type;
       const now = new Date();
@@ -1180,8 +1274,10 @@ function handleCameraApi_(q) {
         sh.getRange(rowIndex, 7).setValue(timeStr);
         sh.getRange(rowIndex, 8).setValue(type);
         sh.getRange(rowIndex, 9).setValue('camera');
+        const prevBest = prevStatus === 'rejected' ? 0 : (Number(data[rowIndex - 1][9]) || 0);
+        if (bst > prevBest || prevStatus === 'rejected') sh.getRange(rowIndex, 10).setValue(bst > 0 ? bst : '');
       } else {
-        sh.appendRow([Utilities.getUuid(), now, info.id, dateStr, cnt, status, timeStr, type, 'camera']);
+        sh.appendRow([Utilities.getUuid(), now, info.id, dateStr, cnt, status, timeStr, type, 'camera', bst > 0 ? bst : '']);
       }
       const todayTotal = todayTotalForStudent_(info.id);
       return cameraJson_({ ok: true, data: { 횟수: cnt, 오늘: todayTotal, 하루목표: goal, 달성: todayTotal >= goal, 승인대기: status === 'pending' } });
