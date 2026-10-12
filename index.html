@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 판정기 v0.9.9 · 카메라로 진짜 뛰는지 보기</title>
+<title>줄넘기 판정기 v0.9.10 · 카메라로 진짜 뛰는지 보기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -292,7 +292,7 @@
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
     <div class="titles">
-      <h1>줄넘기 판정기<span class="ver">v0.9.9</span></h1>
+      <h1>줄넘기 판정기<span class="ver">v0.9.10</span></h1>
       <span class="sub">머리부터 발까지 보이게 서서, 몸이 뜨고 팔이 돌 때만 1회로 세요</span>
     </div>
     <div class="who" id="who"></div>
@@ -478,7 +478,7 @@ JumpDetector.prototype.push=function(t, lm){
       const timeOk=airTime>=0.06 && airTime<=0.9;
       if(countable && t-this.lastJump>this.minGap && timeOk){
         if(bodyOk && armOn){ this.add(t,1); this.chain=true; this.pend=0; this.prevGap=0; this.lastBounce=t; }
-        else if(bodyOk && !armOn){ this.noRope++; this.why='norope'; this.chain=false; this.pend=0; }
+        else if(bodyOk && !armOn){ this.noRope++; this.why='norope'; this.chain=false; this.pend=0; this.streak=0; }   // 줄 없이 뜀 = 줄이 걸려 멈춘 것
         else { this.partial++; this.why='partial'; } } } }
   // (2) 숙련자 낮은 점프: 2~3cm만 뜨고 손목만 작게 돌림 → 낮은 문턱 + 손목 원 + "일정한 박자로 계속"일 때만 셈
   const low=Math.max(0.035,amp*0.45);
@@ -507,7 +507,10 @@ JumpDetector.prototype.push=function(t, lm){
   this.prevT=t;
   return this.state();
 };
-JumpDetector.prototype.add=function(t,k){ this.count+=k; this.lastJump=t; this.streak+=k; this.best=Math.max(this.best,this.streak); for(let i=0;i<k;i++) this.rateBuf.push(t); this.why=''; };
+// 최고 연속: 줄이 걸리면 다음 점프까지 텀이 생김 → 평소 점프 간격의 2.2배(최소 1초, 최대 2.5초)보다 길게 쉬면 연속을 새로 셈
+JumpDetector.prototype.tripGap=function(){ const a=this.rateBuf.slice(-9), d=[]; for(let i=1;i<a.length;i++){ const g=a[i]-a[i-1]; if(g>0.15) d.push(g); }
+  if(d.length<3) return 1.2; d.sort((x,y)=>x-y); return Math.min(2.5,Math.max(1.0,d[d.length>>1]*2.2)); };
+JumpDetector.prototype.add=function(t,k){ if(this.streak&&this.lastJump&&t-this.lastJump>this.tripGap()) this.streak=0; this.count+=k; this.lastJump=t; this.streak+=k; this.best=Math.max(this.best,this.streak); for(let i=0;i<k;i++) this.rateBuf.push(t); this.why=''; };
 JumpDetector.prototype.state=function(){
   return { count:this.count, air:this.air, lift:this.lift, hipLift:this.hipLift, hand:this.hand, handSec:this.handSec, visible:this.visible, hipSeen:this.hipSeen,
            streak:this.streak, best:this.best, rate:this.rateBuf.length*6, noRope:this.noRope, partial:this.partial, why:this.why, lastJump:this.lastJump, amp:this.minAmp, full:this.full, tooClose:this.tooClose };
@@ -520,7 +523,7 @@ const $=id=>document.getElementById(id);
 const video=$('video'), cv=$('overlay'), cx=cv.getContext('2d');
 let landmarker=null, stream=null, facing='user', running=false, t0=0, raf=0, lastVideoT=-1, frames=0, fpsT=0;
 /* ---------- 앱 연동: 체육교사 보조 프로그램의 줄넘기 화면에서 열리면 ?app=앱주소&t=학생표&kind=종류 가 붙어 와요 ---------- */
-const VER='0.9.9';
+const VER='0.9.10';
 const Q=new URLSearchParams(location.search);
 const LINK={ app:Q.get('app')||'', t:Q.get('t')||'', kind:Q.get('kind')||'', sens:+(Q.get('sens')||0)||0, target:(Q.get('target')==='fit'?'fit':'rope'), who:null, saved:null,
   // mode=post : 오프라인판(파일로 여는 프로그램)이 연 창. 서버 대신 window.opener.postMessage 로 결과를 돌려준다.
