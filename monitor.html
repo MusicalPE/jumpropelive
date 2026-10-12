@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.5.8</title>
+<title>점프 라이브 v0.5.9</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -264,7 +264,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.5.8</span></h1>
+    <h1>점프 라이브<span class="ver">v0.5.9</span></h1>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <div class="me" id="me" hidden><span id="meName"></span><button id="btnOut">로그아웃</button></div>
@@ -1115,10 +1115,13 @@ async function modeGo(kind,dur,extra){
 }
 const modeTime=()=>{ const c=S.ctl, now=B.now(); if(c.ph!=='go') return ''; if(now<c.at) return Math.ceil((c.at-now)/1000)+'초 뒤 시작'; if(!c.dur){ const s=Math.floor((now-c.at)/1000); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); } const r=Math.max(0,Math.ceil(c.dur-(now-c.at)/1000)); return Math.floor(r/60)+':'+String(r%60).padStart(2,'0')+' 남음'; };
 // 경기가 끝나면 이긴 팀만이 아니라 다 같이 격려 (회차마다 한 문구로 고정)
-const CHEER_ALL=['열심히 뛴 모두 최고!','끝까지 뛴 우리 모두가 최고!','모두 수고했어요, 다 같이 박수!','함께 뛰어서 더 멋졌어요!'];
-const CHEER_TEAM=['이긴 팀도, 아깝게 진 팀도 모두 최고!','열심히 뛴 모두 최고!','끝까지 뛴 모든 팀에게 박수!','서로 응원해 준 모두가 최고!'];
-const CHEER_ONE=['끝까지 뛴 것만으로 최고!','도전한 용기가 멋져요!','다음엔 꼭 할 수 있어요!'];
-function cheer(kind){ const L=kind==='team'?CHEER_TEAM:kind==='one'?CHEER_ONE:CHEER_ALL, id=(S.lastRun&&S.lastRun.id)||''; let h=0; for(const ch of id) h=(h*31+ch.charCodeAt(0))>>>0; return `<div class="cheer">${L[h%L.length]}</div>`; }
+const CHEER_ALL=['열심히 뛴 모두 최고!','끝까지 뛴 우리 모두가 최고!','모두 수고했어요, 다 같이 박수!','함께 뛰어서 더 멋졌어요!','오늘도 한 줄 한 줄, 우리 모두 자랐어요!','숨이 찰 때까지 뛴 우리, 정말 대단해요!','한 명 한 명이 모여 우리 반 기록이 됐어요!','꾸준히 뛰는 우리가 진짜 챔피언!','어제보다 오늘 더 튼튼해졌어요!','서로 응원하며 뛴 모두에게 박수!'];
+const CHEER_TEAM=['이긴 팀도, 아깝게 진 팀도 모두 최고!','열심히 뛴 모두 최고!','끝까지 뛴 모든 팀에게 박수!','서로 응원해 준 모두가 최고!','승패보다 빛난 건 끝까지 뛴 우리!','오늘의 상대가 내일의 응원 친구!','팀을 위해 한 번 더 뛴 모두가 영웅!','모든 팀이 최선을 다했어요, 다 같이 박수!','진 팀은 다음 판의 주인공! 모두 멋졌어요!','함께 뛰어서 우리 반 모두가 이겼어요!'];
+const CHEER_CLOSE=['간발의 차이! 모든 팀이 대단했어요!','거의 같았어요! 누가 이겨도 이상하지 않은 승부!','손에 땀을 쥐는 승부! 모두 최고!','정말 아슬아슬했어요! 모든 팀에게 큰 박수!'];
+const CHEER_ONE=['끝까지 뛴 것만으로 최고!','도전한 용기가 멋져요!','다음엔 꼭 할 수 있어요!','앞에 나와 뛴 용기, 그게 진짜 실력!','아깝다! 다음 도전이 더 기대돼요!','모두가 응원했어요, 정말 멋진 도전!'];
+// 회차마다 한 문구로 고정. 팀 승부가 박빙(1·2위 차이 5% 안, 박은 0.5초 안)이면 박빙 문구
+function cheer(kind){ const L=kind==='close'?CHEER_CLOSE:kind==='team'?CHEER_TEAM:kind==='one'?CHEER_ONE:CHEER_ALL, id=(S.lastRun&&S.lastRun.id)||''; let h=0; for(const ch of id) h=(h*31+ch.charCodeAt(0))>>>0; return `<div class="cheer">${L[h%L.length]}</div>`; }
+function isClose(vals,lowWins){ const v=vals.filter(x=>x>0).sort((a,b)=>lowWins?a-b:b-a); if(v.length<2) return false; return lowWins?v[1]-v[0]<=500:(v[0]-v[1])/v[0]<=0.05; }
 const runRows=()=>(S.rows||[]).filter(r=>S.lastRun&&r.pick&&r.pick.ctl===S.lastRun.id);
 
 /* ---------- 박 터트리기: 반 전체 합계가 목표에 닿으면 박이 터짐 (25%마다 금이 감) ---------- */
@@ -1216,8 +1219,8 @@ function teamRender(){
   const ctl=setup?`<b style="font-size:20px">팀 나누기</b><div class="chips">${[['all','다 같이'],['seq','팀 차례로']].map(([k,t])=>`<button class="chip${k===TM.way?' on':''}" data-w="${k}">${t}</button>`).join('')}</div><div class="chips" id="tmN">팀 수 ${[2,3,4,5,6].map(n=>`<button class="chip${n===TM.n?' on':''}" data-n="${n}">${n}팀</button>`).join('')}</div><button class="primary" data-t="mix" style="min-height:40px">랜덤으로 다시 나누기</button><span class="chips" style="align-items:center;font-weight:800">줄넘기 <input id="tmRopes" type="number" min="1" max="60" value="${TM.ropes}" style="width:64px;min-height:38px;font-size:16px;text-align:center"> 개<button class="chip" data-t="fit">개수에 맞춰 팀 나누기</button></span><span class="small" style="color:var(--muted);font-weight:700">이름을 누르면 다음 팀으로 옮겨요 · 이 반 팀은 이 기기에 기억돼요${uneven&&TM.by==='sum'?' · <b style="color:var(--amber)">팀 인원이 달라요 — 1인당 평균으로 겨루기를 권해요</b>':''}</span><div class="spacer"></div>
       <div class="chips">${[30,60,120].map(d=>`<button class="chip${d===TM.dur?' on':''}" data-d="${d}">${durTxt(d)}</button>`).join('')}</div>
       <div class="chips">${[['sum','합계로'],['avg','1인당 평균으로']].map(([k,t])=>`<button class="chip${k===TM.by?' on':''}" data-b="${k}">${t} 겨루기</button>`).join('')}</div><button class="primary" data-t="go" style="min-height:44px;font-size:18px">${TM.way==='seq'?'팀 차례로 시작':'팀전 시작'}</button>`
-    :sq?`<b style="font-size:22px">팀 차례로 · ${durTxt(TM.dur)}</b><span class="pill">${TM.by==='avg'?'1인당 평균으로 겨루기':'합계로 겨루기'}</span>${TM.phase!=='done'?`<span class="pill" style="background:${TEAM_C[sq.i][2]};color:${TEAM_C[sq.i][1]}">${TEAM_C[sq.i][0]} 팀 차례 · ${sq.i+1}/${sq.teams.length}</span>`:''}<div class="spacer"></div>${running?`<span class="clock go" style="font-size:34px">${modeTime()}</span><button class="dark" data-t="end">끝</button>`:TM.phase==='run'?'<span class="clock go" style="font-size:34px">끝!</span>':TM.phase==='between'?`<button data-t="stop">여기서 끝내기</button><button class="primary" data-t="next" style="min-height:44px;font-size:18px;background:${TEAM_C[sq.i][1]};border-color:${TEAM_C[sq.i][1]}">${TEAM_C[sq.i][0]} 팀 시작</button>`:cheer('team')+'<button data-t="again">팀 다시 나누기</button><button class="primary" data-t="go2">같은 팀으로 한 번 더</button>'}`
-    :`<b style="font-size:22px">팀전 · ${durTxt(S.lastRun.dur)}</b><span class="pill">${TM.by==='avg'?'1인당 평균으로 겨루기':'합계로 겨루기'}</span><div class="spacer"></div>${running||TM.phase!=='done'?`<span class="clock go" style="font-size:34px">${running?modeTime():'끝!'}</span>`:cheer('team')}${running?'<button class="dark" data-t="end">끝</button>':'<button data-t="again">팀 다시 나누기</button><button class="primary" data-t="go2">같은 팀으로 한 번 더</button>'}`;
+    :sq?`<b style="font-size:22px">팀 차례로 · ${durTxt(TM.dur)}</b><span class="pill">${TM.by==='avg'?'1인당 평균으로 겨루기':'합계로 겨루기'}</span>${TM.phase!=='done'?`<span class="pill" style="background:${TEAM_C[sq.i][2]};color:${TEAM_C[sq.i][1]}">${TEAM_C[sq.i][0]} 팀 차례 · ${sq.i+1}/${sq.teams.length}</span>`:''}<div class="spacer"></div>${running?`<span class="clock go" style="font-size:34px">${modeTime()}</span><button class="dark" data-t="end">끝</button>`:TM.phase==='run'?'<span class="clock go" style="font-size:34px">끝!</span>':TM.phase==='between'?`<button data-t="stop">여기서 끝내기</button><button class="primary" data-t="next" style="min-height:44px;font-size:18px;background:${TEAM_C[sq.i][1]};border-color:${TEAM_C[sq.i][1]}">${TEAM_C[sq.i][0]} 팀 시작</button>`:cheer(isClose(sc.map(x=>x?x[key]:0))?'close':'team')+'<button data-t="again">팀 다시 나누기</button><button class="primary" data-t="go2">같은 팀으로 한 번 더</button>'}`
+    :`<b style="font-size:22px">팀전 · ${durTxt(S.lastRun.dur)}</b><span class="pill">${TM.by==='avg'?'1인당 평균으로 겨루기':'합계로 겨루기'}</span><div class="spacer"></div>${running||TM.phase!=='done'?`<span class="clock go" style="font-size:34px">${running?modeTime():'끝!'}</span>`:cheer(isClose(sc.map(x=>x?x[key]:0))?'close':'team')}${running?'<button class="dark" data-t="end">끝</button>':'<button data-t="again">팀 다시 나누기</button><button class="primary" data-t="go2">같은 팀으로 한 번 더</button>'}`;
   const ck=ctl; if($('tmCtl').dataset.k!==ck){ $('tmCtl').innerHTML=ck; $('tmCtl').dataset.k=ck; }
   $('tmCols').style.gridTemplateColumns=`repeat(${TM.n},minmax(0,1fr))`;
   const win=TM.res&&TM.res.win;
@@ -1457,7 +1460,7 @@ function trelRender(){
     <div class="chips">${[['no','번호순'],['rand','랜덤']].map(([k,t])=>`<button class="chip${k===TR.ord?' on':''}" data-o="${k}">${t}</button>`).join('')}</div>
     <div class="chips">${[[1,'넘기면 자동 시작'],[0,'눌러서 시작']].map(([k,t])=>`<button class="chip${(k===1)===TR.auto?' on':''}" data-a="${k}">${t}</button>`).join('')}</div><button class="primary" data-tr="go" style="min-height:44px;font-size:18px">릴레이 시작</button>`;
   else if(TR.phase==='between') ctl=`<b style="font-size:22px">${TR.leg+1}번째 주자에게 줄넘기를 넘겨요!</b><div class="spacer"></div>${TR.auto?'<span class="pill">넘기면 곧 시작해요</span>':''}<button class="primary" data-tr="next" style="min-height:44px;font-size:18px">${TR.leg+1}번째 주자 시작</button>`;
-  else if(TR.phase==='done') ctl=`<b style="font-size:22px">팀 릴레이 끝!</b><div class="spacer"></div>${cheer('team')}<div class="spacer"></div><button data-tr="reset">다시 준비</button><button class="primary" data-tr="go">같은 팀으로 한 번 더</button>`;
+  else if(TR.phase==='done') ctl=`<b style="font-size:22px">팀 릴레이 끝!</b><div class="spacer"></div>${cheer(isClose(TR.res.map(a=>a.reduce((s,x)=>s+(x?x.cnt:0),0)))?'close':'team')}<div class="spacer"></div><button data-tr="reset">다시 준비</button><button class="primary" data-tr="go">같은 팀으로 한 번 더</button>`;
   else ctl=`<b style="font-size:22px">${TR.leg+1}번째 주자 / ${TR.legs}명</b><div class="spacer"></div>`;
   if($('trCtl').dataset.k!==ctl){ $('trCtl').innerHTML=ctl; $('trCtl').dataset.k=ctl; }
   $('trCols').style.gridTemplateColumns=`repeat(${n},minmax(0,1fr))`;
@@ -1517,7 +1520,7 @@ function bakSeqRender(st,running){
     const hand=sq.ropes.length?`<div class="res" style="width:min(820px,96%);margin-top:10px"><table style="width:100%"><thead><tr><th>줄넘기</th><th>주는 친구</th><th></th><th>받는 친구 (${TEAM_C[i][0]} 팀)</th></tr></thead><tbody>${sq.ropes.map((n,j)=>cur[j]?`<tr><td style="font-weight:900;color:var(--accent-ink)">${n}번</td><td>${esc(nm(prev[j]))||'<span style="color:var(--muted)">(바구니에서)</span>'}</td><td>→</td><td style="font-weight:800">${esc(nm(cur[j]))}</td></tr>`:'').join('')}</tbody></table></div>`:'';
     body=`<div class="ch-eyebrow">${TEAM_C[i-1][0]} 팀 ${sq.res[i-1].ok?secTxt(sq.res[i-1].ms)+' 만에 깼어요!':'못 깼어요 ('+sq.res[i-1].sum+'/'+sq.res[i-1].goal+')'}</div>${resTbl()}${hand}<div class="ch-btns" style="margin-top:12px"><button class="primary" data-bk="next" style="background:${TEAM_C[i][1]};border-color:${TEAM_C[i][1]}">${TEAM_C[i][0]} 팀 시작</button></div>`; }
   else { const rk=bakSeqRank(), w=rk[0]&&rk[0].r.ok?rk[0]:null; let cf=''; if(w){ const col=['#FF6B5B','#2BB3A3','#F2A33A','#6E5BEF','#13A6E8']; for(let k=0;k<70;k++) cf+=`<i style="left:${(k*37)%100}%;top:${(k*53)%90}%;background:${col[k%5]};animation-delay:${(k%10)*60}ms"></i>`; }
-    body=`<div class="ch-conf">${cf}</div><img class="bk-img" src="${BK_IMG(4)}" alt="박" style="width:min(320px,30vh)">${w?`<div class="bk-banner" style="margin-top:-20px">${TEAM_C[w.i][0]} 팀 승리! ${secTxt(w.r.ms)}</div>`:'<div class="bk-tip" style="font-size:30px;color:var(--amber)">아무 팀도 못 깼어요</div>'}${cheer('team')}${resTbl()}<div class="ch-btns" style="margin-top:12px"><button data-bk="again">처음부터 다시</button></div>`; }
+    body=`<div class="ch-conf">${cf}</div><img class="bk-img" src="${BK_IMG(4)}" alt="박" style="width:min(320px,30vh)">${w?`<div class="bk-banner" style="margin-top:-20px">${TEAM_C[w.i][0]} 팀 승리! ${secTxt(w.r.ms)}</div>`:'<div class="bk-tip" style="font-size:30px;color:var(--amber)">아무 팀도 못 깼어요</div>'}${cheer(isClose(sq.res.map(r=>r&&r.ok?r.ms:0),true)?'close':'team')}${resTbl()}<div class="ch-btns" style="margin-top:12px"><button data-bk="again">처음부터 다시</button></div>`; }
   if(st.dataset.k!==body){ st.innerHTML=body; st.dataset.k=body; }
 }
 $('bkStage').onclick=e=>{ const b=e.target.closest('[data-bk]'); if(!b) return; if(b.dataset.bk==='next') bakSeqGo(); else if(b.dataset.bk==='again'){ BK.sq=null; BK.phase='idle'; bakRender(); } };
