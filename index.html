@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 판정기 v0.9.8 · 카메라로 진짜 뛰는지 보기</title>
+<title>줄넘기 판정기 v0.9.9 · 카메라로 진짜 뛰는지 보기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -292,7 +292,7 @@
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
     <div class="titles">
-      <h1>줄넘기 판정기<span class="ver">v0.9.8</span></h1>
+      <h1>줄넘기 판정기<span class="ver">v0.9.9</span></h1>
       <span class="sub">머리부터 발까지 보이게 서서, 몸이 뜨고 팔이 돌 때만 1회로 세요</span>
     </div>
     <div class="who" id="who"></div>
@@ -520,7 +520,7 @@ const $=id=>document.getElementById(id);
 const video=$('video'), cv=$('overlay'), cx=cv.getContext('2d');
 let landmarker=null, stream=null, facing='user', running=false, t0=0, raf=0, lastVideoT=-1, frames=0, fpsT=0;
 /* ---------- 앱 연동: 체육교사 보조 프로그램의 줄넘기 화면에서 열리면 ?app=앱주소&t=학생표&kind=종류 가 붙어 와요 ---------- */
-const VER='0.9.8';
+const VER='0.9.9';
 const Q=new URLSearchParams(location.search);
 const LINK={ app:Q.get('app')||'', t:Q.get('t')||'', kind:Q.get('kind')||'', sens:+(Q.get('sens')||0)||0, target:(Q.get('target')==='fit'?'fit':'rope'), who:null, saved:null,
   // mode=post : 오프라인판(파일로 여는 프로그램)이 연 창. 서버 대신 window.opener.postMessage 로 결과를 돌려준다.
@@ -835,7 +835,7 @@ function livePush(force){
   // 새 회차를 받고 아직 시작 전(5·4·3·2·1)이면 지난 회차 숫자를 보내지 않음 — 선생님 화면이 지난 숫자를 '바로 도착'으로 잘못 보지 않게
   const fresh=LIVE.ctlRun&&LIVE.startedRun!==LIVE.ctlRun;
   const full={g:LIVE.me.g,c:LIVE.me.c,n:LIVE.me.n,cnt:fresh?0:st.count,st:s,run:running,ctl:LIVE.ctlRun,v:VER+(ROPE.on?'-r':'')};   // -r: 블루투스 줄넘기로 셈 (선생님 화면이 줄넘기 아이콘)
-  if(!running){ full.best=st.best; if(ROPE.on&&ROPE.trk) full.trip=ROPE.trk.trip; }
+  if(!running) full.best=st.best;
   const prev=LIVE.sent||{}, diff={};
   Object.keys(full).forEach(k=>{ if(prev[k]!==full[k]) diff[k]=full[k]; });
   const changed=Object.keys(diff).length>0;
@@ -881,7 +881,7 @@ function runEnd(){ // 선생님 신호로 끝 — 기록은 선생님 현황판�
   const st=det.state();
   $('smTitle').textContent='끝났어요!'; $('smErr').textContent='';
   $('smCount').innerHTML=st.count+'<small style="font-size:.3em;color:var(--muted)"> 회</small>';
-  $('smNote').textContent=ROPE.on?`줄넘기가 센 횟수예요${ROPE.trk&&st.best?` · 최고 연속 ${st.best}회 · 걸림 ${ROPE.trk.trip}번`:''} · 기록은 선생님 화면에서 한꺼번에 해요`:`최고 연속 ${st.best}회 · 기록은 선생님 화면에서 한꺼번에 해요`;
+  $('smNote').textContent=ROPE.on?`줄넘기가 센 횟수예요${ROPE.trk&&st.best?` · 최고 연속 ${st.best}회`:''} · 기록은 선생님 화면에서 한꺼번에 해요`:`최고 연속 ${st.best}회 · 기록은 선생님 화면에서 한꺼번에 해요`;
   $('smBtns').innerHTML='<button class="primary" id="smOk" style="font-size:18px;padding:12px 24px">확인</button>';
   $('smOk').onclick=()=>$('saveModal').classList.remove('on');
   $('saveModal').classList.add('on');

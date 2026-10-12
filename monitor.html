@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.6.0</title>
+<title>점프 라이브 v0.6.1</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -264,7 +264,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.6.0</span></h1>
+    <h1>점프 라이브<span class="ver">v0.6.1</span></h1>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <div class="me" id="me" hidden><span id="meName"></span><button id="btnOut">로그아웃</button></div>
@@ -706,7 +706,7 @@ function render(){
     const st=pick?pick.st:'none', cnt0=pick&&runId&&pick.ctl===runId?pick.cnt:0, cnt=gl?Math.min(cnt0,gl):cnt0;   // 선생님이 시작한 회차의 횟수만 (학생이 혼자 센 건 안 셈)
     if(on.length) join++; if(st==='jump') jump++; sum+=cnt;
     const cam=on.filter(d=>!isRope(d)).length, rope=on.some(isRope);   // 카메라 기기 수 · 줄넘기(허브·블루투스) 여부 (같은 학생이면 높은 횟수 하나만 씀)
-    rows.push({k,g:x.g,c:x.c,n,name:x.names[n]||'',id:x.ids[n]||'',st,cnt,rate:pick&&pick.run?pick.rate:0,best:pick?pick.best||0:0,trip:pick?pick.trip||0:0,dup:on.length,cam,rope,src:pick&&runId&&pick.ctl===runId?(isRope(pick)?'rope':'cam'):'',pick});
+    rows.push({k,g:x.g,c:x.c,n,name:x.names[n]||'',id:x.ids[n]||'',st,cnt,rate:pick&&pick.run?pick.rate:0,best:pick?pick.best||0:0,dup:on.length,cam,rope,src:pick&&runId&&pick.ctl===runId?(isRope(pick)?'rope':'cam'):'',pick});
   } });
   const total=rows.length;
   // 목표 횟수 회차: 닿은 시각 기록 · 들어온 학생이 모두 닿으면 저절로 끝
@@ -890,7 +890,7 @@ function hubDevs(){
   const out={}, now=Date.now(), go=S.ctl.ph==='go'&&B.now()>=S.ctl.at;
   Object.values(HUB.ropes).forEach(r=>{ const st=hubStudent(r.n); if(!st) return;
     const off=!r.seen||now-r.seen>20000;
-    out['hub'+r.n]={g:st.g,c:st.c,n:st.n,cnt:r.ctl?r.cnt:0,ctl:r.ctl,run:go&&!!r.ctl,best:r.ctl&&r.trk?r.trk.best:0,trip:r.ctl&&r.trk?r.trk.trip:0,t:B.now(),hub:true,
+    out['hub'+r.n]={g:st.g,c:st.c,n:st.n,cnt:r.ctl?r.cnt:0,ctl:r.ctl,run:go&&!!r.ctl,best:r.ctl&&r.trk?r.trk.best:0,t:B.now(),hub:true,
       st:off?'off':(go&&r.ctl?(now-r.lastUp<1500?'jump':'stop'):'ready')}; });
   return out;
 }
@@ -1555,7 +1555,7 @@ function resultRows(){
 function showResult(){
   const rows=resultRows(), dur=S.lastRun.dur;
   let rank=0, prev=-1;
-  $('resBody').innerHTML=rows.map((r,i)=>{ const ds=doneDs(r), key=r.cnt+'|'+ds; if(key!==prev){ rank=i+1; prev=key; } return `<tr class="${rank<=3?'top':''}"><td>${rank}</td><td>${multi()?r.g+'-'+r.c+' · ':''}${r.n}</td><td>${esc(r.name)}</td><td class="c">${r.cnt}${ds?` <small style="font-weight:600;color:var(--muted)">${(ds/10).toFixed(1)}초에 도착</small>`:''}</td><td>${r.best||'—'}${isRope(r.pick)&&r.best?` <small style="font-weight:600;color:var(--muted)">걸림 ${r.trip||0}번</small>`:''}</td></tr>`; }).join('')
+  $('resBody').innerHTML=rows.map((r,i)=>{ const ds=doneDs(r), key=r.cnt+'|'+ds; if(key!==prev){ rank=i+1; prev=key; } return `<tr class="${rank<=3?'top':''}"><td>${rank}</td><td>${multi()?r.g+'-'+r.c+' · ':''}${r.n}</td><td>${esc(r.name)}</td><td class="c">${r.cnt}${ds?` <small style="font-weight:600;color:var(--muted)">${(ds/10).toFixed(1)}초에 도착</small>`:''}</td><td>${r.best||'—'}</td></tr>`; }).join('')
     || '<tr><td colspan="5" style="color:var(--muted)">이번 회차에 뛴 학생이 없어요</td></tr>';
   const got=new Set(rows.map(r=>r.k)), missing=(S.rows||[]).filter(r=>!got.has(r.k)).map(r=>multi()?`${r.g}-${r.c} ${r.n}`:r.n);
   $('resTitle').textContent=`${clsLabel(S.groups)} · ${S.lastRun.goal?'목표 '+S.lastRun.goal+'회':dur?durTxt(dur):'제한 없음'} 결과`;
@@ -1567,7 +1567,7 @@ function showResult(){
 function runKept(id){ if(!resultRows().some(r=>r.cnt>0)) return true; return APPM?!!savedRuns()[id]:S.copied===id; }
 async function copyResult(){
   const rows=resultRows().slice().sort((a,b)=>(a.g-b.g)||(a.c-b.c)||(a.n-b.n));
-  const tsv=['학년\t반\t번호\t이름\t횟수\t최고연속\t걸림',...rows.map(r=>`${r.g}\t${r.c}\t${r.n}\t${r.name}\t${r.cnt}\t${r.best||''}\t${isRope(r.pick)&&r.best?r.trip||0:''}`)].join('\n');
+  const tsv=['학년\t반\t번호\t이름\t횟수\t최고연속',...rows.map(r=>`${r.g}\t${r.c}\t${r.n}\t${r.name}\t${r.cnt}\t${r.best||''}`)].join('\n');
   try{ await navigator.clipboard.writeText(tsv); S.copied=S.lastRun.id; $('btnResClose').textContent='닫기'; $('resMsg').textContent='복사했어요 — 시트의 칸을 누르고 붙여 넣기 (번호순)'; }
   catch(e){ $('resMsg').textContent='복사하지 못했어요'; }
 }
