@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.7.1</title>
+<title>점프 라이브 v0.7.2</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -31,6 +31,8 @@
 
   header{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
   header .mark,header h1{cursor:pointer}
+  .ch-top button.xbtn{width:48px;min-width:48px;height:48px;min-height:48px;padding:0;display:inline-grid;place-items:center;border-radius:14px}
+  .ch-top button.xbtn svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2.6;stroke-linecap:round}
   .hdr-tools{display:flex;gap:6px;margin-left:6px;padding-left:12px;border-left:2px solid var(--line)}
   .hdr-tools button{min-height:36px;padding:4px 12px;font-size:14px;font-weight:800;box-shadow:none}
   .hdr-tools button.on{border-color:var(--mint);color:#0F766E;background:#E7F7F5}
@@ -271,7 +273,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.7.1</span></h1>
+    <h1>점프 라이브<span class="ver">v0.7.2</span></h1>
     <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
@@ -1671,6 +1673,8 @@ document.querySelectorAll('header .mark, header h1').forEach(el=>{ el.title='메
 $('btnQr').onclick=showQr; $('btnQrClose').onclick=()=>$('qr').hidden=true;
 // 놀이 화면마다 위쪽에 QR 버튼 — 늦게 온 친구도 어느 놀이에서든 바로 들어오게
 // 허브도 놀이 화면에서 바로 열고 닫기, 팀을 쓰는 놀이(박 터트리기·팀 릴레이)에는 팀 나누기
+// 놀이 화면 닫기: '다 같이 뛰기로' 글자 대신 X (누르면 메인으로)
+['chBack','bkBack','rlBack','roBack','tmBack','trBack'].forEach(id=>{ const b=$(id); if(!b) return; b.classList.add('xbtn'); b.title='닫고 메인(다 같이 뛰기)으로'; b.setAttribute('aria-label','닫기'); b.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>'; });
 // QR·허브는 맨 위 '점프 라이브' 줄에 한 번만. 팀 나누기는 제목 옆 왼쪽에 작게 모으고, 오른쪽은 시작·끝·돌아가기만 (헷갈리지 않게)
 document.querySelectorAll('.chal .ch-top').forEach(top=>{ const id=top.parentElement.id, grp=document.createElement('div'); grp.className='ch-tools';
   const sp=top.querySelector('.spacer'); top.insertBefore(grp,sp);
