@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.6.9</title>
+<title>점프 라이브 v0.7.0</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -30,6 +30,7 @@
   .wrap{max-width:1600px;margin:0 auto;padding:16px 20px 28px;display:flex;flex-direction:column;gap:14px}
 
   header{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  header .mark,header h1{cursor:pointer}
   .mark{width:44px;height:44px;border-radius:14px;background:var(--accent);display:grid;place-items:center;flex:none}
   .mark svg{width:24px;height:24px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   h1{font-size:clamp(20px,2.6vw,30px);font-weight:800;margin:0;letter-spacing:-.03em}
@@ -186,7 +187,7 @@
   /* ---- 랜덤 한 명 도전 ---- */
   .ch-tools{display:flex;gap:6px;align-items:center;margin-left:10px;padding-left:14px;border-left:2px solid var(--line)}
   .ch-tools button{min-height:36px;padding:4px 12px;font-size:14px;font-weight:700;background:var(--bg);border-color:var(--line);color:var(--ink2);box-shadow:none}
-  .chal{position:fixed;inset:0;z-index:20;background:var(--bg);display:flex;flex-direction:column;gap:14px;padding:16px 20px}
+  .chal{position:fixed;inset:var(--hdr,0px) 0 0 0;z-index:20;background:var(--bg);display:flex;flex-direction:column;gap:14px;padding:16px 20px}
   .chal .ch-top{display:flex;align-items:center;gap:12px}
   .chal .ch-top h2{margin:0;font-size:28px;letter-spacing:-.03em}
   .chal .ch-main{flex:1;display:grid;grid-template-columns:1fr 360px;gap:14px;min-height:0}
@@ -267,7 +268,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.6.9</span></h1>
+    <h1>점프 라이브<span class="ver">v0.7.0</span></h1>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <div class="me" id="me" hidden><span id="meName"></span><button id="btnOut">로그아웃</button></div>
@@ -1154,7 +1155,7 @@ $('chExcl').onchange=()=>{ chalLogRender(); if(CH.phase==='idle') chalRender(); 
 $('chStage').onclick=e=>{ const b=e.target.closest('[data-ch]'); if(!b) return; if(b.dataset.ch==='spin') chalSpin(); else if(b.dataset.ch==='go') chalGo(); };
 
 /* ---------- 놀이 공통: 박 터트리기 · 팀전 회차 시작 (모두 같이 뛰고, 숫자를 묶어서 보여 줌) ---------- */
-function modeCloseAll(){ ['chal','bak','team','relay','rot','trel'].forEach(id=>$(id).hidden=true); CH.on=BK.on=TM.on=RL.on=RO.on=TR.on=false; clearInterval(TR.tickT); clearInterval(CH.tickT); clearInterval(BK.tickT); clearInterval(TM.tickT); clearInterval(RL.tickT); clearInterval(RO.tickT); }
+function modeCloseAll(){ window.scrollTo(0,0); hdrFit(); ['chal','bak','team','relay','rot','trel'].forEach(id=>$(id).hidden=true); CH.on=BK.on=TM.on=RL.on=RO.on=TR.on=false; clearInterval(TR.tickT); clearInterval(CH.tickT); clearInterval(BK.tickT); clearInterval(TM.tickT); clearInterval(RL.tickT); clearInterval(RO.tickT); }
 async function modeGo(kind,dur,extra){
   if(S.ctl.ph==='go') return false;
   { const id=S.lastRun&&S.lastRun.id; if(id&&!S.lastRun.chal&&!S.lastRun.trel&&!S.lastRun.rot&&!(S.lastRun.bak&&S.lastRun.bak.seq)&&!(S.lastRun.team&&S.lastRun.team.seq)&&!runKept(id)&&S.closeWarned!==id&&!confirm('지난 회차 결과가 아직 시트에 들어가지 않았어요. 그래도 시작할까요?')) return false; }   // 조별 차례·팀 릴레이는 구간마다 묻지 않음
@@ -1660,6 +1661,10 @@ $('btnOut').onclick=async()=>{ if(S.room&&!confirm('방이 열려 있어요. 방
 musicInit(); hubInit();
 $('btnOpen').onclick=openRoom; $('btnClose').onclick=closeRoom; $('btnGo').onclick=go; $('btnEnd').onclick=()=>end();
 $('btnSort').onclick=()=>{ S.sort=S.sort==='no'?'cnt':'no'; $('btnSort').textContent=S.sort==='no'?'횟수순':'번호순'; render(); };
+// 놀이 화면에서도 맨 위 '점프 라이브' 줄은 보이게 — 그 아래부터 놀이 화면. 로고·제목을 누르면 메인(다 같이 뛰기)으로
+function hdrFit(){ const h=document.querySelector('header'); if(h) document.documentElement.style.setProperty('--hdr',(h.offsetTop+h.offsetHeight+4)+'px'); }
+window.addEventListener('resize',hdrFit); hdrFit();
+document.querySelectorAll('header .mark, header h1').forEach(el=>{ el.title='메인 화면(다 같이 뛰기)으로'; el.onclick=()=>{ const open=[...document.querySelectorAll('.chal')].find(e=>!e.hidden); if(!open) return; const back=open.querySelector('.ch-top button[id$="Back"]'); if(back) back.click(); }; });
 $('btnQr').onclick=showQr; $('btnQrClose').onclick=()=>$('qr').hidden=true;
 // 놀이 화면마다 위쪽에 QR 버튼 — 늦게 온 친구도 어느 놀이에서든 바로 들어오게
 // 허브도 놀이 화면에서 바로 열고 닫기, 팀을 쓰는 놀이(박 터트리기·팀 릴레이)에는 팀 나누기
