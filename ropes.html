@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 관리 v0.1.6</title>
+<title>줄넘기 관리 v0.1.7</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -65,12 +65,13 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
-    <div><h1>줄넘기 관리<span class="ver">v0.1.6</span></h1><p class="sub">전자 줄넘기 허브(USB)에 연결된 줄넘기 확인 · 번호 정하기 · 배터리</p></div>
+    <div><h1>줄넘기 관리<span class="ver">v0.1.7</span></h1><p class="sub">전자 줄넘기 허브(USB)에 연결된 줄넘기 확인 · 번호 정하기 · 배터리</p></div>
     <div class="spacer"></div>
     <span class="gw" id="gw"><span class="dot"></span><span id="gwT">허브 연결 안 됨</span></span>
     <button class="primary" id="btnConn">허브 연결</button>
     <button id="btnScan" disabled>전체 스캔</button>
     <button id="btnBatt" disabled>배터리 확인</button>
+    <button id="btnOffAll" disabled title="연결된 줄넘기를 차례로 모두 꺼요" style="color:var(--red)">모두 끄기</button>
   </header>
 
   <div class="card sum">
@@ -167,7 +168,7 @@ async function connect(){
   try{ H.port=await navigator.serial.requestPort(); await H.port.open({baudRate:115200,bufferSize:65536}); }
   catch(e){ H.port=null; if(e.name!=='NotFoundError') msg('허브를 열지 못했어요: '+e.message+' — 다른 창(JUMPITNOW·점프 라이브)이 허브를 쓰고 있으면 닫아 주세요','bad'); return; }
   H.on=true; H.buf=''; gw('허브 켜지는 중…'); msg('허브가 다시 켜져요 — 5~7초 기다려요');
-  $('btnConn').textContent='허브 끊기'; ['btnScan','btnBatt','btnAuto','tStart','tData','tStop','tSolo'].forEach(id=>$(id).disabled=false);
+  $('btnConn').textContent='허브 끊기'; ['btnScan','btnBatt','btnOffAll','btnAuto','tStart','tData','tStop','tSolo'].forEach(id=>$(id).disabled=false);
   const dec=new TextDecoder();
   (async()=>{ while(H.on&&H.port&&H.port.readable){ H.reader=H.port.readable.getReader();
       try{ for(;;){ const {value,done}=await H.reader.read(); if(done) break; H.buf+=dec.decode(value,{stream:true}); let i;
@@ -180,7 +181,7 @@ async function close(lost){
   if(!lost&&H.on) await solo(true);   // 끊기 전에 혼자 세는 상태로
   H.on=false; clearInterval(H.auto); $('tAuto').checked=false;
   try{ if(H.reader) await H.reader.cancel(); }catch(e){} try{ if(H.port) await H.port.close(); }catch(e){}
-  H.port=null; $('btnConn').textContent='허브 연결'; ['btnScan','btnBatt','btnAuto','tStart','tData','tStop','tSolo'].forEach(id=>$(id).disabled=true);
+  H.port=null; $('btnConn').textContent='허브 연결'; ['btnScan','btnBatt','btnOffAll','btnAuto','tStart','tData','tStop','tSolo'].forEach(id=>$(id).disabled=true);
   if(!lost) gw('허브 연결 안 됨'); draw();
 }
 // 번호 바꾸기 (assign 지금 새) — 응답 RXB,새,주소,05새 → 같은 주소의 옛 번호 줄은 지움
@@ -221,6 +222,13 @@ async function renumber(){
 $('btnConn').onclick=connect;
 $('btnScan').onclick=scan;
 $('btnBatt').onclick=battery;
+// 모두 끄기: 허브는 줄넘기마다 따로 신호를 보내므로 연결된 줄넘기에 차례로 powerOff (0.4초 간격)
+$('btnOffAll').onclick=async()=>{ const on=Object.values(H.ropes).filter(r=>r.seen&&Date.now()-r.seen<ON_MS).map(r=>r.n).sort((a,b)=>a-b);
+  if(!on.length) return msg('연결된 줄넘기가 없어요','bad');
+  if(!confirm(`연결된 줄넘기 ${on.length}개의 전원을 모두 끌까요?\n(다시 켜려면 줄넘기마다 버튼을 눌러야 해요)`)) return;
+  const b=$('btnOffAll'); b.disabled=true;
+  for(let i=0;i<on.length;i++){ msg(`끄는 중… ${i+1} / ${on.length} (${on[i]}번)`); await send('powerOff '+on[i]); await new Promise(r=>setTimeout(r,400)); }
+  msg(`${on.length}개에 끄기 신호를 보냈어요 — 차례로 꺼져요. 남은 줄넘기가 있으면 그 줄의 전원 버튼을 눌러요`,'ok'); b.disabled=false; };
 $('btnAuto').onclick=renumber;
 $('body').onclick=e=>{ const b=e.target.closest('[data-act]'); if(!b) return; const n=+b.closest('tr').dataset.n, act=b.dataset.act;
   if(act==='assign'){ const v=+b.closest('tr').querySelector('[data-new]').value; if(!(v>=1&&v<=MAXID)){ msg('번호는 1~'+MAXID+'으로 넣어 주세요 (허브가 받는 번호)','bad'); return; } assign(n,v); return; }
