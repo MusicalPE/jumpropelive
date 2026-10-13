@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.7.6</title>
+<title>점프 라이브 v0.7.7</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -274,7 +274,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.7.6</span></h1>
+    <h1>점프 라이브<span class="ver">v0.7.7</span></h1>
     <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button><button id="btnDev" title="돌려 쓰는 기기(노트북·태블릿) 찾기" hidden>기기</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
@@ -685,7 +685,7 @@ async function closeRoom(){
   const id=S.lastRun&&S.lastRun.id, unkept=id&&!runKept(id);
   if(!confirm('방을 닫을까요? 학생 기기와의 연결이 끊기고 이번 수업 기록이 서버에서 지워져요.'+(unkept?'\n\n마지막 회차 결과가 아직 시트에 들어가지 않았어요!':''))) return;
   try{ await B.closeRoom(S.room); }catch(e){ alert('방을 닫지 못했어요: '+e.message); return; }
-  store.set('jrl_open',''); S.room=''; $('hdrTools').hidden=$('btnClose').hidden=true; modeCloseAll(); $('vLive').style.display='none'; view('vSetup');
+  store.set('jrl_open',''); store.set('jl_resume',''); MODE.last=''; S.room=''; $('hdrTools').hidden=$('btnClose').hidden=true; modeCloseAll(); $('vLive').style.display='none'; view('vSetup');
 }
 
 /* ---------- QR ---------- */
@@ -713,6 +713,8 @@ function liveDevs(){ // 끊김 판정 포함 · 돌려 쓰는 기기는 지금 �
   const now=B.now(), out=[];
   Object.entries(Object.assign({},S.devs,hubDevs())).forEach(([id,d])=>{
     const k=slotOf(d);
+    if(d.hub){ const m=skey(d.g,d.c,d.n); if(SLOT.last[id]!==undefined&&SLOT.last[id]!==m) SLOT.stale[id]=d.ctl||''; SLOT.last[id]=m;   // 허브 줄넘기도 친구가 바뀌면 앞 친구 숫자를 안 보임
+      if(SLOT.stale[id]&&d.ctl===SLOT.stale[id]) d=Object.assign({},d,{cnt:0,ctl:'',best:0,run:false}); }
     if(k){ const key='L'+k, st=hubStudent(key); if(!st) return;   // 이번 조에 안 쓰는 기기
       const m=skey(st.g,st.c,st.n); if(SLOT.last[key]!==undefined&&SLOT.last[key]!==m) SLOT.stale[key]=d.ctl||''; SLOT.last[key]=m;
       d=Object.assign({},d,{g:st.g,c:st.c,n:st.n,slot:k}); if(SLOT.stale[key]&&d.ctl===SLOT.stale[key]) Object.assign(d,{cnt:0,ctl:'',best:0,run:false}); }   // 친구가 바뀌면 앞 친구 숫자는 안 보임
@@ -754,6 +756,32 @@ function slWrap(){ const sc=B.setControl; B.setControl=(room,c)=>{ if(c){ const 
 function slSync(){ // 조가 바뀌거나 기기가 새로 들어오면 (뛰는 중이 아닐 때) 같은 신호를 sl 만 바꿔 다시 보냄
   if(!S.room||S.ctl.ph==='go'||DEVF.back) return; const sl=slStr(); if(sl===(SLOT.sent||'')) return;
   if(SLOT.syncT) return; SLOT.syncT=setTimeout(()=>{ SLOT.syncT=0; if(S.room&&S.ctl.ph!=='go'&&!DEVF.back&&slStr()!==(SLOT.sent||'')) B.setControl(S.room,S.ctl).catch(()=>{}); },600); }
+// 이어 하기: 차례로 하는 놀이(조별 차례·팀 차례·박 팀 차례·팀 릴레이)는 진행 상태를 이 기기에 저장 → 새로 고친 뒤 이어 함
+const MODE={ last:'' }, MODE_KEY='jl_resume';
+const pickF=(o,ks)=>{ const r={}; ks.forEach(k=>{ r[k]=o[k]; }); return JSON.parse(JSON.stringify(r)); };
+function modeSnap(){
+  if(!S.room) return; let kind='', st=null;
+  if(RO.on&&RO.groups.length&&['ready','run','between'].includes(RO.phase)){ kind='rot'; st=pickF(RO,['ord','dur','groups','ropes','g','phase','res','saved']); }
+  else if(TM.on&&TM.sq&&['run','between'].includes(TM.phase)){ kind='team'; st=pickF(TM,['n','map','by','dur','phase','way','ropes','sq']); }
+  else if(BK.on&&BK.sq&&['run','sqbetween'].includes(BK.phase)){ kind='bak'; st=pickF(BK,['dur','auto','way','phase','sq']); }
+  else if(TR.on&&['run','between'].includes(TR.phase)){ kind='trel'; st=pickF(TR,['secs','ord','auto','phase','order','extra','legs','leg','res','ropes','saved']); }
+  const body=kind?JSON.stringify({room:S.room,kind,st,lastRun:S.lastRun||null}):'';
+  if(body===MODE.last) return; MODE.last=body;
+  store.set(MODE_KEY,body?body.slice(0,-1)+',"at":'+Date.now()+'}':'');
+}
+function modeResume(snap){
+  if(!snap||snap.room!==S.room||!snap.st||Date.now()-(snap.at||0)>3*3600e3) return;
+  const st=snap.st, lab={rot:()=>`조별 차례 — ${st.g+1}조 차례`, team:()=>`팀 차례 — ${(TEAM_C[st.sq.i]||TEAM_C[0])[0]} 팀 차례`, bak:()=>`박 터트리기 팀 차례 — ${(TEAM_C[st.sq.i]||TEAM_C[0])[0]} 팀 차례`, trel:()=>`팀 릴레이 — ${st.leg+1}번째 주자`}[snap.kind];
+  if(!lab||!confirm(`새로 고치기 전에 하던 놀이가 있어요.\n\n${lab()}부터 이어 할까요?${st.phase==='run'?'\n(뛰던 중이었으면 그 차례는 다시 뛰어요)':''}`)){ store.set(MODE_KEY,''); return; }
+  if(snap.lastRun) S.lastRun=snap.lastRun;
+  if(snap.kind==='rot'){ rotOpen(); Object.assign(RO,st); if(RO.phase==='run') RO.phase='ready'; if(RO.groups[0]) $('roN').value=RO.groups[0].length;
+    Array.prototype.forEach.call($('roDur').children,x=>x.classList.toggle('on',+x.dataset.d===RO.dur)); Array.prototype.forEach.call($('roOrd').children,x=>x.classList.toggle('on',x.dataset.o===RO.ord)); rotRender(); }
+  else if(snap.kind==='team'){ teamOpen(); Object.assign(TM,st); if(TM.phase==='run') TM.phase='between'; teamRender(); }
+  else if(snap.kind==='bak'){ bakOpen(); Object.assign(BK,st); if(BK.phase==='run') BK.phase='sqbetween';
+    const on=(id,f)=>Array.prototype.forEach.call($(id).children,x=>x.classList.toggle('on',f(x))); on('bkWay',x=>x.dataset.w===BK.way); on('bkDur',x=>+x.dataset.d===BK.dur); on('bkAuto',x=>(x.dataset.a==='1')===!!BK.auto); bakRender(); }
+  else if(snap.kind==='trel'){ trelOpen(); Object.assign(TR,st); if(TR.phase==='run') TR.phase='between'; trelRender(); }
+  render();
+}
 const useDevs=()=>HUB.on||slotKeys().length>0;
 // 들어온 방법 표시: 카메라 기기(휴대폰·태블릿·컴퓨터) · 줄넘기(허브). 둘 다면 둘 다, 지금 숫자를 쓰는 쪽은 진하게
 const IC_CAM='<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>';
@@ -809,6 +837,7 @@ function render(){
   if(TR.on) trelRender();
   if(BK.on) bakRender();
   if(TM.on) teamRender();
+  modeSnap();
   // QR 창이 열려 있어도 몇 명 들어왔는지 · 아직 안 들어온 번호
   if(!$('qr').hidden){
     $('qjBig').innerHTML=`<b>${join}</b> / ${total}명<small>들어왔어요</small>`;
@@ -1762,14 +1791,15 @@ setInterval(()=>{ if(S.room) render(); },3000);   // 신호가 끊긴 기기를 
     // 새로고침 전에 열어 둔 방이 있으면 그대로 이어서
     const prev=JSON.parse(store.get('jrl_open')||'null');
     try{ await B.cleanup(prev&&prev.uid===u.uid?prev.room:''); }catch(e){ console.warn(e); }
-    if(prev&&prev.uid===u.uid&&prev.room&&!DEMO){
+    if(prev&&prev.uid===u.uid&&prev.room&&(!DEMO||Q.get('keep'))){   // 시험: &keep=1 이면 시험 모드도 이어서
       let groups=prev.groups, a=prev.app;
       if(!groups){ const p=JSON.parse(store.get(`jrl_roster_${prev.g}_${prev.c}`)||'null');   // v0.2 이전에 열어 둔 방
         groups=[{g:prev.g,c:prev.c,max:prev.max,names:a&&a.names?a.names:(p?parseRoster(p.text).names:{}),ids:a&&a.ids?a.ids:{}}]; }
       Object.assign(S,{room:prev.room,groups,type:prev.type||(a&&a.type)||'',devs:{},ctl:{ph:'open'}});
       if(a&&APPM){ JR.admin=sessGet(); rpc('ping').then(x=>{ JR.live=!!(x&&x.live); }).catch(()=>{}); }
       $('clsName').textContent=clsLabel(S.groups)+(S.type?` · ${S.type}`:''); view('vLive'); $('vLive').style.display='flex';
-      B.watch(S.room,d=>{ S.devs=d; trackRate(d); renderSoon(); }); render(); return;
+      const snap=JSON.parse(store.get(MODE_KEY)||'null');
+      B.watch(S.room,d=>{ S.devs=d; trackRate(d); renderSoon(); }); render(); modeResume(snap); return;
     }
     view('vSetup'); $('vLive').style.display='none';
   });
