@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.6.5</title>
+<title>점프 라이브 v0.6.6</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -97,7 +97,7 @@
   .others span{background:var(--soft);border:1px solid var(--line);border-radius:99px;padding:4px 12px}
 
   /* QR */
-  .qr{position:fixed;inset:0;background:rgba(31,36,48,.55);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:20px;z-index:20}
+  .qr{position:fixed;inset:0;background:rgba(31,36,48,.55);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:20px;z-index:24}
   .qrBox{background:var(--card);border-radius:28px;padding:28px 32px;display:flex;gap:28px;align-items:center;flex-wrap:wrap;justify-content:center;max-width:min(1100px,96vw)}
   #qrImg{background:#fff;padding:14px;border-radius:16px;border:1px solid var(--line)}
   #qrImg img,#qrImg canvas{display:block;width:min(56vh,70vw)!important;height:auto!important;image-rendering:pixelated}
@@ -265,7 +265,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.6.5</span></h1>
+    <h1>점프 라이브<span class="ver">v0.6.6</span></h1>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <div class="me" id="me" hidden><span id="meName"></span><button id="btnOut">로그아웃</button></div>
@@ -1639,6 +1639,9 @@ musicInit(); hubInit();
 $('btnOpen').onclick=openRoom; $('btnClose').onclick=closeRoom; $('btnGo').onclick=go; $('btnEnd').onclick=()=>end();
 $('btnSort').onclick=()=>{ S.sort=S.sort==='no'?'cnt':'no'; $('btnSort').textContent=S.sort==='no'?'횟수순':'번호순'; render(); };
 $('btnQr').onclick=showQr; $('btnQrClose').onclick=()=>$('qr').hidden=true;
+// 놀이 화면마다 위쪽에 QR 버튼 — 늦게 온 친구도 어느 놀이에서든 바로 들어오게
+document.querySelectorAll('.chal .ch-top').forEach(top=>{ const b=document.createElement('button'); b.type='button'; b.textContent='QR'; b.title='들어오는 QR 띄우기'; b.style.fontWeight='800';
+  b.onclick=showQr; const last=top.querySelector('.spacer'); if(last&&last.nextSibling) top.insertBefore(b,last.nextSibling); else top.appendChild(b); });
 $('btnCopy').onclick=async()=>{ try{ await navigator.clipboard.writeText(studentUrl()); $('btnCopy').textContent='복사했어요'; setTimeout(()=>$('btnCopy').textContent='주소 복사',1500); }catch(e){} };
 $('btnResult').onclick=showResult; $('btnResCopy').onclick=copyResult;
 // 저장(앱에서 연 경우 시트 저장, 아니면 결과 복사)을 안 하고 닫으면 한 번 알려 줌 — 한 번 더 누르면 그냥 닫힘
