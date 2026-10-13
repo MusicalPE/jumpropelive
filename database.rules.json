@@ -162,6 +162,12 @@
           "seed": {
             ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4294967295"
           },
+          "sl": {
+            ".validate": "newData.isString() && newData.val().length <= 400"
+          },
+          "fd": {
+            ".validate": "newData.isString() && newData.val().length <= 32"
+          },
           "$other": {
             ".validate": false
           }
