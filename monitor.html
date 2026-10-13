@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.6.3</title>
+<title>점프 라이브 v0.6.4</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -55,6 +55,7 @@
   /* 진행 막대 */
   .bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px}
   .bar .cls{font-size:clamp(22px,2.6vw,32px);font-weight:800;letter-spacing:-.03em}
+  #gameSel{width:180px;font-weight:800;color:#0F766E;background:#E7F7F5;border:2px solid #2BB3A3;border-radius:14px;min-height:46px;padding:6px 12px;cursor:pointer}
   .pillset{display:flex;gap:8px;flex-wrap:wrap}
   .pill{background:var(--soft);border:1px solid var(--line);border-radius:99px;padding:6px 14px;font-weight:700;font-size:15px;color:var(--ink2)}
   .pill b{color:var(--ink);font-size:20px;margin-left:4px}
@@ -264,7 +265,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.6.3</span></h1>
+    <h1>점프 라이브<span class="ver">v0.6.4</span></h1>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <div class="me" id="me" hidden><span id="meName"></span><button id="btnOut">로그아웃</button></div>
@@ -322,12 +323,16 @@
           <optgroup label="횟수 (먼저 닿기)"><option value="g50">50회</option><option value="g100">100회</option><option value="g200">200회</option><option value="g300">300회</option><option value="g500">500회</option></optgroup></select></label>
       <button class="primary" id="btnGo" style="min-width:120px;font-size:19px">시작</button>
       <button class="dark" id="btnEnd" disabled>끝</button>
-      <button id="btnChal" title="반 학생 중 한 명을 뽑아 짧게 도전">랜덤 도전</button>
-      <button id="btnRelay" title="한 명씩 차례로 짧게 이어 뛰기">릴레이</button>
-      <button id="btnRot" title="줄넘기가 모자랄 때 조를 나눠 차례로 돌려 쓰기">조별 차례</button>
-      <button id="btnTeam" title="팀을 나눠 합계·평균으로 겨루기">팀전</button>
-      <button id="btnTrel" title="팀마다 줄넘기 하나로 한 명씩 이어 뛰기">팀 릴레이</button>
-      <button id="btnBak" title="반 전체 합계로 박 터트리기">박 터트리기</button>
+      <select id="gameSel" aria-label="놀이 고르기" title="놀이 고르기">
+        <option value="">놀이 고르기</option>
+        <option value="btnChal">랜덤 도전 — 한 명 뽑아 짧게</option>
+        <option value="btnRelay">릴레이 — 한 명씩 이어 뛰기</option>
+        <option value="btnRot">조별 차례 — 줄넘기 돌려 쓰기</option>
+        <option value="btnTeam">팀전 — 팀 합계·평균 겨루기</option>
+        <option value="btnTrel">팀 릴레이 — 팀마다 이어 뛰기</option>
+        <option value="btnBak">박 터트리기 — 힘 모아 박 깨기</option>
+      </select>
+      <span hidden><button id="btnChal">랜덤 도전</button><button id="btnRelay">릴레이</button><button id="btnRot">조별 차례</button><button id="btnTeam">팀전</button><button id="btnTrel">팀 릴레이</button><button id="btnBak">박 터트리기</button></span>
       <button id="btnSort">횟수순</button>
       <button id="btnMusic" title="유튜브 배경음악">음악</button>
       <button id="btnHub" title="전자 줄넘기 허브(USB)">줄넘기 허브</button>
@@ -1127,6 +1132,7 @@ async function chalFinish(){
     chalRender();
   }
 }
+$('gameSel').onchange=e=>{ const v=e.target.value; e.target.value=''; e.target.blur(); if(v) $(v).click(); };
 $('btnChal').onclick=chalOpen; $('chBack').onclick=chalClose;
 $('chSecs').onclick=e=>{ const b=e.target.closest('[data-s]'); if(!b||S.ctl.ph==='go') return; CH.secs=+b.dataset.s; Array.prototype.forEach.call($('chSecs').children,x=>x.classList.toggle('on',x===b)); if(CH.phase==='ready') chalRender(); };
 $('chGoal').oninput=()=>{ if(CH.phase==='ready') chalRender(); };
