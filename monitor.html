@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.6.6</title>
+<title>점프 라이브 v0.6.7</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -265,7 +265,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.6.6</span></h1>
+    <h1>점프 라이브<span class="ver">v0.6.7</span></h1>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <div class="me" id="me" hidden><span id="meName"></span><button id="btnOut">로그아웃</button></div>
@@ -387,7 +387,7 @@
     <div class="ch-side">
       <div class="card ch-box"><h3>박 설정</h3>
         <div class="ch-set">목표<input type="number" id="bkGoal" min="10" max="99999" value="500"></div>
-        <div class="ch-set">목표 정하기<div class="chips" id="bkAuto"><button class="chip on" data-a="1">들어온 인원×30</button><button class="chip" data-a="0">직접</button></div></div>
+        <div class="ch-set">목표 정하기<div class="chips" id="bkAuto"><button class="chip on" data-a="1">들어온 인원 ×</button><select id="bkPer" aria-label="한 사람당 횟수" style="font-weight:800;border-radius:99px;padding:4px 8px"><option value="10">10</option><option value="20">20</option><option value="30" selected>30</option><option value="40">40</option><option value="50">50</option><option value="60">60</option><option value="70">70</option><option value="80">80</option><option value="90">90</option><option value="100">100</option></select><button class="chip" data-a="0">직접</button></div></div>
         <div class="ch-set">방식<div class="chips" id="bkWay"><button class="chip on" data-w="all">반 전체</button><button class="chip" data-w="teams">팀마다 동시에</button><button class="chip" data-w="seq">팀 차례로</button></div></div>
         <div class="small" id="bkTeamTip" style="color:var(--muted);font-size:13px;margin:-4px 0 6px" hidden></div>
         <div class="ch-set">시간 제한<div class="chips" id="bkDur"><button class="chip" data-d="0">없음</button><button class="chip on" data-d="60">1분</button><button class="chip" data-d="120">2분</button><button class="chip" data-d="180">3분</button></div></div>
@@ -1171,14 +1171,15 @@ const runRows=()=>(S.rows||[]).filter(r=>S.lastRun&&r.pick&&r.pick.ctl===S.lastR
 const BK={ on:false, dur:60, auto:true, way:'all', phase:'idle', stage:0, tickT:0, res:null, sq:null };
 const BK_IMG=n=>'img/bak'+n+'.webp';
 [0,1,2,3,4].forEach(n=>{ const im=new Image(); im.src=BK_IMG(n); });   // 미리 받아 둠
-function bakGoal(){ if(BK.auto){ const n=(S.rows||[]).filter(r=>r.dup>0).length||(S.rows||[]).length; $('bkGoal').value=Math.max(10,n*30); } return Math.max(10,Math.round(+$('bkGoal').value)||500); }
+const bkPer=()=>Math.max(10,Math.min(100,+$('bkPer').value||30));   // 한 사람당 횟수 (10~100)
+function bakGoal(){ if(BK.auto){ const n=(S.rows||[]).filter(r=>r.dup>0).length||(S.rows||[]).length; $('bkGoal').value=Math.max(10,n*bkPer()); } return Math.max(10,Math.round(+$('bkGoal').value)||500); }
 function bakOpen(){ if(S.ctl.ph==='go') return alert('지금 뛰는 중이에요. 끝난 뒤에 열어 주세요.'); modeCloseAll(); BK.on=true; BK.phase='idle'; BK.stage=0; $('bak').hidden=false; $('bkCls').textContent=clsLabel(S.groups); bakGoal();
   clearInterval(BK.tickT); BK.tickT=setInterval(()=>{ if(BK.phase==='run') bakRender(); },250); bakRender(); }
 function bakClose(){ if(S.ctl.ph==='go') return alert('끝난 뒤에 돌아가요.'); BK.on=false; clearInterval(BK.tickT); $('bak').hidden=true; render(); }
 function bkTeamOn(){ return BK.way==='teams'; }
 function bkSeqOn(){ return BK.way==='seq'; }
-// 팀마다 박: 목표는 자동이면 팀 인원(들어온)×30, 직접이면 모든 팀 같은 값
-function bakTeamGoals(T){ return T.map(m=>BK.auto?Math.max(10,(m.filter(r=>r.dup>0).length||m.length)*30):Math.max(10,Math.round(+$('bkGoal').value)||500)); }
+// 팀마다 박: 목표는 자동이면 팀 인원(들어온)×한 사람당 횟수, 직접이면 모든 팀 같은 값
+function bakTeamGoals(T){ return T.map(m=>BK.auto?Math.max(10,(m.filter(r=>r.dup>0).length||m.length)*bkPer()):Math.max(10,Math.round(+$('bkGoal').value)||500)); }
 async function bakGo(){
   if(bkSeqOn()) return bakSeqGo();
   let extra={bak:{goal:bakGoal()}};
@@ -1211,9 +1212,9 @@ function bakRender(){
   $('bkGo').disabled=running||BK.phase==='sqbetween'; $('bkEnd').disabled=!running; $('bkBack').disabled=running||BK.phase==='sqbetween';
   Array.prototype.forEach.call($('bkWay').children,b=>b.disabled=running||BK.phase==='sqbetween');
   $('bkTeamTip').hidden=BK.way==='all'; $('bkTeamTip').textContent=BK.way==='seq'?'팀은 "팀전"에서 나눈 대로 · 한 팀씩 차례로 깨고 빨리 깬 팀이 이겨요 (줄넘기가 적어도 돼요)':'팀은 "팀전"에서 나눈 대로 · 목표는 팀마다 따로 · 먼저 터뜨린 팀이 이겨요';
-  if(BK.sq||(BK.phase==='idle'&&bkSeqOn())){ ['bkGoal'].forEach(id=>$(id).disabled=running||BK.auto); return bakSeqRender(st,running); }
-  if(BK.phase==='idle'?bkTeamOn():S.lastRun&&S.lastRun.bak&&S.lastRun.bak.teams){ ['bkGoal'].forEach(id=>$(id).disabled=running||BK.auto); return bakTeamsRender(st,running); }
-  ['bkGoal'].forEach(id=>$(id).disabled=running||BK.auto); Array.prototype.forEach.call(document.querySelectorAll('#bkDur .chip,#bkAuto .chip'),b=>b.disabled=running);
+  if(BK.sq||(BK.phase==='idle'&&bkSeqOn())){ ['bkGoal'].forEach(id=>$(id).disabled=running||BK.auto); $('bkPer').disabled=running; return bakSeqRender(st,running); }
+  if(BK.phase==='idle'?bkTeamOn():S.lastRun&&S.lastRun.bak&&S.lastRun.bak.teams){ ['bkGoal'].forEach(id=>$(id).disabled=running||BK.auto); $('bkPer').disabled=running; return bakTeamsRender(st,running); }
+  ['bkGoal'].forEach(id=>$(id).disabled=running||BK.auto); $('bkPer').disabled=running; Array.prototype.forEach.call(document.querySelectorAll('#bkDur .chip,#bkAuto .chip'),b=>b.disabled=running);
   const goal=BK.phase==='idle'?bakGoal():S.lastRun.bak.goal;
   const rows=BK.phase==='idle'?[]:runRows(), sum=rows.reduce((a,r)=>a+r.cnt,0), f=Math.min(1,sum/goal);
   const stage=BK.phase==='idle'?0:f>=1?4:Math.floor(f*4);
@@ -1306,6 +1307,8 @@ function teamFinish(){ if(S.lastRun.team&&S.lastRun.team.seq&&TM.sq) return team
   teamRender(); }
 $('btnBak').onclick=bakOpen; $('bkBack').onclick=bakClose; $('bkGo').onclick=bakGo; $('bkEnd').onclick=()=>end();
 $('bkDur').onclick=e=>{ const b=e.target.closest('[data-d]'); if(!b) return; BK.dur=+b.dataset.d; Array.prototype.forEach.call($('bkDur').children,x=>x.classList.toggle('on',x===b)); };
+{ const v=+store.get('jl_bkper'); if(v>=10&&v<=100) $('bkPer').value=String(Math.round(v/10)*10); }
+$('bkPer').onchange=()=>{ store.set('jl_bkper',$('bkPer').value); if(!BK.auto) $('bkAuto').querySelector('[data-a="1"]').click(); else if(BK.phase!=='run'){ BK.phase='idle'; bakRender(); } };
 $('bkAuto').onclick=e=>{ const b=e.target.closest('[data-a]'); if(!b) return; BK.auto=b.dataset.a==='1'; Array.prototype.forEach.call($('bkAuto').children,x=>x.classList.toggle('on',x===b)); BK.phase='idle'; bakRender(); };
 $('bkGoal').oninput=()=>{ if(BK.phase!=='run'){ BK.phase='idle'; bakRender(); } };
 $('bkWay').onclick=e=>{ const b=e.target.closest('[data-w]'); if(!b||BK.phase==='run'||BK.phase==='sqbetween') return; BK.way=b.dataset.w; Array.prototype.forEach.call($('bkWay').children,x=>x.classList.toggle('on',x===b)); BK.phase='idle'; BK.res=null; BK.sq=null; $('bkStage').dataset.k=''; bakRender(); };
