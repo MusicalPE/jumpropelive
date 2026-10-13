@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.6.7</title>
+<title>점프 라이브 v0.6.8</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -265,7 +265,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.6.7</span></h1>
+    <h1>점프 라이브<span class="ver">v0.6.8</span></h1>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <div class="me" id="me" hidden><span id="meName"></span><button id="btnOut">로그아웃</button></div>
@@ -358,6 +358,10 @@
   </div>
 </div>
 
+<div class="modal" id="tmDlg"><div class="card" style="width:min(1180px,96vw);max-height:92vh;overflow:auto;padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+  <div class="tm-ctl" id="tdCtl" style="padding:0"></div>
+  <div class="tm-cols" id="tdCols"></div>
+</div></div>
 <div class="modal" id="resModal"><div class="box">
   <h3 id="resTitle">결과</h3>
   <p class="small" id="resNote" style="margin:0;color:var(--muted)"></p>
@@ -443,7 +447,7 @@
 <div class="big" id="big"></div>
 <div class="hub" id="hub" hidden>
   <div class="mh">줄넘기 허브 <span class="hst" id="hubSt">연결 안 됨</span><button class="x" id="hubX">닫기</button></div>
-  <div class="hr"><button class="primary" id="hubConn">허브 연결</button><button id="hubRole" disabled>줄넘기 찾기</button><button id="hubBatt" disabled>배터리</button><button id="hubVib" disabled>모두 진동</button><button id="hubSeq" disabled title="줄넘기 번호와 상관없이, 켜진 줄넘기를 작은 번호부터 1번 학생, 2번 학생… 차례로 이어요">1번 학생부터 잇기</button><button id="hubAuto" disabled hidden>전체 자동번호</button></div>
+  <div class="hr"><button class="primary" id="hubConn">허브 연결</button><button id="hubRole" disabled>줄넘기 찾기</button><button id="hubBatt" disabled>배터리</button><button id="hubVib" disabled title="모든 줄넘기 진동 + 벨">모두 찾기</button><button id="hubSeq" disabled title="줄넘기 번호와 상관없이, 켜진 줄넘기를 작은 번호부터 1번 학생, 2번 학생… 차례로 이어요">1번 학생부터 잇기</button><button id="hubAuto" disabled hidden>전체 자동번호</button></div>
   <label class="hr"><input type="checkbox" id="hubBuzz" checked> 시작·끝에 줄넘기 진동</label>
   <div class="hst" id="hubModeTip"></div>
   <div class="hlist"><table><thead><tr><th>번호</th><th>학생</th><th>상태</th><th>배터리</th><th>횟수</th><th></th></tr></thead><tbody id="hubBody"></tbody></table></div>
@@ -614,6 +618,8 @@ let B=null, USER=null;
 const S={ room:'', groups:[], devs:{}, ctl:{ph:'open'}, sort:'no', lastRun:null, prevCnt:{}, cdShown:null, endShown:'' };
 // 반 묶음: groups=[{g,c,max,names:{번호:이름},ids:{번호:학생ID}}] — 5·6학년 함께 수업처럼 여러 반을 한 방에
 const gkey=(g,c)=>g+'-'+c, skey=(g,c,n)=>g+'-'+c+'-'+n;
+// 놀이에서 '들어온 친구': 판정기로 들어왔거나, 허브를 연결했으면 명단 전체 (줄넘기를 돌려 쓰니 기기가 없어도 함께 뜀)
+const here=r=>r.dup>0||HUB.on;
 const multi=()=>S.groups.length>1;
 const clsLabel=gs=>gs.map(x=>`${x.g}학년 ${x.c}반`).join(' · ');
 const totalMax=()=>S.groups.reduce((a,x)=>a+x.max,0);
@@ -921,7 +927,7 @@ function hubRender(){
   $('hubBody').innerHTML=rs.map(r=>{ const st=hubStudent(r.n), cur=st?skey(st.g,st.c,st.n):'', on=r.seen&&now-r.seen<20000;
     return `<tr data-n="${r.n}"><td class="no">${r.n}</td><td><select data-map>${S.groups.length?'':'<option value="">방을 먼저 열어요</option>'}${opts.map(([v,l])=>`<option value="${v}"${v===cur?' selected':''}>${esc(l)}</option>`).join('')}</select></td>
       <td><span class="dot ${on?'on':''}"></span>${on?'연결':'끊김'}</td><td>${r.batt==null?'—':r.batt+'%'}</td><td>${r.ctl?r.cnt:'—'}${r.doneDs?' ✓':''}</td>
-      <td><button data-act="show" title="줄넘기 화면에 번호 띄우기">번호</button> <button data-act="vib">진동</button> <button data-act="num" title="이 줄넘기 번호 바꾸기">바꾸기</button></td></tr>`; }).join('')
+      <td><button data-act="show" title="줄넘기 화면에 번호 띄우기">번호</button> <button data-act="vib" title="진동과 벨로 이 줄넘기 찾기">찾기</button> <button data-act="num" title="이 줄넘기 번호 바꾸기">바꾸기</button></td></tr>`; }).join('')
     || '<tr><td colspan="6" style="color:var(--muted)">아직 줄넘기가 없어요 — 줄넘기를 켜거나 "줄넘기 찾기"를 눌러요</td></tr>';
 }
 async function hubConnect(){
@@ -984,7 +990,7 @@ function hubInit(){
   $('hubRole').onclick=()=>hubSend('getRole all');
   $('selDur').addEventListener('change',hubModeUi); hubModeUi();
   $('hubBatt').onclick=()=>hubSend('getBattery all');
-  $('hubVib').onclick=()=>hubSend('vibrate all');
+  $('hubVib').onclick=async()=>{ hubSend('vibrate all'); const now=Date.now(); for(const r of Object.values(HUB.ropes).filter(r=>r.n>0&&r.seen&&now-r.seen<60000)){ await new Promise(x=>setTimeout(x,200)); hubSend('buzzer '+r.n); } };   // 벨은 줄넘기마다 (허브가 하나씩 전함)
   // 다른 학교에서 11~19번처럼 번호가 정해진 줄넘기를 쓸 때: 켜진 줄넘기를 작은 번호부터 이 반 1번, 2번… 학생에게 차례로 이음
   $('hubSeq').onclick=()=>{ const now=Date.now(), ropes=Object.values(HUB.ropes).filter(r=>r.n>0&&r.seen&&now-r.seen<20000).map(r=>r.n).sort((a,b)=>a-b);
     if(!ropes.length) return hubMsg('켜진 줄넘기가 안 보여요 — "줄넘기 찾기"를 먼저 눌러요');
@@ -996,7 +1002,7 @@ function hubInit(){
     HUB.map[n]=sel.value; store.set('jl_hubmap',JSON.stringify(HUB.map)); hubPush(); };
   $('hubBody').onclick=async e=>{ const b=e.target.closest('[data-act]'); if(!b) return; const n=b.closest('tr').dataset.n;
     if(b.dataset.act==='show') hubSend('showId '+n);
-    else if(b.dataset.act==='vib') hubSend('vibrate '+n);
+    else if(b.dataset.act==='vib'){ hubSend('vibrate '+n); setTimeout(()=>hubSend('buzzer '+n),250); }
     else if(b.dataset.act==='num'){ const v=prompt(n+'번 줄넘기를 몇 번으로 바꿀까요?',''); const m=+v; if(!(m>0&&m<=99)) return;
       if(HUB.ropes[m]&&m!==+n&&!confirm(m+'번 줄넘기가 이미 있어요. 그래도 바꿀까요?')) return;
       await hubSend(`assign ${n} ${m}`); delete HUB.ropes[n]; hubRender(); setTimeout(()=>{ hubSend('getRole all'); hubSend('showId '+m); },1200); } };
@@ -1065,7 +1071,7 @@ const CH_SECS=[5,10,15,20,30];
 function chalRow(k){ return (S.rows||[]).find(r=>r.k===k); }
 function chalLabel(r){ return r?`<small>${multi()?r.g+'-'+r.c+' ':''}${r.n}번</small>${esc(r.name||'')}`:''; }
 function chalRope(r){ if(!HUB.on||!r) return 0; const n=Object.keys(HUB.ropes).find(n=>{ const st=hubStudent(n); return st&&st.g==r.g&&st.c==r.c&&st.n==r.n; }); return n?+n:0; }
-function chalPool(){ return (S.rows||[]).filter(r=>r.dup>0&&!($('chExcl').checked&&CH.used[r.k])); }
+function chalPool(){ return (S.rows||[]).filter(r=>here(r)&&!($('chExcl').checked&&CH.used[r.k])); }
 function chalOpen(){
   if(S.ctl.ph==='go') return alert('지금 뛰는 중이에요. 끝난 뒤에 열어 주세요.'); modeCloseAll();
   CH.on=true; CH.phase='idle'; $('chal').hidden=false; $('chCls').textContent=clsLabel(S.groups)+(S.type?' · '+S.type:'');
@@ -1079,11 +1085,11 @@ function chalSpin(){
   if(S.ctl.ph==='go') return;
   let pool=chalPool();
   if(!pool.length){
-    if($('chExcl').checked&&(S.rows||[]).some(r=>r.dup>0)){ if(!confirm('들어온 친구가 모두 한 번씩 도전했어요. 처음부터 다시 뽑을까요?')) return; CH.used={}; pool=chalPool(); }
+    if($('chExcl').checked&&(S.rows||[]).some(here)){ if(!confirm('들어온 친구가 모두 한 번씩 도전했어요. 처음부터 다시 뽑을까요?')) return; CH.used={}; pool=chalPool(); }
     if(!pool.length) return alert('판정기나 줄넘기로 들어온 친구가 없어요. QR로 먼저 들어오게 해 주세요.');
   }
   audioWarm(); clearTimeout(CH.spinT);
-  const pickR=pool[Math.floor(Math.random()*pool.length)], all=(S.rows||[]).filter(r=>r.dup>0);
+  const pickR=pool[Math.floor(Math.random()*pool.length)], all=(S.rows||[]).filter(here);
   const any=()=>all[Math.floor(Math.random()*all.length)]||pickR;
   CH.phase='spin'; CH.msg=''; let t=0, step=55;
   const slot=k=>{ const a=any(), b=any(); $('chStage').innerHTML=`<div class="ch-eyebrow">누가 뛸까요?</div><div class="ch-slot${k?' stop':''}"><div class="n">${chalLabel(a)}</div><div class="n c">${chalLabel(k||any())}</div><div class="n">${chalLabel(b)}</div></div><div class="ch-btns"><button disabled>뽑는 중…</button></div>`; };
@@ -1106,7 +1112,7 @@ async function chalGo(){
 function chalRender(){
   const st=$('chStage'); if(!st) return;
   const r=chalRow(CH.k);
-  if(CH.phase==='idle'||!r&&CH.phase!=='spin'){ const n=(S.rows||[]).filter(x=>x.dup>0).length, left=chalPool().length;
+  if(CH.phase==='idle'||!r&&CH.phase!=='spin'){ const n=(S.rows||[]).filter(here).length, left=chalPool().length;
     st.innerHTML=`<div class="ch-eyebrow">들어온 친구 ${n}명 중 한 명을 뽑아요</div><div class="ch-slot"><div class="n">?</div><div class="n c">누가 뛸까요?</div><div class="n">?</div></div><div class="ch-btns"><button class="primary" data-ch="spin"${n?'':' disabled'}>뽑기</button></div><div class="ch-msg">${$('chExcl').checked?'아직 안 뽑힌 친구 '+left+'명':''}</div>`; return; }
   if(CH.phase==='ready'){ const rope=chalRope(r);
     st.innerHTML=`<div class="ch-eyebrow">이번 도전자!</div><div class="ch-slot stop"><div class="n">&nbsp;</div><div class="n c">${chalLabel(r)}</div><div class="n">&nbsp;</div></div><div class="ch-btns"><button data-ch="spin">다시 뽑기</button><button class="primary" data-ch="go">${esc(r.name||r.n+'번')} 도전 시작 · ${CH.secs}초 ${CH.goal=Math.max(1,Math.round(+$('chGoal').value)||20)}개</button></div><div class="ch-msg">${rope?rope+'번 줄넘기가 진동했어요':r.dup?'판정기 화면에 "내 차례!"가 떠요 (안드로이드는 진동)':''}</div>`; return; }
@@ -1172,14 +1178,14 @@ const BK={ on:false, dur:60, auto:true, way:'all', phase:'idle', stage:0, tickT:
 const BK_IMG=n=>'img/bak'+n+'.webp';
 [0,1,2,3,4].forEach(n=>{ const im=new Image(); im.src=BK_IMG(n); });   // 미리 받아 둠
 const bkPer=()=>Math.max(10,Math.min(100,+$('bkPer').value||30));   // 한 사람당 횟수 (10~100)
-function bakGoal(){ if(BK.auto){ const n=(S.rows||[]).filter(r=>r.dup>0).length||(S.rows||[]).length; $('bkGoal').value=Math.max(10,n*bkPer()); } return Math.max(10,Math.round(+$('bkGoal').value)||500); }
+function bakGoal(){ if(BK.auto){ const n=(S.rows||[]).filter(here).length||(S.rows||[]).length; $('bkGoal').value=Math.max(10,n*bkPer()); } return Math.max(10,Math.round(+$('bkGoal').value)||500); }
 function bakOpen(){ if(S.ctl.ph==='go') return alert('지금 뛰는 중이에요. 끝난 뒤에 열어 주세요.'); modeCloseAll(); BK.on=true; BK.phase='idle'; BK.stage=0; $('bak').hidden=false; $('bkCls').textContent=clsLabel(S.groups); bakGoal();
   clearInterval(BK.tickT); BK.tickT=setInterval(()=>{ if(BK.phase==='run') bakRender(); },250); bakRender(); }
 function bakClose(){ if(S.ctl.ph==='go') return alert('끝난 뒤에 돌아가요.'); BK.on=false; clearInterval(BK.tickT); $('bak').hidden=true; render(); }
 function bkTeamOn(){ return BK.way==='teams'; }
 function bkSeqOn(){ return BK.way==='seq'; }
 // 팀마다 박: 목표는 자동이면 팀 인원(들어온)×한 사람당 횟수, 직접이면 모든 팀 같은 값
-function bakTeamGoals(T){ return T.map(m=>BK.auto?Math.max(10,(m.filter(r=>r.dup>0).length||m.length)*bkPer()):Math.max(10,Math.round(+$('bkGoal').value)||500)); }
+function bakTeamGoals(T){ return T.map(m=>BK.auto?Math.max(10,(m.filter(here).length||m.length)*bkPer()):Math.max(10,Math.round(+$('bkGoal').value)||500)); }
 async function bakGo(){
   if(bkSeqOn()) return bakSeqGo();
   let extra={bak:{goal:bakGoal()}};
@@ -1209,9 +1215,10 @@ function bakTeamsRender(st,running){
 function bakRender(){
   const st=$('bkStage'); if(!st||!BK.on) return;
   const running=S.ctl.ph==='go'&&S.lastRun&&S.lastRun.mode==='bak';
+  { const tb=document.querySelector('[data-tmbtn="bak"]'); if(tb) tb.hidden=BK.way==='all'; }
   $('bkGo').disabled=running||BK.phase==='sqbetween'; $('bkEnd').disabled=!running; $('bkBack').disabled=running||BK.phase==='sqbetween';
   Array.prototype.forEach.call($('bkWay').children,b=>b.disabled=running||BK.phase==='sqbetween');
-  $('bkTeamTip').hidden=BK.way==='all'; $('bkTeamTip').textContent=BK.way==='seq'?'팀은 "팀전"에서 나눈 대로 · 한 팀씩 차례로 깨고 빨리 깬 팀이 이겨요 (줄넘기가 적어도 돼요)':'팀은 "팀전"에서 나눈 대로 · 목표는 팀마다 따로 · 먼저 터뜨린 팀이 이겨요';
+  $('bkTeamTip').hidden=BK.way==='all'; $('bkTeamTip').textContent=BK.way==='seq'?'팀은 위의 "팀 나누기"에서 정해요 · 한 팀씩 차례로 깨고 빨리 깬 팀이 이겨요 (줄넘기가 적어도 돼요)':'팀은 위의 "팀 나누기"에서 정해요 · 목표는 팀마다 따로 · 먼저 터뜨린 팀이 이겨요';
   if(BK.sq||(BK.phase==='idle'&&bkSeqOn())){ ['bkGoal'].forEach(id=>$(id).disabled=running||BK.auto); $('bkPer').disabled=running; return bakSeqRender(st,running); }
   if(BK.phase==='idle'?bkTeamOn():S.lastRun&&S.lastRun.bak&&S.lastRun.bak.teams){ ['bkGoal'].forEach(id=>$(id).disabled=running||BK.auto); $('bkPer').disabled=running; return bakTeamsRender(st,running); }
   ['bkGoal'].forEach(id=>$(id).disabled=running||BK.auto); $('bkPer').disabled=running; Array.prototype.forEach.call(document.querySelectorAll('#bkDur .chip,#bkAuto .chip'),b=>b.disabled=running);
@@ -1243,7 +1250,7 @@ const TM={ on:false, n:2, map:{}, by:'sum', dur:60, phase:'setup', tickT:0, res:
 const tmKey=()=>'jl_team|'+S.groups.map(x=>gkey(x.g,x.c)).join(',');
 function tmLoad(){ try{ const v=JSON.parse(store.get(tmKey())||'null'); if(v&&v.map){ TM.map=v.map; TM.n=Math.min(TEAM_C.length,v.n||2); return true; } }catch(e){} return false; }
 function tmSave(){ store.set(tmKey(),JSON.stringify({n:TM.n,map:TM.map})); }
-function tmShuffle(){ const rows=(S.rows||[]).slice(), on=rows.filter(r=>r.dup>0), off=rows.filter(r=>!r.dup);
+function tmShuffle(){ const rows=(S.rows||[]).slice(), on=rows.filter(here), off=rows.filter(r=>!here(r));
   const mix=a=>{ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; };
   TM.map={}; [...mix(on),...mix(off)].forEach((r,i)=>{ TM.map[r.k]=i%TM.n; }); tmSave(); }
 function tmTeams(){ const T=Array.from({length:TM.n},()=>[]); (S.rows||[]).forEach(r=>{ let t=TM.map[r.k]; if(!(t>=0&&t<TM.n)){ t=T.reduce((m,x,i)=>x.length<T[m].length?i:m,0); TM.map[r.k]=t; } T[t].push(r); }); return T; }
@@ -1252,7 +1259,7 @@ function teamOpen(){ if(S.ctl.ph==='go') return alert('지금 뛰는 중이에�
   if(!tmLoad()) tmShuffle(); clearInterval(TM.tickT); TM.tickT=setInterval(()=>{ if(TM.phase==='run') teamRender(); },250); teamRender(); }
 function teamClose(){ if(S.ctl.ph==='go') return alert('끝난 뒤에 돌아가요.'); tmSeqRestore(); TM.on=false; clearInterval(TM.tickT); $('team').hidden=true; render(); }
 async function teamGo(){ tmSave(); if(TM.way==='seq') return teamSeqGo(); if(await modeGo('team',TM.dur,{team:{n:TM.n,map:Object.assign({},TM.map),by:TM.by}})){ TM.phase='run'; TM.res=null; teamRender(); } }
-function teamScore(T,live){ return T.map(m=>{ const act=live?m.filter(r=>r.dup>0||r.cnt>0):m, sum=m.reduce((a,r)=>a+r.cnt,0), n=Math.max(1,act.length); return {sum,n:act.length,avg:sum/n}; }); }
+function teamScore(T,live){ return T.map(m=>{ const act=live?m.filter(r=>here(r)||r.cnt>0):m, sum=m.reduce((a,r)=>a+r.cnt,0), n=Math.max(1,act.length); return {sum,n:act.length,avg:sum/n}; }); }
 function teamRender(){
   if(!TM.on) return;
   const running=S.ctl.ph==='go'&&S.lastRun&&S.lastRun.mode==='team', setup=TM.phase==='setup';
@@ -1272,8 +1279,8 @@ function teamRender(){
     if(sq&&!s){ const cur=i===sq.i&&TM.phase!=='done';   // 팀 차례로: 아직 안 뛴 팀
       return `<div class="tm" style="border-color:${c};${cur?'':'opacity:.6'}"><h3><i style="background:${c}"></i>${nm} 팀 <small>${m.length}명</small></h3><div class="avg" style="font-size:22px;color:${cur?c:'var(--muted)'}">${cur?'다음 차례!':TM.phase==='done'?'안 뛰었어요':'기다리는 중'}</div><div class="mem">${m.map(r=>`<span>${esc(r.name||r.n+'번')}</span>`).join('')}</div></div>`; }
     const cn=sq?(sq.res[i]?sq.res[i].cnt:tmSeqCnt(sq.teams[i])):null, cv=r=>cn?(cn[r.k]||0):r.cnt;
-    const mem=(setup?m:m.slice().sort((a,b)=>cv(b)-cv(a))).map(r=>`<span data-k="${r.k}" class="${r.dup>0||(cn&&cv(r)>0)?'':'off'}" style="${setup?`border-color:${c};background:${bg}`:''}">${esc(r.name||r.n+'번')}${setup?'':`<b>${cv(r)}</b>`}</span>`).join('');
-    return `<div class="tm${setup?' setup':''}${win&&win.includes(i)?' champ':''}" style="border-color:${c}"><h3><i style="background:${c}"></i>${nm} 팀 <small>${m.length}명${setup?' · 들어옴 '+m.filter(r=>r.dup>0).length:''}</small></h3>
+    const mem=(setup?m:m.slice().sort((a,b)=>cv(b)-cv(a))).map(r=>`<span data-k="${r.k}" class="${here(r)||(cn&&cv(r)>0)?'':'off'}" style="${setup?`border-color:${c};background:${bg}`:''}">${esc(r.name||r.n+'번')}${setup?'':`<b>${cv(r)}</b>`}</span>`).join('');
+    return `<div class="tm${setup?' setup':''}${win&&win.includes(i)?' champ':''}" style="border-color:${c}"><h3><i style="background:${c}"></i>${nm} 팀 <small>${m.length}명${setup?' · 들어옴 '+m.filter(here).length:''}</small></h3>
       ${setup?'':`${(win?win.includes(i):i===lead&&running)?`<span class="win">${win?'우승!':'1위'}</span>`:''}<div class="sum" style="color:${c}">${key==='avg'?s.avg.toFixed(1):s.sum.toLocaleString()}<small>${key==='avg'?'회 (1인당)':'회'}</small></div><div class="avg">${key==='avg'?'합계 '+s.sum.toLocaleString()+'회':'1인당 '+s.avg.toFixed(1)+'회'} · ${s.n}명</div><div class="g"><b style="width:${(s[key]/best*100).toFixed(0)}%;background:${c}"></b></div>`}
       <div class="mem">${mem}</div></div>`; }).join('');
   if($('tmCols').dataset.k!==html){ $('tmCols').innerHTML=html; $('tmCols').dataset.k=html; }
@@ -1285,7 +1292,7 @@ function teamRender(){
 }
 /* 팀전 · 팀 차례로: 줄넘기가 적을 때 한 팀씩 뛰고 팀 기록(합계/평균)으로 겨루기 */
 function tmSeqCnt(mem){ const id=S.lastRun&&S.lastRun.id, o={}; mem.forEach(k=>{ const r=(S.rows||[]).find(x=>x.k===k); o[k]=r&&r.pick&&r.pick.ctl===id?r.cnt:0; }); return o; }
-function tmSeqScore(mem,cnt){ const sum=mem.reduce((a,k)=>a+(cnt[k]||0),0), act=mem.filter(k=>{ const r=(S.rows||[]).find(x=>x.k===k); return (cnt[k]||0)>0||(r&&r.dup>0); }).length; return {sum,n:act,avg:sum/Math.max(1,act),cnt}; }
+function tmSeqScore(mem,cnt){ const sum=mem.reduce((a,k)=>a+(cnt[k]||0),0), act=mem.filter(k=>{ const r=(S.rows||[]).find(x=>x.k===k); return (cnt[k]||0)>0||(r&&here(r)); }).length; return {sum,n:act,avg:sum/Math.max(1,act),cnt}; }
 function tmSeqApply(i){ const sq=TM.sq; if(!sq||!sq.ropes.length) return; const m=sq.teams[i]||[]; sq.ropes.forEach((n,j)=>{ HUB.map[n]=m[j]||'-'; }); store.set('jl_hubmap',JSON.stringify(HUB.map)); hubPush(); if(HUB.on) hubSend('vibrate all'); }
 function tmSeqRestore(){ const sq=TM.sq; if(sq&&sq.saved){ HUB.map=JSON.parse(sq.saved); sq.saved=''; store.set('jl_hubmap',JSON.stringify(HUB.map)); hubPush(); } }
 async function teamSeqGo(){
@@ -1305,6 +1312,16 @@ function teamFinish(){ if(S.lastRun.team&&S.lastRun.team.seq&&TM.sq) return team
   TM.res={win:best>0?sc.map((x,i)=>x[key]===best?i:-1).filter(i=>i>=0):[]}; TM.phase='done';
   if(TM.res.win.length){ big(TM.res.win.map(i=>TEAM_C[i][0]).join('·')+' 팀!'); beep(1046,.15,.25); setTimeout(()=>beep(1318,.3,.25),160); }
   teamRender(); }
+/* 팀 나누기 창 (박 터트리기·팀 릴레이에서): 팀전과 같은 팀을 씀 — 팀 수 2~6, 랜덤으로 나누기, 이름을 누르면 다음 팀으로 */
+function teamDlgOpen(){ if(S.ctl.ph==='go') return alert('지금 뛰는 중이에요. 끝난 뒤에 나눠 주세요.'); if(BK.sq&&BK.phase!=='idle'&&BK.phase!=='sqdone'||TR.phase==='run'||TR.phase==='between') return alert('놀이가 끝난 뒤에 팀을 다시 나눠요.');
+  if(!tmLoad()){ TM.n=TM.n||2; tmShuffle(); } $('tmDlg').classList.add('on'); teamDlgRender(); }
+function teamDlgClose(){ $('tmDlg').classList.remove('on'); tmSave(); if(BK.on){ BK.phase='idle'; BK.sq=null; $('bkStage').dataset.k=''; bakRender(); } if(TR.on){ if(TR.phase==='setup'||TR.phase==='done'){ TR.phase='setup'; TR.extra=[]; TR.res=[]; trPlan(); } $('trCols').dataset.k=''; trelRender(); } }
+function teamDlgRender(){ const T=tmTeams(), ctl=`<b style="font-size:22px">팀 나누기</b><div class="chips">팀 수 ${[2,3,4,5,6].map(n=>`<button class="chip${n===TM.n?' on':''}" data-n="${n}">${n}팀</button>`).join('')}</div><button class="primary" data-t="mix" style="min-height:40px">랜덤으로 나누기</button><span class="small" style="color:var(--muted);font-weight:700">이름을 누르면 다음 팀으로 옮겨요 (직접 정하기)</span><div class="spacer"></div><button class="primary" data-t="done" style="min-height:44px;font-size:18px">다 됐어요</button>`;
+  if($('tdCtl').dataset.k!==ctl){ $('tdCtl').innerHTML=ctl; $('tdCtl').dataset.k=ctl; }
+  $('tdCols').style.gridTemplateColumns=`repeat(${TM.n},minmax(0,1fr))`;
+  $('tdCols').innerHTML=T.map((m,i)=>{ const [nm,c,bg]=TEAM_C[i]; return `<div class="tm setup" style="border-color:${c}"><h3><i style="background:${c}"></i>${nm} 팀 <small>${m.length}명</small></h3><div class="mem">${m.map(r=>`<span data-k="${r.k}" style="border-color:${c};background:${bg}">${esc(r.name||r.n+'번')}</span>`).join('')}</div></div>`; }).join(''); }
+$('tdCtl').onclick=e=>{ const b=e.target.closest('button'); if(!b) return; if(b.dataset.n){ TM.n=+b.dataset.n; tmShuffle(); } else if(b.dataset.t==='mix') tmShuffle(); else if(b.dataset.t==='done') return teamDlgClose(); teamDlgRender(); };
+$('tdCols').onclick=e=>{ const sp=e.target.closest('[data-k]'); if(!sp) return; TM.map[sp.dataset.k]=((TM.map[sp.dataset.k]||0)+1)%TM.n; tmSave(); teamDlgRender(); };
 $('btnBak').onclick=bakOpen; $('bkBack').onclick=bakClose; $('bkGo').onclick=bakGo; $('bkEnd').onclick=()=>end();
 $('bkDur').onclick=e=>{ const b=e.target.closest('[data-d]'); if(!b) return; BK.dur=+b.dataset.d; Array.prototype.forEach.call($('bkDur').children,x=>x.classList.toggle('on',x===b)); };
 { const v=+store.get('jl_bkper'); if(v>=10&&v<=100) $('bkPer').value=String(Math.round(v/10)*10); }
@@ -1337,7 +1354,7 @@ const RL={ on:false, secs:10, ord:'rand', phase:'idle', order:[], i:0, legs:[], 
 function relayOpen(){ if(S.ctl.ph==='go') return alert('지금 뛰는 중이에요. 끝난 뒤에 열어 주세요.'); modeCloseAll(); RL.on=true; if(RL.phase!=='run') RL.phase='idle'; $('relay').hidden=false; $('rlCls').textContent=clsLabel(S.groups)+(S.type?' · '+S.type:''); $('rlSaveRow').hidden=!APPM;
   clearInterval(RL.tickT); RL.tickT=setInterval(()=>{ if(RL.phase==='run') relayRender(); },150); relayRender(); }
 function relayClose(){ if(RL.phase==='run') return alert('릴레이가 끝난 뒤에 돌아가요. 그만하려면 "멈추기"를 눌러요.'); RL.on=false; clearInterval(RL.tickT); $('relay').hidden=true; render(); }
-function relayPlan(){ const on=(S.rows||[]).filter(r=>r.dup>0).map(r=>r.k);
+function relayPlan(){ const on=(S.rows||[]).filter(here).map(r=>r.k);
   if(RL.ord==='rand'){ for(let i=on.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [on[i],on[j]]=[on[j],on[i]]; } } return on; }
 async function relayGo(){
   if(S.ctl.ph==='go') return;
@@ -1382,7 +1399,7 @@ function relayRender(){
   const sum=RL.legs.reduce((a,x)=>a+x.cnt,0)+(run&&S.ctl.ph==='go'?curCnt:0); $('rlSum').textContent=sum.toLocaleString();
   const nextK=RL.order[RL.i+1], nx=nextK?chalRow(nextK):null;
   let body;
-  if(RL.phase==='idle'){ const n=(S.rows||[]).filter(r=>r.dup>0).length; body=`<div class="ch-eyebrow">들어온 친구 ${n}명이 한 명씩 ${RL.secs}초씩 이어 뛰어요</div><div class="ch-slot"><div class="n">&nbsp;</div><div class="n c">릴레이</div><div class="n">&nbsp;</div></div><div class="ch-msg">모두 ${Math.ceil(n*(RL.secs+5)/60)}분쯤 걸려요 · 위의 "릴레이 시작"을 눌러요</div>`; }
+  if(RL.phase==='idle'){ const n=(S.rows||[]).filter(here).length; body=`<div class="ch-eyebrow">들어온 친구 ${n}명이 한 명씩 ${RL.secs}초씩 이어 뛰어요</div><div class="ch-slot"><div class="n">&nbsp;</div><div class="n c">릴레이</div><div class="n">&nbsp;</div></div><div class="ch-msg">모두 ${Math.ceil(n*(RL.secs+5)/60)}분쯤 걸려요 · 위의 "릴레이 시작"을 눌러요</div>`; }
   else if(run&&cur){ const c=S.ctl, now=B.now(), R=160, L=2*Math.PI*R, p=c.ph==='go'&&now>=c.at?Math.min(1,(now-c.at)/(c.dur*1000)):0;
     const tm=c.ph!=='go'?'<div class="ch-time">다음 주자!</div>':now<c.at?`<div class="ch-time">${Math.ceil((c.at-now)/1000)}<small>초 뒤 시작</small></div>`:`<div class="ch-time">${Math.max(0,(c.at+c.dur*1000-now)/1000).toFixed(1)}<small>초 남음</small></div>`;
     body=`<div class="ch-eyebrow">${RL.i+1}번째 주자 / ${RL.order.length}명</div><div class="ch-who">${chalLabel(cur)}</div><div class="ch-ring"><svg viewBox="0 0 360 360"><circle cx="180" cy="180" r="${R}" stroke="#EEF0F3" stroke-width="22" fill="none"/><circle class="p" cx="180" cy="180" r="${R}" stroke="#2BB3A3" stroke-width="22" fill="none" stroke-linecap="round" stroke-dasharray="${L}" stroke-dashoffset="${L*p}"/></svg><div class="num"><b>${curCnt}</b><span>회</span></div></div>${tm}<div class="ch-src">${nx?'다음 주자: '+esc(nx.name||nx.n+'번')+' — 준비해요!':'마지막 주자예요!'}</div>`; }
@@ -1501,7 +1518,7 @@ function trelRender(){
   const curCnt=i=>{ if(TR.phase!=='run') return 0; const k=TR.order[i][TR.leg], r=(S.rows||[]).find(x=>x.k===k); return r&&r.pick&&S.lastRun&&r.pick.ctl===S.lastRun.id?r.cnt:0; };
   const tot=TR.order.map((o,i)=>sc[i]+curCnt(i)), best=Math.max(1,...tot);
   let ctl;
-  if(TR.phase==='setup') ctl=`<b style="font-size:20px">팀 릴레이</b><span class="small" style="color:var(--muted);font-weight:700">팀은 "팀전"에서 나눈 대로 · 팀마다 줄넘기 하나${HUB.on?' (허브 줄넘기 '+roRopes(n).join(', ')+'번)':''}</span><div class="spacer"></div>
+  if(TR.phase==='setup') ctl=`<b style="font-size:20px">팀 릴레이</b><span class="small" style="color:var(--muted);font-weight:700">팀은 위의 "팀 나누기"에서 정해요 · 팀마다 줄넘기 하나${HUB.on?' (허브 줄넘기 '+roRopes(n).join(', ')+'번)':''}</span><div class="spacer"></div>
     <div class="chips">한 사람 ${[5,10,15,20,30].map(v=>`<button class="chip${v===TR.secs?' on':''}" data-s="${v}">${v}초</button>`).join('')}</div>
     <div class="chips">${[['no','번호순'],['rand','랜덤']].map(([k,t])=>`<button class="chip${k===TR.ord?' on':''}" data-o="${k}">${t}</button>`).join('')}</div>
     <div class="chips">${[[1,'넘기면 자동 시작'],[0,'눌러서 시작']].map(([k,t])=>`<button class="chip${(k===1)===TR.auto?' on':''}" data-a="${k}">${t}</button>`).join('')}</div><button class="primary" data-tr="go" style="min-height:44px;font-size:18px">릴레이 시작</button>`;
@@ -1643,8 +1660,12 @@ $('btnOpen').onclick=openRoom; $('btnClose').onclick=closeRoom; $('btnGo').oncli
 $('btnSort').onclick=()=>{ S.sort=S.sort==='no'?'cnt':'no'; $('btnSort').textContent=S.sort==='no'?'횟수순':'번호순'; render(); };
 $('btnQr').onclick=showQr; $('btnQrClose').onclick=()=>$('qr').hidden=true;
 // 놀이 화면마다 위쪽에 QR 버튼 — 늦게 온 친구도 어느 놀이에서든 바로 들어오게
-document.querySelectorAll('.chal .ch-top').forEach(top=>{ const b=document.createElement('button'); b.type='button'; b.textContent='QR'; b.title='들어오는 QR 띄우기'; b.style.fontWeight='800';
-  b.onclick=showQr; const last=top.querySelector('.spacer'); if(last&&last.nextSibling) top.insertBefore(b,last.nextSibling); else top.appendChild(b); });
+// 허브도 놀이 화면에서 바로 열고 닫기, 팀을 쓰는 놀이(박 터트리기·팀 릴레이)에는 팀 나누기
+document.querySelectorAll('.chal .ch-top').forEach(top=>{ const id=top.parentElement.id, add=(txt,title,fn)=>{ const b=document.createElement('button'); b.type='button'; b.textContent=txt; b.title=title; b.style.fontWeight='800'; b.onclick=fn;
+    const sp=top.querySelector('.spacer'); if(sp&&sp.nextSibling) top.insertBefore(b,sp.nextSibling); else top.appendChild(b); return b; };
+  add('줄넘기 허브','줄넘기 허브(USB) 열기·닫기',()=>{ $('hub').hidden=!$('hub').hidden; hubRender(); });
+  add('QR','들어오는 QR 띄우기',showQr);
+  if(id==='bak'||id==='trel'){ const b=add('팀 나누기','팀 수와 팀원 정하기 (랜덤 또는 이름을 눌러 옮기기)',teamDlgOpen); b.dataset.tmbtn=id; } });
 $('btnCopy').onclick=async()=>{ try{ await navigator.clipboard.writeText(studentUrl()); $('btnCopy').textContent='복사했어요'; setTimeout(()=>$('btnCopy').textContent='주소 복사',1500); }catch(e){} };
 $('btnResult').onclick=showResult; $('btnResCopy').onclick=copyResult;
 // 저장(앱에서 연 경우 시트 저장, 아니면 결과 복사)을 안 하고 닫으면 한 번 알려 줌 — 한 번 더 누르면 그냥 닫힘
