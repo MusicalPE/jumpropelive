@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 판정기 v0.9.11 · 카메라로 진짜 뛰는지 보기</title>
+<title>줄넘기 판정기 v0.9.12 · 카메라로 진짜 뛰는지 보기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -292,7 +292,7 @@
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
     <div class="titles">
-      <h1>줄넘기 판정기<span class="ver">v0.9.11</span></h1>
+      <h1>줄넘기 판정기<span class="ver">v0.9.12</span></h1>
       <span class="sub">머리부터 발까지 보이게 서서, 몸이 뜨고 팔이 돌 때만 1회로 세요</span>
     </div>
     <div class="who" id="who"></div>
@@ -523,7 +523,7 @@ const $=id=>document.getElementById(id);
 const video=$('video'), cv=$('overlay'), cx=cv.getContext('2d');
 let landmarker=null, stream=null, facing='user', running=false, t0=0, raf=0, lastVideoT=-1, frames=0, fpsT=0;
 /* ---------- 앱 연동: 체육교사 보조 프로그램의 줄넘기 화면에서 열리면 ?app=앱주소&t=학생표&kind=종류 가 붙어 와요 ---------- */
-const VER='0.9.11';
+const VER='0.9.12';
 const Q=new URLSearchParams(location.search);
 const LINK={ app:Q.get('app')||'', t:Q.get('t')||'', kind:Q.get('kind')||'', sens:+(Q.get('sens')||0)||0, target:(Q.get('target')==='fit'?'fit':'rope'), who:null, saved:null,
   // mode=post : 오프라인판(파일로 여는 프로그램)이 연 창. 서버 대신 window.opener.postMessage 로 결과를 돌려준다.
@@ -920,7 +920,7 @@ function onControl(c){
   // 랜덤 한 명 도전: who(학년-반-번호)가 있으면 그 친구만 셈. 다른 친구는 응원 화면만
   if(c&&c.ph==='go'&&c.who){
     const mine=!!LIVE.me&&(LIVE.me.g+'-'+LIVE.me.c+'-'+LIVE.me.n)===String(c.who);
-    if(!mine){ const wn=String(c.who).split('-').pop(); $('status').textContent=wn+'번 친구 차례예요 — 응원해요!'; $('status').className='status idle'; return; }
+    if(!mine){ const wn=String(c.who).split('-').pop(); $('status').textContent=(+wn>60?'기기 '+(wn-60)+'번':wn+'번 친구')+' 차례예요 — 응원해요!'; $('status').className='status idle'; return; }
     if(LIVE.chalMe!==String(c.id)){ LIVE.chalMe=String(c.id); try{ if(navigator.vibrate) navigator.vibrate([400,150,400,150,400]); }catch(e){}
       const bb=$('burst'); bb.textContent='내 차례!'; bb.classList.remove('on'); void bb.offsetWidth; bb.classList.add('on'); beep(784,0.15,0.25); }
   }
@@ -946,14 +946,25 @@ function onControl(c){
   } else if(c.ph==='go'&&LIVE.ctlRun&&String(c.id)===LIVE.ctlRun){ LIVE.ctlEnd=c.dur>0?c.at+c.dur*1000:0;   // 선생님이 '끝' → 5초 뒤 끝으로 바뀜
   } else if(c.ph==='end'&&LIVE.ctlRun&&(!c.id||String(c.id)===LIVE.ctlRun)){ if(running) runEnd(); else { if(LIVE.cdTimer){ clearInterval(LIVE.cdTimer); LIVE.cdTimer=0; } liveIdle(); } }
 }
-function liveConnectedPill(){ const m=LIVE.me; livePill(m?`선생님 화면에 연결됨 · ${m.g}학년 ${m.c}반 ${m.n}번${LIVE.T&&LIVE.T.mode&&LIVE.T.mode()==='lp'?' <span style="color:var(--muted)">· 우회 연결</span>':''}${LIVE.picked?' <u style="cursor:pointer">번호 바꾸기</u>':''}`:'번호를 골라 주세요'); }
+function liveConnectedPill(){ const m=LIVE.me; livePill(m?`선생님 화면에 연결됨 · ${m.n>60?'돌려 쓰는 기기 '+(m.n-60)+'번 · 차례인 친구는 선생님 화면에서':m.g+'학년 '+m.c+'반 '+m.n+'번'}${LIVE.T&&LIVE.T.mode&&LIVE.T.mode()==='lp'?' <span style="color:var(--muted)">· 우회 연결</span>':''}${LIVE.picked?' <u style="cursor:pointer">'+(m.n>60?'기기 번호 바꾸기':'번호 바꾸기')+'</u>':''}`:'번호를 골라 주세요'); }
 // 번호 고르기 (QR로 바로 들어온 학생) — 이름은 선생님 현황판에만 있고, 여기서는 번호만 고름
 // 반 고르기 → 번호 고르기. 여러 반이 함께 수업하는 방(5·6학년 등)이면 반부터 고름
+// 돌려 쓰는 기기: 여러 친구가 번갈아 쓰는 노트북·태블릿은 '기기 k번'으로 한 번만 들어옴 (번호 60+k 로 보냄)
+//  누가 뛰는지는 선생님 화면이 조 차례에 맞춰 이어 줌 — 이 기기는 그대로 두면 됨
+async function pickSlots(g0,box){
+  const el=$('pkSlot'); el.innerHTML='<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--line,#ddd)"><b>돌려 쓰는 기기</b> <span style="color:var(--muted);font-size:14px">여러 친구가 번갈아 쓰는 노트북·태블릿이면 기기 번호를 골라요</span><div id="pkSlotGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;margin-top:8px"></div></div>';
+  let taken=new Set(); try{ taken=new Set((await LIVE.T.taken()).filter(d=>d.g===g0.g&&d.c===g0.c&&d.n>60&&!(LIVE.me&&LIVE.me.n===d.n)).map(d=>d.n-60)); }catch(e){}
+  for(let k=1;k<=10;k++){ const b=document.createElement('button'); b.textContent='기기 '+k; b.style.cssText='font-size:18px;font-weight:800;min-height:52px;padding:0'+(taken.has(k)?';color:var(--muted);background:var(--soft)':'');
+    b.onclick=()=>{ if(taken.has(k)&&!confirm('기기 '+k+'번은 이미 다른 기기가 쓰고 있어요. 그래도 고를까요?')) return;
+      LIVE.me={g:g0.g,c:g0.c,n:60+k}; LIVE.picked=true; box.classList.remove('on'); liveConnectedPill(); livePush(true); guideShow(); };
+    $('pkSlotGrid').appendChild(b); }
+}
 async function livePick(grp){
   const meta=LIVE.meta; if(!meta||running||(LIVE.ctlRun&&LIVE.cdTimer)) return;
   let box=$('pickModal');
-  if(!box){ box=document.createElement('div'); box.id='pickModal'; box.className='modal'; box.innerHTML='<div class="box" style="max-width:720px"><h3 id="pkTitle"></h3><p id="pkNote">내 번호를 눌러요</p><div id="pkGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:8px;max-height:60vh;overflow:auto"></div><div id="pkBack"></div></div>'; document.body.appendChild(box); }
+  if(!box){ box=document.createElement('div'); box.id='pickModal'; box.className='modal'; box.innerHTML='<div class="box" style="max-width:720px"><h3 id="pkTitle"></h3><p id="pkNote">내 번호를 눌러요</p><div id="pkGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:8px;max-height:60vh;overflow:auto"></div><div id="pkBack"></div><div id="pkSlot"></div></div>'; document.body.appendChild(box); }
   const gs=meta.groups; $('pkBack').innerHTML='';
+  pickSlots(gs[0],box);
   if(!grp&&gs.length===1) grp=gs[0];
   if(!grp){
     $('pkTitle').textContent='내 반을 눌러요'; $('pkNote').textContent='여러 반이 함께 뛰어요';
