@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 판정기 v0.9.13 · 카메라로 진짜 뛰는지 보기</title>
+<title>줄넘기 판정기 v0.9.14 · 카메라로 진짜 뛰는지 보기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -292,7 +292,7 @@
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
     <div class="titles">
-      <h1>줄넘기 판정기<span class="ver">v0.9.13</span></h1>
+      <h1>줄넘기 판정기<span class="ver">v0.9.14</span></h1>
       <span class="sub">머리부터 발까지 보이게 서서, 몸이 뜨고 팔이 돌 때만 1회로 세요</span>
     </div>
     <div class="who" id="who"></div>
@@ -524,7 +524,7 @@ const $=id=>document.getElementById(id);
 const video=$('video'), cv=$('overlay'), cx=cv.getContext('2d');
 let landmarker=null, stream=null, facing='user', running=false, t0=0, raf=0, lastVideoT=-1, frames=0, fpsT=0;
 /* ---------- 앱 연동: 체육교사 보조 프로그램의 줄넘기 화면에서 열리면 ?app=앱주소&t=학생표&kind=종류 가 붙어 와요 ---------- */
-const VER='0.9.13';
+const VER='0.9.14';
 const Q=new URLSearchParams(location.search);
 const LINK={ app:Q.get('app')||'', t:Q.get('t')||'', kind:Q.get('kind')||'', sens:+(Q.get('sens')||0)||0, target:(Q.get('target')==='fit'?'fit':'rope'), who:null, saved:null,
   // mode=post : 오프라인판(파일로 여는 프로그램)이 연 창. 서버 대신 window.opener.postMessage 로 결과를 돌려준다.
@@ -911,7 +911,7 @@ function liveLocked(){ return LIVE.on&&LIVE.ok&&!LIVE.closed; }
 function liveIdle(){
   const lk=liveLocked();
   $('btnStart').disabled=lk; $('btnReset').disabled=lk; $('btnStart').textContent=lk?'선생님이 시작해요':'시작';
-  if(lk&&!running&&!LIVE.cdTimer&&!det.count&&!ROPE.on){ $('status').textContent='선생님이 시작하면 같이 세요'; $('status').className='status idle'; }
+  if(lk&&!running&&!LIVE.cdTimer&&!det.count&&!ROPE.on){ { const t=slMate(); $('status').textContent=t&&!t.rest?t.n+'번 친구 차례예요 — 선생님이 시작하면 같이 세요':t&&t.rest?'이번엔 이 기기를 쉬어요':'선생님이 시작하면 같이 세요'; } $('status').className='status idle'; }
   guideShow();
 }
 // 기기 찾기: 선생님 화면이 control.id 를 F기기[-학년-반-번호]-시각 (모두면 F0-시각) 으로 잠깐 바꿈 → 돌려 쓰는 기기면 번호를 크게 띄움
@@ -922,14 +922,19 @@ function findSignal(c){
   const me=LIVE.me, k=me&&me.n>60?me.n-60:0, want=+m[1];
   if(!k||(want&&want!==k)) return true;
   $('fpBig').textContent='기기 '+k;
-  $('fpSub').textContent=want&&m[4]?(m[2]+'학년 '+m[3]+'반 '+m[4]+'번 친구 자리'):'';
+  { const t=slMate(); $('fpSub').textContent=want&&m[4]?(m[2]+'학년 '+m[3]+'반 '+m[4]+'번 친구 자리'):t&&!t.rest?(t.g+'학년 '+t.c+'반 '+t.n+'번 친구 자리'):''; }
   const el=$('findPop'); el.hidden=false; el.onclick=()=>{ el.hidden=true; };
   try{ if(navigator.vibrate) navigator.vibrate([300,120,300,120,300]); }catch(e){}
   try{ ac=ac||new (window.AudioContext||window.webkitAudioContext)(); [0,0.28,0.56].forEach((t,i)=>{ const o=ac.createOscillator(), g=ac.createGain(); o.type='square'; o.frequency.value=i%2?1175:880; g.gain.setValueAtTime(0.18,ac.currentTime+t); g.gain.exponentialRampToValueAtTime(0.0001,ac.currentTime+t+0.22); o.connect(g).connect(ac.destination); o.start(ac.currentTime+t); o.stop(ac.currentTime+t+0.24); }); }catch(e){}
   clearTimeout(LIVE.findT); LIVE.findT=setTimeout(()=>{ el.hidden=true; },4000);
   return true;
 }
+// 돌려 쓰는 기기: 신호의 sl('기기:학년-반-번호,…')에서 이 기기의 지금 차례 친구를 찾음
+function slMate(){ const me=LIVE.me, k=me&&me.n>60?me.n-60:0; if(!k||!LIVE.sl) return null;
+  const hit=String(LIVE.sl).split(',').map(x=>x.split(':')).find(x=>+x[0]===k); if(!hit) return null;
+  if(hit[1]==='-') return {rest:true}; const p=hit[1].split('-').map(Number); return p.length===3&&p[2]?{g:p[0],c:p[1],n:p[2]}:null; }
 function onControl(c){
+  if(c&&c.sl!==undefined&&c.sl!==LIVE.sl){ LIVE.sl=c.sl; if(LIVE.me&&LIVE.me.n>60){ liveConnectedPill(); if(!running&&!LIVE.cdTimer) liveIdle(); } }
   if(findSignal(c)) return;   // 찾기 신호는 회차와 상관없음 (LIVE.ctl 도 그대로)
   // c = {ph:'go', id:회차, at:시작시각(서버 ms), dur:초(0=선생님이 끝낼 때까지)} | {ph:'end', id} | {ph:'open'} | null(방 닫힘)
   LIVE.ctl=c;
@@ -963,7 +968,7 @@ function onControl(c){
   } else if(c.ph==='go'&&LIVE.ctlRun&&String(c.id)===LIVE.ctlRun){ LIVE.ctlEnd=c.dur>0?c.at+c.dur*1000:0;   // 선생님이 '끝' → 5초 뒤 끝으로 바뀜
   } else if(c.ph==='end'&&LIVE.ctlRun&&(!c.id||String(c.id)===LIVE.ctlRun)){ if(running) runEnd(); else { if(LIVE.cdTimer){ clearInterval(LIVE.cdTimer); LIVE.cdTimer=0; } liveIdle(); } }
 }
-function liveConnectedPill(){ const m=LIVE.me; livePill(m?`선생님 화면에 연결됨 · ${m.n>60?'돌려 쓰는 기기 '+(m.n-60)+'번 · 차례인 친구는 선생님 화면에서':m.g+'학년 '+m.c+'반 '+m.n+'번'}${LIVE.T&&LIVE.T.mode&&LIVE.T.mode()==='lp'?' <span style="color:var(--muted)">· 우회 연결</span>':''}${LIVE.picked?' <u style="cursor:pointer">'+(m.n>60?'기기 번호 바꾸기':'번호 바꾸기')+'</u>':''}`:'번호를 골라 주세요'); }
+function liveConnectedPill(){ const m=LIVE.me; livePill(m?`선생님 화면에 연결됨 · ${m.n>60?'돌려 쓰는 기기 '+(m.n-60)+'번 · '+((t=>t?(t.rest?'이번엔 쉬어요':'지금 차례: <b>'+t.g+'학년 '+t.c+'반 '+t.n+'번</b>'):'차례인 친구는 선생님 화면에서')(slMate())):m.g+'학년 '+m.c+'반 '+m.n+'번'}${LIVE.T&&LIVE.T.mode&&LIVE.T.mode()==='lp'?' <span style="color:var(--muted)">· 우회 연결</span>':''}${LIVE.picked?' <u style="cursor:pointer">'+(m.n>60?'기기 번호 바꾸기':'번호 바꾸기')+'</u>':''}`:'번호를 골라 주세요'); }
 // 번호 고르기 (QR로 바로 들어온 학생) — 이름은 선생님 현황판에만 있고, 여기서는 번호만 고름
 // 반 고르기 → 번호 고르기. 여러 반이 함께 수업하는 방(5·6학년 등)이면 반부터 고름
 // 돌려 쓰는 기기: 여러 친구가 번갈아 쓰는 노트북·태블릿은 '기기 k번'으로 한 번만 들어옴 (번호 60+k 로 보냄)

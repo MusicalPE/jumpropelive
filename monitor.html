@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.7.5</title>
+<title>점프 라이브 v0.7.6</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -274,7 +274,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.7.5</span></h1>
+    <h1>점프 라이브<span class="ver">v0.7.6</span></h1>
     <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button><button id="btnDev" title="돌려 쓰는 기기(노트북·태블릿) 찾기" hidden>기기</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
@@ -748,6 +748,12 @@ async function devFind(k){
   $('devMsg').textContent=(k?'기기 '+k+'번':'모든 기기')+' 화면에 번호를 띄웠어요';
   DEVF.t=setTimeout(async()=>{ const back=DEVF.back; DEVF.back=null; if(back&&S.ctl===back) try{ await B.setControl(S.room,back); }catch(e){} },3000);
 }
+// 돌려 쓰는 기기에 지금 차례 친구 알려 주기: 회차 신호(control)에 sl='기기:학년-반-번호,…' 를 함께 실어 보냄
+function slStr(){ const ks=slotKeys(); if(!ks.length) return ''; return ks.map(key=>{ const st=hubStudent(key); return key.slice(1)+':'+(st?skey(st.g,st.c,st.n):'-'); }).join(',').slice(0,200); }
+function slWrap(){ const sc=B.setControl; B.setControl=(room,c)=>{ if(c){ const sl=slStr(); if(sl) c=Object.assign({},c,{sl}); SLOT.sent=sl; } return sc.call(B,room,c); }; }
+function slSync(){ // 조가 바뀌거나 기기가 새로 들어오면 (뛰는 중이 아닐 때) 같은 신호를 sl 만 바꿔 다시 보냄
+  if(!S.room||S.ctl.ph==='go'||DEVF.back) return; const sl=slStr(); if(sl===(SLOT.sent||'')) return;
+  if(SLOT.syncT) return; SLOT.syncT=setTimeout(()=>{ SLOT.syncT=0; if(S.room&&S.ctl.ph!=='go'&&!DEVF.back&&slStr()!==(SLOT.sent||'')) B.setControl(S.room,S.ctl).catch(()=>{}); },600); }
 const useDevs=()=>HUB.on||slotKeys().length>0;
 // 들어온 방법 표시: 카메라 기기(휴대폰·태블릿·컴퓨터) · 줄넘기(허브). 둘 다면 둘 다, 지금 숫자를 쓰는 쪽은 진하게
 const IC_CAM='<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>';
@@ -757,7 +763,7 @@ function srcIcons(r){ if(!r.cam&&!r.rope) return '';
   const both=r.cam&&r.rope, one=(ic,k,t)=>`<span class="src ${k}${both&&r.src&&r.src!==k?' dim':''}" title="${t}">${ic}</span>`;
   return `<span class="srcs"${both?' title="카메라 기기와 줄넘기 둘 다 들어왔어요 — 높은 횟수 하나만 기록해요"':''}>${r.cam?one(IC_CAM,'cam','카메라 기기로 들어왔어요'):''}${r.rope?one(IC_ROPE,'rope','줄넘기(허브·블루투스)로 들어왔어요'):''}</span>`; }
 function render(){
-  $('hdrTools').hidden=$('btnClose').hidden=!S.room; { const n=S.room?slotKeys().length:0; $('btnDev').hidden=!n; if(!n) $('devp').hidden=true; else if(!$('devp').hidden) devRender(); }   // 방을 연 뒤에만 맨 위 QR·허브·음악·방 닫기
+  $('hdrTools').hidden=$('btnClose').hidden=!S.room; slSync(); { const n=S.room?slotKeys().length:0; $('btnDev').hidden=!n; if(!n) $('devp').hidden=true; else if(!$('devp').hidden) devRender(); }   // 방을 연 뒤에만 맨 위 QR·허브·음악·방 닫기
   const all=liveDevs(), mine={}, others=[], gs=S.groups, M=multi();
   const inGroup=d=>gs.some(x=>x.g===d.g&&x.c===d.c&&d.n>=1&&d.n<=x.max);
   all.forEach(d=>{ if(inGroup(d)) (mine[skey(d.g,d.c,d.n)]=mine[skey(d.g,d.c,d.n)]||[]).push(d); else others.push(d); });
@@ -1747,7 +1753,7 @@ setInterval(()=>{ if(S.room) render(); },3000);   // 신호가 끊긴 기기를 
 (async()=>{
   $('demoTag').hidden=!DEMO||Q.get('clean')==='1';   // &clean=1 : 영상 찍을 때 '시험 모드' 표시 숨김
   if(DEMO&&Q.get('clean')==='1') $('me').style.visibility='hidden';
-  try{ B=DEMO?demoBackend():await firebaseBackend(); }
+  try{ B=DEMO?demoBackend():await firebaseBackend(); slWrap(); }
   catch(e){ console.error(e); view('vLogin'); $('loginErr').textContent='Firebase를 불러오지 못했어요 — 인터넷을 확인하세요'; $('btnIn').disabled=true; return; }
   B.onUser(async u=>{
     USER=u; $('me').hidden=!u; $('meName').textContent=u?u.name:'';
