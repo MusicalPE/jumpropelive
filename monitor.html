@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.6.4</title>
+<title>점프 라이브 v0.6.5</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -265,7 +265,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.6.4</span></h1>
+    <h1>점프 라이브<span class="ver">v0.6.5</span></h1>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <div class="me" id="me" hidden><span id="meName"></span><button id="btnOut">로그아웃</button></div>
@@ -443,7 +443,7 @@
 <div class="big" id="big"></div>
 <div class="hub" id="hub" hidden>
   <div class="mh">줄넘기 허브 <span class="hst" id="hubSt">연결 안 됨</span><button class="x" id="hubX">닫기</button></div>
-  <div class="hr"><button class="primary" id="hubConn">허브 연결</button><button id="hubRole" disabled>줄넘기 찾기</button><button id="hubBatt" disabled>배터리</button><button id="hubVib" disabled>모두 진동</button><button id="hubAuto" disabled hidden>전체 자동번호</button></div>
+  <div class="hr"><button class="primary" id="hubConn">허브 연결</button><button id="hubRole" disabled>줄넘기 찾기</button><button id="hubBatt" disabled>배터리</button><button id="hubVib" disabled>모두 진동</button><button id="hubSeq" disabled title="줄넘기 번호와 상관없이, 켜진 줄넘기를 작은 번호부터 1번 학생, 2번 학생… 차례로 이어요">1번 학생부터 잇기</button><button id="hubAuto" disabled hidden>전체 자동번호</button></div>
   <label class="hr"><input type="checkbox" id="hubBuzz" checked> 시작·끝에 줄넘기 진동</label>
   <div class="hst" id="hubModeTip"></div>
   <div class="hlist"><table><thead><tr><th>번호</th><th>학생</th><th>상태</th><th>배터리</th><th>횟수</th><th></th></tr></thead><tbody id="hubBody"></tbody></table></div>
@@ -930,7 +930,7 @@ async function hubConnect(){
   try{ HUB.port=await navigator.serial.requestPort(); await HUB.port.open({baudRate:115200,bufferSize:65536}); }
   catch(e){ HUB.port=null; if(e.name!=='NotFoundError') hubMsg('허브를 열지 못했어요: '+e.message+' — JUMPITNOW 사이트나 다른 창이 허브를 쓰고 있으면 닫아 주세요',true); return; }
   HUB.on=true; HUB.buf=''; hubSt('허브 켜지는 중…'); hubMsg('허브가 다시 켜져요 — 5~7초 기다려요');
-  $('hubConn').textContent='허브 끊기'; ['hubRole','hubBatt','hubVib','hubAuto'].forEach(id=>$(id).disabled=false);
+  $('hubConn').textContent='허브 끊기'; ['hubRole','hubBatt','hubVib','hubSeq','hubAuto'].forEach(id=>$(id).disabled=false);
   const dec=new TextDecoder();
   (async()=>{ while(HUB.on&&HUB.port&&HUB.port.readable){ HUB.reader=HUB.port.readable.getReader();
       try{ for(;;){ const {value,done}=await HUB.reader.read(); if(done) break; HUB.buf+=dec.decode(value,{stream:true}); let i;
@@ -944,7 +944,7 @@ async function hubClose(lost){
   if(!lost&&HUB.on&&S.ctl.ph!=='go'){ HUB.accept=false; await hubSend('free all'); await new Promise(r=>setTimeout(r,400)); await hubSend('start all'); await new Promise(r=>setTimeout(r,300)); }
   HUB.on=false; hubStopPoll();
   try{ if(HUB.reader) await HUB.reader.cancel(); }catch(e){} try{ if(HUB.port) await HUB.port.close(); }catch(e){}
-  HUB.port=null; $('hubConn').textContent='허브 연결'; ['hubRole','hubBatt','hubVib','hubAuto'].forEach(id=>$(id).disabled=true);
+  HUB.port=null; $('hubConn').textContent='허브 연결'; ['hubRole','hubBatt','hubVib','hubSeq','hubAuto'].forEach(id=>$(id).disabled=true);
   hubSt(lost?'끊김':'연결 안 됨',lost?'bad':''); hubPush();
 }
 // 회차 흐름: 카운트다운 → free all / "시작!" → start all + 1초마다 getData / 끝 → stop all + 마지막 getData (빠진 줄넘기는 따로 다시)
@@ -985,6 +985,12 @@ function hubInit(){
   $('selDur').addEventListener('change',hubModeUi); hubModeUi();
   $('hubBatt').onclick=()=>hubSend('getBattery all');
   $('hubVib').onclick=()=>hubSend('vibrate all');
+  // 다른 학교에서 11~19번처럼 번호가 정해진 줄넘기를 쓸 때: 켜진 줄넘기를 작은 번호부터 이 반 1번, 2번… 학생에게 차례로 이음
+  $('hubSeq').onclick=()=>{ const now=Date.now(), ropes=Object.values(HUB.ropes).filter(r=>r.n>0&&r.seen&&now-r.seen<20000).map(r=>r.n).sort((a,b)=>a-b);
+    if(!ropes.length) return hubMsg('켜진 줄넘기가 안 보여요 — "줄넘기 찾기"를 먼저 눌러요');
+    const studs=[]; S.groups.forEach(x=>{ for(let n=1;n<=x.max;n++) studs.push(skey(x.g,x.c,n)); });
+    ropes.forEach((n,i)=>{ HUB.map[n]=studs[i]||'-'; }); store.set('jl_hubmap',JSON.stringify(HUB.map)); hubPush();
+    hubMsg(`줄넘기 ${ropes[0]}~${ropes[ropes.length-1]}번 (${ropes.length}개)을 1번 학생부터 차례로 이었어요`+(ropes.length>studs.length?' · 남는 줄넘기는 쓰지 않아요':'')); };
   $('hubAuto').onclick=()=>{ if(confirm('켜져 있는 줄넘기 번호를 처음부터 다시 매길까요? (지금 번호가 바뀔 수 있어요)')){ HUB.ropes={}; hubRender(); hubSend('assignall'); } };
   $('hubBody').onchange=e=>{ const sel=e.target.closest('[data-map]'); if(!sel) return; const n=sel.closest('tr').dataset.n;
     HUB.map[n]=sel.value; store.set('jl_hubmap',JSON.stringify(HUB.map)); hubPush(); };
