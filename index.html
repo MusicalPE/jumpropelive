@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 판정기 v0.9.12 · 카메라로 진짜 뛰는지 보기</title>
+<title>줄넘기 판정기 v0.9.13 · 카메라로 진짜 뛰는지 보기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -292,7 +292,7 @@
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
     <div class="titles">
-      <h1>줄넘기 판정기<span class="ver">v0.9.12</span></h1>
+      <h1>줄넘기 판정기<span class="ver">v0.9.13</span></h1>
       <span class="sub">머리부터 발까지 보이게 서서, 몸이 뜨고 팔이 돌 때만 1회로 세요</span>
     </div>
     <div class="who" id="who"></div>
@@ -361,6 +361,7 @@
 
 <canvas id="fx"></canvas>
 <div class="burst" id="burst"></div>
+<div id="findPop" hidden style="position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(255,107,91,.94);color:#fff;text-align:center;font-family:inherit;cursor:pointer"><div><div id="fpTop" style="font-size:clamp(22px,4vw,40px);font-weight:800;opacity:.9">여기예요!</div><div id="fpBig" style="font-size:clamp(90px,22vw,260px);font-weight:900;line-height:1.05;letter-spacing:-.03em"></div><div id="fpSub" style="font-size:clamp(24px,5vw,56px);font-weight:800"></div></div></div>
 <button class="ropeRe" id="ropeRe" hidden>줄넘기 다시 연결</button>
 <div aria-hidden="true" style="position:fixed;left:-9999px;top:0;font-size:clamp(44px,9vh,96px);font-weight:800;opacity:.01;pointer-events:none">0123456789시작초!회돌파끝</div>
 
@@ -523,7 +524,7 @@ const $=id=>document.getElementById(id);
 const video=$('video'), cv=$('overlay'), cx=cv.getContext('2d');
 let landmarker=null, stream=null, facing='user', running=false, t0=0, raf=0, lastVideoT=-1, frames=0, fpsT=0;
 /* ---------- 앱 연동: 체육교사 보조 프로그램의 줄넘기 화면에서 열리면 ?app=앱주소&t=학생표&kind=종류 가 붙어 와요 ---------- */
-const VER='0.9.12';
+const VER='0.9.13';
 const Q=new URLSearchParams(location.search);
 const LINK={ app:Q.get('app')||'', t:Q.get('t')||'', kind:Q.get('kind')||'', sens:+(Q.get('sens')||0)||0, target:(Q.get('target')==='fit'?'fit':'rope'), who:null, saved:null,
   // mode=post : 오프라인판(파일로 여는 프로그램)이 연 창. 서버 대신 window.opener.postMessage 로 결과를 돌려준다.
@@ -913,7 +914,23 @@ function liveIdle(){
   if(lk&&!running&&!LIVE.cdTimer&&!det.count&&!ROPE.on){ $('status').textContent='선생님이 시작하면 같이 세요'; $('status').className='status idle'; }
   guideShow();
 }
+// 기기 찾기: 선생님 화면이 control.id 를 F기기[-학년-반-번호]-시각 (모두면 F0-시각) 으로 잠깐 바꿈 → 돌려 쓰는 기기면 번호를 크게 띄움
+function findSignal(c){
+  const m=/^F(\d{1,2})(?:-(\d{1,2})-(\d{1,2})-(\d{1,2}))?-[a-z0-9]+$/.exec(String(c&&c.id||'')); if(!m) return false;
+  if(c.ph==='go') return false;
+  if(LIVE.findSeen===c.id) return true; LIVE.findSeen=c.id;
+  const me=LIVE.me, k=me&&me.n>60?me.n-60:0, want=+m[1];
+  if(!k||(want&&want!==k)) return true;
+  $('fpBig').textContent='기기 '+k;
+  $('fpSub').textContent=want&&m[4]?(m[2]+'학년 '+m[3]+'반 '+m[4]+'번 친구 자리'):'';
+  const el=$('findPop'); el.hidden=false; el.onclick=()=>{ el.hidden=true; };
+  try{ if(navigator.vibrate) navigator.vibrate([300,120,300,120,300]); }catch(e){}
+  try{ ac=ac||new (window.AudioContext||window.webkitAudioContext)(); [0,0.28,0.56].forEach((t,i)=>{ const o=ac.createOscillator(), g=ac.createGain(); o.type='square'; o.frequency.value=i%2?1175:880; g.gain.setValueAtTime(0.18,ac.currentTime+t); g.gain.exponentialRampToValueAtTime(0.0001,ac.currentTime+t+0.22); o.connect(g).connect(ac.destination); o.start(ac.currentTime+t); o.stop(ac.currentTime+t+0.24); }); }catch(e){}
+  clearTimeout(LIVE.findT); LIVE.findT=setTimeout(()=>{ el.hidden=true; },4000);
+  return true;
+}
 function onControl(c){
+  if(findSignal(c)) return;   // 찾기 신호는 회차와 상관없음 (LIVE.ctl 도 그대로)
   // c = {ph:'go', id:회차, at:시작시각(서버 ms), dur:초(0=선생님이 끝낼 때까지)} | {ph:'end', id} | {ph:'open'} | null(방 닫힘)
   LIVE.ctl=c;
   LIVE.closed=!c;

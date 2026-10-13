@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.7.4</title>
+<title>점프 라이브 v0.7.5</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -274,8 +274,8 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.7.4</span></h1>
-    <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button></div>
+    <h1>점프 라이브<span class="ver">v0.7.5</span></h1>
+    <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button><button id="btnDev" title="돌려 쓰는 기기(노트북·태블릿) 찾기" hidden>기기</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <button id="btnClose" class="hdr-close" hidden title="방을 닫고 학생 연결 끊기">방 닫기</button>
@@ -461,6 +461,12 @@
   <div class="hlist"><table><thead><tr><th>번호</th><th>학생</th><th>상태</th><th>배터리</th><th>횟수</th><th></th></tr></thead><tbody id="hubBody"></tbody></table></div>
   <div class="hst" id="hubMsg">USB에 허브를 꽂고 "허브 연결" → 목록에서 "USB JTAG/serial debug unit"을 골라요. 크롬·엣지에서만 돼요. JUMPITNOW 사이트에서는 허브를 먼저 해제해 주세요.</div>
   <div class="hst">줄넘기 번호 정하기·배터리 점검은 <a href="ropes.html" target="_blank" rel="noopener">줄넘기 관리</a>에서 (이 창에서 허브를 끊고 열어요)</div>
+</div>
+<div class="hub" id="devp" hidden>
+  <div class="mh">돌려 쓰는 기기 <span class="hst" id="devSt"></span><button class="x" id="devX">닫기</button></div>
+  <div class="hr"><button class="primary" id="devAll" title="모든 기기 화면에 기기 번호를 크게 띄워요">모두 찾기</button></div>
+  <div class="hlist"><table><thead><tr><th>기기</th><th>지금 차례 친구</th><th>상태</th><th></th></tr></thead><tbody id="devBody"></tbody></table></div>
+  <div class="hst" id="devMsg">"찾기"를 누르면 그 기기 화면에 번호와 차례 친구가 몇 초 동안 크게 떠요 (소리·진동도 함께).</div>
 </div>
 <div class="music" id="music" hidden>
   <div class="mh">배경음악 <span class="mmsg" id="mNow"></span><button class="x" id="mMini">접기</button><button class="x" id="mClose">닫기</button></div>
@@ -724,6 +730,24 @@ const devLblLong=n=>String(n)[0]==='L'?'기기 '+String(n).slice(1):n+'번 줄�
 // 한 명만 세는 회차(도전·릴레이): 그 친구가 돌려 쓰는 기기에 이어져 있으면 그 기기 번호(60+k)로 보냄
 function whoOf(k){ const d=liveDevs().find(x=>x.slot&&x.st!=='off'&&skey(x.g,x.c,x.n)===k), raw=d&&S.devs[d.id]; return raw?skey(raw.g,raw.c,raw.n):k; }
 const devOnly=a=>!!a&&a.length>0&&a.every(n=>String(n)[0]==='L'), devHead=a=>devOnly(a)?'기기':a&&a.some(n=>String(n)[0]==='L')?'줄넘기·기기':'줄넘기';
+// 기기 찾기: 선생님이 누르면 그 기기 화면에 번호가 크게 뜸. 서버 규칙을 바꾸지 않으려고 회차 신호(control)의 id 에 잠깐 실어 보냄
+//  id = F기기-학년-반-번호-시각 (모두: F0-시각) · 3초 뒤 원래 신호로 되돌림 · 뛰는 중에는 안 함
+const DEVF={ t:0, back:null };
+function devMate(k){ const st=hubStudent('L'+k); if(!st) return null; const x=S.groups.find(x=>x.g===st.g&&x.c===st.c); return Object.assign({},st,{name:x&&x.names[st.n]||''}); }
+function devRender(){ const now=B.now(), ks=slotKeys(), devs=Object.values(S.devs||{});
+  $('devSt').textContent=ks.length+'대';
+  $('devBody').innerHTML=ks.map(key=>{ const k=+key.slice(1), m=devMate(k), d=devs.find(x=>slotOf(x)===k);
+    return `<tr><td class="no">${k}</td><td>${m?(multi()?m.g+'-'+m.c+' ':'')+m.n+'번 '+esc(m.name):'<span style="color:var(--muted)">이번엔 쉬어요</span>'}</td><td><span class="dot${d&&now-(d.t||0)<=STALE_MS?' on':''}"></span>${d?(LBL[d.st]||d.st):''}</td><td><button data-find="${k}">찾기</button></td></tr>`; }).join('')||'<tr><td colspan="4" style="color:var(--muted)">들어온 기기가 없어요</td></tr>'; }
+async function devFind(k){
+  if(S.ctl.ph==='go') return alert('뛰는 중에는 기기 찾기를 할 수 없어요. 끝난 뒤에 눌러 주세요.');
+  const m=k?devMate(k):null, ts=Date.now().toString(36);
+  const id=k?('F'+k+(m?'-'+m.g+'-'+m.c+'-'+m.n:'')+'-'+ts):'F0-'+ts;
+  if(!DEVF.back) DEVF.back=S.ctl;   // 되돌릴 원래 신호
+  clearTimeout(DEVF.t);
+  try{ await B.setControl(S.room,{ph:S.ctl.ph==='open'?'open':'end',id}); }catch(e){ DEVF.back=null; return alert('신호를 보내지 못했어요: '+e.message); }
+  $('devMsg').textContent=(k?'기기 '+k+'번':'모든 기기')+' 화면에 번호를 띄웠어요';
+  DEVF.t=setTimeout(async()=>{ const back=DEVF.back; DEVF.back=null; if(back&&S.ctl===back) try{ await B.setControl(S.room,back); }catch(e){} },3000);
+}
 const useDevs=()=>HUB.on||slotKeys().length>0;
 // 들어온 방법 표시: 카메라 기기(휴대폰·태블릿·컴퓨터) · 줄넘기(허브). 둘 다면 둘 다, 지금 숫자를 쓰는 쪽은 진하게
 const IC_CAM='<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>';
@@ -733,7 +757,7 @@ function srcIcons(r){ if(!r.cam&&!r.rope) return '';
   const both=r.cam&&r.rope, one=(ic,k,t)=>`<span class="src ${k}${both&&r.src&&r.src!==k?' dim':''}" title="${t}">${ic}</span>`;
   return `<span class="srcs"${both?' title="카메라 기기와 줄넘기 둘 다 들어왔어요 — 높은 횟수 하나만 기록해요"':''}>${r.cam?one(IC_CAM,'cam','카메라 기기로 들어왔어요'):''}${r.rope?one(IC_ROPE,'rope','줄넘기(허브·블루투스)로 들어왔어요'):''}</span>`; }
 function render(){
-  $('hdrTools').hidden=$('btnClose').hidden=!S.room;   // 방을 연 뒤에만 맨 위 QR·허브·음악·방 닫기
+  $('hdrTools').hidden=$('btnClose').hidden=!S.room; { const n=S.room?slotKeys().length:0; $('btnDev').hidden=!n; if(!n) $('devp').hidden=true; else if(!$('devp').hidden) devRender(); }   // 방을 연 뒤에만 맨 위 QR·허브·음악·방 닫기
   const all=liveDevs(), mine={}, others=[], gs=S.groups, M=multi();
   const inGroup=d=>gs.some(x=>x.g===d.g&&x.c===d.c&&d.n>=1&&d.n<=x.max);
   all.forEach(d=>{ if(inGroup(d)) (mine[skey(d.g,d.c,d.n)]=mine[skey(d.g,d.c,d.n)]||[]).push(d); else others.push(d); });
@@ -1014,6 +1038,10 @@ function hubOnEnd(){ if(!HUB.on||!HUB.runId) return; hubStopPoll(); const t=Date
     // 마지막 횟수를 받은 뒤: 줄넘기를 다시 '세는 상태'로 돌려놓음 — 멈춤으로 두면 학생이 혼자 뛸 때(앱·화면) 안 셈
     clearTimeout(HUB.freeT); HUB.freeT=setTimeout(async()=>{ HUB.accept=false; await hubSend('free all'); setTimeout(()=>hubSend('start all'),400); },2600); }); }
 function hubInit(){
+  $('btnDev').onclick=()=>{ $('devp').hidden=!$('devp').hidden; if(!$('devp').hidden){ $('hub').hidden=true; devRender(); } };
+  $('devX').onclick=()=>{ $('devp').hidden=true; };
+  $('devAll').onclick=()=>devFind(0);
+  $('devBody').onclick=e=>{ const b=e.target.closest('[data-find]'); if(b) devFind(+b.dataset.find); };
   $('btnHub').onclick=()=>{ $('hub').hidden=!$('hub').hidden; hubRender(); };
   $('hubX').onclick=()=>{ $('hub').hidden=true; };
   $('hubConn').onclick=hubConnect;
