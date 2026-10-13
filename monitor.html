@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.7.2</title>
+<title>점프 라이브 v0.7.3</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -33,6 +33,7 @@
   header .mark,header h1{cursor:pointer}
   .ch-top button.xbtn{width:48px;min-width:48px;height:48px;min-height:48px;padding:0;display:inline-grid;place-items:center;border-radius:14px}
   .ch-top button.xbtn svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2.6;stroke-linecap:round}
+  .hdr-close{min-height:34px;padding:4px 12px;font-size:13px;font-weight:800;border-radius:10px;color:var(--red);box-shadow:none}
   .hdr-tools{display:flex;gap:6px;margin-left:6px;padding-left:12px;border-left:2px solid var(--line)}
   .hdr-tools button{min-height:36px;padding:4px 12px;font-size:14px;font-weight:800;box-shadow:none}
   .hdr-tools button.on{border-color:var(--mint);color:#0F766E;background:#E7F7F5}
@@ -273,10 +274,11 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.7.2</span></h1>
-    <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button></div>
+    <h1>점프 라이브<span class="ver">v0.7.3</span></h1>
+    <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
+    <button id="btnClose" class="hdr-close" hidden title="방을 닫고 학생 연결 끊기">방 닫기</button>
     <div class="me" id="me" hidden><span id="meName"></span><button id="btnOut">로그아웃</button></div>
   </header>
 
@@ -343,9 +345,7 @@
       </select>
       <span hidden><button id="btnChal">랜덤 도전</button><button id="btnRelay">릴레이</button><button id="btnRot">조별 차례</button><button id="btnTeam">팀전</button><button id="btnTrel">팀 릴레이</button><button id="btnBak">박 터트리기</button></span>
       <button id="btnSort">횟수순</button>
-      <button id="btnMusic" title="유튜브 배경음악">음악</button>
       <button id="btnResult" disabled>결과</button>
-      <button id="btnClose">방 닫기</button>
     </div>
     <div class="grid" id="grid"></div>
     <div class="card others" id="others" hidden></div>
@@ -676,7 +676,7 @@ async function closeRoom(){
   const id=S.lastRun&&S.lastRun.id, unkept=id&&!runKept(id);
   if(!confirm('방을 닫을까요? 학생 기기와의 연결이 끊기고 이번 수업 기록이 서버에서 지워져요.'+(unkept?'\n\n마지막 회차 결과가 아직 시트에 들어가지 않았어요!':''))) return;
   try{ await B.closeRoom(S.room); }catch(e){ alert('방을 닫지 못했어요: '+e.message); return; }
-  store.set('jrl_open',''); S.room=''; $('hdrTools').hidden=true; $('vLive').style.display='none'; view('vSetup');
+  store.set('jrl_open',''); S.room=''; $('hdrTools').hidden=$('btnClose').hidden=true; modeCloseAll(); $('vLive').style.display='none'; view('vSetup');
 }
 
 /* ---------- QR ---------- */
@@ -711,7 +711,7 @@ function srcIcons(r){ if(!r.cam&&!r.rope) return '';
   const both=r.cam&&r.rope, one=(ic,k,t)=>`<span class="src ${k}${both&&r.src&&r.src!==k?' dim':''}" title="${t}">${ic}</span>`;
   return `<span class="srcs"${both?' title="카메라 기기와 줄넘기 둘 다 들어왔어요 — 높은 횟수 하나만 기록해요"':''}>${r.cam?one(IC_CAM,'cam','카메라 기기로 들어왔어요'):''}${r.rope?one(IC_ROPE,'rope','줄넘기(허브·블루투스)로 들어왔어요'):''}</span>`; }
 function render(){
-  $('hdrTools').hidden=!S.room;   // 방을 연 뒤에만 맨 위 QR·허브
+  $('hdrTools').hidden=$('btnClose').hidden=!S.room;   // 방을 연 뒤에만 맨 위 QR·허브·음악·방 닫기
   const all=liveDevs(), mine={}, others=[], gs=S.groups, M=multi();
   const inGroup=d=>gs.some(x=>x.g===d.g&&x.c===d.c&&d.n>=1&&d.n<=x.max);
   all.forEach(d=>{ if(inGroup(d)) (mine[skey(d.g,d.c,d.n)]=mine[skey(d.g,d.c,d.n)]||[]).push(d); else others.push(d); });
