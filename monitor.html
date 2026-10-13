@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.7.0</title>
+<title>점프 라이브 v0.7.1</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -31,6 +31,9 @@
 
   header{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
   header .mark,header h1{cursor:pointer}
+  .hdr-tools{display:flex;gap:6px;margin-left:6px;padding-left:12px;border-left:2px solid var(--line)}
+  .hdr-tools button{min-height:36px;padding:4px 12px;font-size:14px;font-weight:800;box-shadow:none}
+  .hdr-tools button.on{border-color:var(--mint);color:#0F766E;background:#E7F7F5}
   .mark{width:44px;height:44px;border-radius:14px;background:var(--accent);display:grid;place-items:center;flex:none}
   .mark svg{width:24px;height:24px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   h1{font-size:clamp(20px,2.6vw,30px);font-weight:800;margin:0;letter-spacing:-.03em}
@@ -268,7 +271,8 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.7.0</span></h1>
+    <h1>점프 라이브<span class="ver">v0.7.1</span></h1>
+    <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <div class="me" id="me" hidden><span id="meName"></span><button id="btnOut">로그아웃</button></div>
@@ -338,8 +342,6 @@
       <span hidden><button id="btnChal">랜덤 도전</button><button id="btnRelay">릴레이</button><button id="btnRot">조별 차례</button><button id="btnTeam">팀전</button><button id="btnTrel">팀 릴레이</button><button id="btnBak">박 터트리기</button></span>
       <button id="btnSort">횟수순</button>
       <button id="btnMusic" title="유튜브 배경음악">음악</button>
-      <button id="btnHub" title="전자 줄넘기 허브(USB)">줄넘기 허브</button>
-      <button id="btnQr">QR</button>
       <button id="btnResult" disabled>결과</button>
       <button id="btnClose">방 닫기</button>
     </div>
@@ -672,7 +674,7 @@ async function closeRoom(){
   const id=S.lastRun&&S.lastRun.id, unkept=id&&!runKept(id);
   if(!confirm('방을 닫을까요? 학생 기기와의 연결이 끊기고 이번 수업 기록이 서버에서 지워져요.'+(unkept?'\n\n마지막 회차 결과가 아직 시트에 들어가지 않았어요!':''))) return;
   try{ await B.closeRoom(S.room); }catch(e){ alert('방을 닫지 못했어요: '+e.message); return; }
-  store.set('jrl_open',''); S.room=''; $('vLive').style.display='none'; view('vSetup');
+  store.set('jrl_open',''); S.room=''; $('hdrTools').hidden=true; $('vLive').style.display='none'; view('vSetup');
 }
 
 /* ---------- QR ---------- */
@@ -707,6 +709,7 @@ function srcIcons(r){ if(!r.cam&&!r.rope) return '';
   const both=r.cam&&r.rope, one=(ic,k,t)=>`<span class="src ${k}${both&&r.src&&r.src!==k?' dim':''}" title="${t}">${ic}</span>`;
   return `<span class="srcs"${both?' title="카메라 기기와 줄넘기 둘 다 들어왔어요 — 높은 횟수 하나만 기록해요"':''}>${r.cam?one(IC_CAM,'cam','카메라 기기로 들어왔어요'):''}${r.rope?one(IC_ROPE,'rope','줄넘기(허브·블루투스)로 들어왔어요'):''}</span>`; }
 function render(){
+  $('hdrTools').hidden=!S.room;   // 방을 연 뒤에만 맨 위 QR·허브
   const all=liveDevs(), mine={}, others=[], gs=S.groups, M=multi();
   const inGroup=d=>gs.some(x=>x.g===d.g&&x.c===d.c&&d.n>=1&&d.n<=x.max);
   all.forEach(d=>{ if(inGroup(d)) (mine[skey(d.g,d.c,d.n)]=mine[skey(d.g,d.c,d.n)]||[]).push(d); else others.push(d); });
@@ -1668,13 +1671,11 @@ document.querySelectorAll('header .mark, header h1').forEach(el=>{ el.title='메
 $('btnQr').onclick=showQr; $('btnQrClose').onclick=()=>$('qr').hidden=true;
 // 놀이 화면마다 위쪽에 QR 버튼 — 늦게 온 친구도 어느 놀이에서든 바로 들어오게
 // 허브도 놀이 화면에서 바로 열고 닫기, 팀을 쓰는 놀이(박 터트리기·팀 릴레이)에는 팀 나누기
-// 도구(QR·허브·팀 나누기)는 제목 옆 왼쪽에 작게 모으고, 오른쪽은 시작·끝·돌아가기만 (헷갈리지 않게)
+// QR·허브는 맨 위 '점프 라이브' 줄에 한 번만. 팀 나누기는 제목 옆 왼쪽에 작게 모으고, 오른쪽은 시작·끝·돌아가기만 (헷갈리지 않게)
 document.querySelectorAll('.chal .ch-top').forEach(top=>{ const id=top.parentElement.id, grp=document.createElement('div'); grp.className='ch-tools';
   const sp=top.querySelector('.spacer'); top.insertBefore(grp,sp);
   const add=(txt,title,fn)=>{ const b=document.createElement('button'); b.type='button'; b.textContent=txt; b.title=title; b.onclick=fn; grp.appendChild(b); return b; };
-  add('QR','들어오는 QR 띄우기',showQr);
-  add('줄넘기 허브','줄넘기 허브(USB) 열기·닫기',()=>{ $('hub').hidden=!$('hub').hidden; hubRender(); });
-  if(id==='bak'||id==='trel'){ const b=add('팀 나누기','팀 수와 팀원 정하기 (랜덤 또는 이름을 눌러 옮기기)',teamDlgOpen); b.dataset.tmbtn=id; } });
+  if(!(id==='bak'||id==='trel')) grp.remove(); if(id==='bak'||id==='trel'){ const b=add('팀 나누기','팀 수와 팀원 정하기 (랜덤 또는 이름을 눌러 옮기기)',teamDlgOpen); b.dataset.tmbtn=id; } });
 $('btnCopy').onclick=async()=>{ try{ await navigator.clipboard.writeText(studentUrl()); $('btnCopy').textContent='복사했어요'; setTimeout(()=>$('btnCopy').textContent='주소 복사',1500); }catch(e){} };
 $('btnResult').onclick=showResult; $('btnResCopy').onclick=copyResult;
 // 저장(앱에서 연 경우 시트 저장, 아니면 결과 복사)을 안 하고 닫으면 한 번 알려 줌 — 한 번 더 누르면 그냥 닫힘
