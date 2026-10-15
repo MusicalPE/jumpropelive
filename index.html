@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 판정기 v1.2.3 · 카메라로 진짜 뛰는지 보기</title>
+<title>줄넘기 판정기 v1.2.5 · 카메라로 진짜 뛰는지 보기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -77,6 +77,7 @@
   .meter b{position:absolute;top:0;bottom:0;width:3px;background:var(--ink);opacity:.55}
   .meter-l{font-size:14px;color:var(--muted);display:flex;justify-content:space-between;font-weight:500}
 
+  body.stu header .sub, body.stu .compare, body.stu #livePill, body.stu header .spacer{display:none!important}
   .compare{display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:center;border-top:1px solid var(--line);padding-top:2vh;width:min(100%,620px);font-weight:600;color:var(--ink2);font-size:16px}
   .compare .diff{font-weight:800;font-size:20px;color:var(--muted)}
   .compare .diff.ok{color:var(--mint)} .compare .diff.bad{color:var(--red)}
@@ -292,7 +293,7 @@
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
     <div class="titles">
-      <h1>줄넘기 판정기<span class="ver">v1.2.3</span></h1>
+      <h1>줄넘기 판정기<span class="ver">v1.2.5</span></h1>
       <span class="sub">머리부터 발까지 보이게 서서, 몸이 뜨고 팔이 돌 때만 1회로 세요</span>
     </div>
     <div class="who" id="who"></div>
@@ -524,7 +525,7 @@ const $=id=>document.getElementById(id);
 const video=$('video'), cv=$('overlay'), cx=cv.getContext('2d');
 let landmarker=null, stream=null, facing='user', running=false, t0=0, raf=0, lastVideoT=-1, frames=0, fpsT=0;
 /* ---------- 앱 연동: 체육교사 보조 프로그램의 줄넘기 화면에서 열리면 ?app=앱주소&t=학생표&kind=종류 가 붙어 와요 ---------- */
-const VER='1.2.3';
+const VER='1.2.5';
 const Q=new URLSearchParams(location.search);
 const LINK={ app:Q.get('app')||'', t:Q.get('t')||'', kind:Q.get('kind')||'', sens:+(Q.get('sens')||0)||0, target:(Q.get('target')==='fit'?'fit':'rope'), who:null, saved:null,
   // mode=post : 오프라인판(파일로 여는 프로그램)이 연 창. 서버 대신 window.opener.postMessage 로 결과를 돌려준다.
@@ -802,28 +803,31 @@ function stuModal(){
   $('stuCode').onkeydown=e=>{ if(e.key==='Enter') $('stuJoin').click(); };
 }
 async function stuEnter(room,code){
-  STU.on=true; STU.code=code; LIVE.room=room; LIVE.shell=LINK.app; LIVE.on=true;
+  STU.on=true; STU.code=code; LIVE.room=room; LIVE.shell=LINK.app; LIVE.on=true; document.body.classList.add('stu'); { const gf=$('gFoot'); if(gf) gf.textContent='방장 친구가 시작을 누르면 6초 뒤 다 같이 시작해요. 그동안 카메라 자리를 맞춰요!'; }
   const b=$('stuBtn'); if(b) b.remove();
-  let bar=$('stuBar'); if(!bar){ bar=document.createElement('div'); bar.id='stuBar'; bar.className='who on'; bar.style.cssText='padding:5px 8px 5px 14px;border-radius:99px;display:flex;align-items:center;gap:8px;font-size:14px;white-space:nowrap;min-width:0;max-width:100%;overflow:hidden'; $('who').after(bar); }
+  let bar=$('stuBar'); if(!bar){ bar=document.createElement('div'); bar.id='stuBar'; bar.className='who on'; bar.style.cssText='padding:10px 14px 12px 20px;border-radius:24px;display:flex;flex-direction:column;align-items:stretch;gap:8px;font-size:16px;flex:1 1 460px;min-width:0;max-width:100%'; $('who').after(bar); }
   stuBarRender();
   await liveInit();
   STU.poll=setInterval(stuPoll,3000); stuPoll();
 }
-async function stuPoll(){ if(!STU.on) return; try{ const r=await stuRpc('liteStuBoard',[LIVE.room]); if(r.closed){ STU.board=null; stuBarRender(); return; } STU.board=r; STU.hostName=r.host||''; STU.gotAt=Date.now(); stuBarRender(); }catch(e){ console.warn('stu board',e); } }
+async function stuPoll(){ if(!STU.on) return; try{ const r=await stuRpc('liteStuBoard',[LIVE.room]); if(!STU.on) return; if(r.closed){ stuLeave(true); return; } STU.board=r; STU.hostName=r.host||''; STU.gotAt=Date.now(); stuBarRender(); }catch(e){ console.warn('stu board',e); } }
 function stuMine(d){ const m=LIVE.me; return m&&d.k===m.g+'-'+m.c+'-'+m.n; }
 function stuBarRender(){
   const bar=$('stuBar'); if(!bar) return;
   const r=STU.board, run=LIVE.ctl&&LIVE.ctl.ph==='go'&&(running||LIVE.cdTimer);
   const ppl=r?Object.entries(r.ppl||{}):[], on=new Set(r?r.devs.filter(d=>d.st!=='off').map(d=>d.k):[]);
-  const chip=(k,n)=>`<span style="padding:1px 8px;border-radius:99px;background:${on.has(k)?'var(--accent-soft,#FFF0EE)':'var(--soft,#F3F4F6)'};color:${on.has(k)?'var(--accent-ink,#E2513F)':'var(--muted)'};font-weight:700">${esc(n)}</span>`;
-  const names=ppl.slice(0,5).map(([k,n])=>chip(k,n)).join('')+(ppl.length>5?`<span style="color:var(--muted)">+${ppl.length-5}</span>`:'');
+  const chip=(k,n)=>`<span style="padding:4px 14px;font-size:17px;border-radius:99px;background:${on.has(k)?'var(--accent-soft,#FFF0EE)':'var(--soft,#F3F4F6)'};color:${on.has(k)?'var(--accent-ink,#E2513F)':'var(--muted)'};font-weight:700">${esc(n)}</span>`;
+  const names=ppl.map(([k,n])=>chip(k,n)).join('');
+  const bs='font-size:15px;padding:6px 14px;min-height:36px';
   let ctl='';
-  if(run) ctl='<span style="color:var(--muted)">끝나면 함께 공개</span>';
-  else if(STU.host) ctl=`<select id="stuDur" style="font:inherit;font-size:14px;padding:4px 6px;border-radius:10px;border:1px solid var(--line)"><option value="30">30초</option><option value="60" selected>1분</option><option value="120">2분</option></select><button class="primary" id="stuGo" style="font-size:15px;padding:6px 16px;min-height:34px">${STU.lastRun?'한 번 더':'시작'}</button>`;
+  if(run) ctl=STU.host?`<button id="stuStop" style="${bs};background:#fff;border:2px solid var(--accent,#FF6B5B);color:var(--accent-ink,#E2513F)">중지</button>`:'<span style="color:var(--muted)">끝나면 함께 공개</span>';
+  else if(STU.host) ctl=`<select id="stuDur" style="font:inherit;font-size:15px;padding:5px 6px;border-radius:10px;border:1px solid var(--line)"><option value="30">30초</option><option value="60" selected>1분</option><option value="120">2분</option></select><button class="primary" id="stuGo" style="${bs};padding:6px 18px">${STU.lastRun?'한 번 더':'시작'}</button>`;
   else ctl=`<span style="color:var(--muted)">${esc(STU.hostName||'방장')} 친구가 시작해요</span>`;
-  const keep=$('stuDur')?$('stuDur').value:'';
-  bar.innerHTML=`<b>방</b><b style="font-size:20px;letter-spacing:.06em;color:var(--accent-ink,#E2513F)">${STU.code}</b><span style="color:var(--muted)">${ppl.length}명</span><span style="display:flex;gap:4px;min-width:0;overflow:hidden">${names}</span>${ctl}`;
+  const keep=$('stuDur')?$('stuDur').value:'', dot=LIVE.conn?'var(--mint,#2BB3A3)':'var(--red,#E5484D)';
+  bar.innerHTML=`<div style="display:flex;align-items:center;gap:10px;white-space:nowrap"><span title="${LIVE.conn?'연결됨':'연결하는 중'}" style="width:10px;height:10px;border-radius:50%;background:${dot};flex:none"></span><b style="font-size:18px">방</b><b style="font-size:32px;line-height:1;letter-spacing:.06em;color:var(--accent-ink,#E2513F)">${STU.code}</b><span style="color:var(--muted);font-weight:700">${ppl.length}명</span><span style="flex:1"></span>${ctl}<button id="stuOut" style="font-size:14px;padding:6px 12px;min-height:36px">나가기</button></div><div style="display:flex;flex-wrap:wrap;gap:6px;max-height:84px;overflow:auto">${names||'<span style="color:var(--muted)">친구들이 들어오면 이름이 떠요</span>'}</div>`;
   if($('stuDur')&&keep) $('stuDur').value=keep;
+  const x=$('stuStop'); if(x) x.onclick=stuStop;
+  $('stuOut').onclick=()=>stuLeave(false);
   const g=$('stuGo'); if(g) g.onclick=stuGo;
 }
 async function stuGo(){
@@ -832,6 +836,31 @@ async function stuGo(){
   try{ await stuRpc('liteSetControl',[LIVE.room,STU.owner,c]); STU.lastRun=id; onControl(c);   // 방장 기기는 바로 시작 준비
     clearTimeout(STU.endT); STU.endT=setTimeout(()=>stuRpc('liteSetControl',[LIVE.room,STU.owner,{ph:'end',id}]).catch(()=>{}),6000+dur*1000+2000); }
   catch(e){ g.disabled=false; g.textContent='시작'; alert('시작하지 못했어요: '+e.message); }
+}
+// 방장 '중지': 시작 전이면 바로 취소, 뛰는 중이면 3~4초 뒤 모두 같은 순간에 끝 (모든 기기가 신호를 받을 시간)
+async function stuStop(){
+  const c=LIVE.ctl; if(!c||c.ph!=='go') return; const x=$('stuStop'); if(x){ x.disabled=true; x.textContent='멈추는 중…'; }
+  const now=LIVE.T.now(); clearTimeout(STU.endT);
+  const nc=now<c.at?{ph:'end',id:c.id}:Object.assign({},c,{dur:Math.max(1,Math.ceil((now-c.at)/1000)+4)});
+  try{ await stuRpc('liteSetControl',[LIVE.room,STU.owner,nc]); onControl(nc);
+    if(nc.ph==='go') STU.endT=setTimeout(()=>stuRpc('liteSetControl',[LIVE.room,STU.owner,{ph:'end',id:c.id}]).catch(()=>{}),c.at+nc.dur*1000-LIVE.T.now()+2000); }
+  catch(e){ if(x){ x.disabled=false; x.textContent='중지'; } alert('멈추지 못했어요: '+e.message); }
+}
+// 나가기: 방장이 나가면 방을 닫음 → 친구들도 혼자 세기로 돌아감
+async function stuLeave(closed){
+  if(!STU.on) return;
+  if(!closed&&!confirm(STU.host?'방을 닫고 나갈까요? 친구들도 방에서 나가게 돼요.':'방에서 나가 혼자 뛸까요?')) return;
+  if(STU.host&&!closed) stuRpc('liteCloseRoom',[LIVE.room,STU.owner]).catch(()=>{});
+  clearInterval(STU.poll); clearTimeout(STU.endT); clearInterval(LIVE.beat); if(LIVE.cdTimer){ clearInterval(LIVE.cdTimer); LIVE.cdTimer=0; }
+  if(LIVE.T&&LIVE.T.stop) LIVE.T.stop();
+  running=false; if(ROPE.on) ropeRunEnd();
+  Object.assign(STU,{on:false,host:false,owner:'',code:'',board:null,lastRun:''});
+  Object.assign(LIVE,{on:false,ok:false,room:'',ctl:null,ctlRun:'',T:null,sent:null,me:null,closed:true,didRun:false});
+  document.body.classList.remove('stu'); ['stuBar','livePill'].forEach(id=>{ const e=$(id); if(e) e.remove(); });
+  $('saveModal').classList.remove('on'); det.reset(); lastCount=0; $('count').innerHTML='0<small>회</small>';
+  $('btnStart').classList.remove('warn'); $('btnStart').classList.add('primary'); liveIdle();
+  $('status').textContent=closed?'방이 닫혔어요 — 이제 혼자 뛸 수 있어요':'방에서 나왔어요 — 시작을 누르면 혼자 뛰어요'; $('status').className='status idle';
+  stuOffer();
 }
 // 끝: 결과 모으기 (모두 끝났거나, 새 소식이 4번 이어서 그대로면 · 길어야 20초) → 함께 보기 → 내 기록 보내기(승인 대기)
 function stuFinish(){
@@ -879,13 +908,15 @@ async function LIVE_TL(room, dev, shell){
     if(res.meta){ wantMeta=false; const m=JSON.stringify(res.meta); if(m!==lastMeta){ lastMeta=m; metaCb&&metaCb(res.meta); } }
     if('ctl' in res){ const c=JSON.stringify(res.ctl); if(c!==lastCtl){ lastCtl=c; ctlCb&&ctlCb(res.ctl); } }
   };
+  let stopped=false;
   async function tick(){
+    if(stopped) return;
     if(busy){ again=true; return; } busy=true; lastAt=Date.now();
     try{ apply(full.g!==undefined?await rpc('liteSend',[room,dev,full,wantMeta]):await rpc('liteInfo',[room])); }
     catch(e){ console.warn('lite',e); if(conn||!ever){ conn=false; connCb(false,ever); } }
     finally{ busy=false; if(again){ again=false; setTimeout(tick,300); } }
   }
-  setInterval(tick,3000); setTimeout(tick,0);
+  const iv=setInterval(tick,3000); setTimeout(tick,0);
   document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') tick(); });
   return {
     // 횟수는 3초마다 모아서 보냄 · 회차가 끝난 순간(run 이 꺼질 때)은 바로 보냄
@@ -894,6 +925,7 @@ async function LIVE_TL(room, dev, shell){
     onConnected:(cb)=>{ connCb=cb; cb(conn,ever); },
     onMeta:(cb)=>{ metaCb=cb; if(lastMeta&&lastMeta!=='closed') cb(JSON.parse(lastMeta)); },
     mode:()=>'lite',
+    stop:()=>{ stopped=true; clearInterval(iv); },
     taken:async()=>{ try{ const r=await rpc('liteInfo',[room]); return r.taken||[]; }catch(e){ return []; } },
     now:()=>Date.now()+off
   };
@@ -1158,13 +1190,13 @@ async function liveInit(){
     LIVE.T=await (LIVE.shell?LIVE_TL(LIVE.room, LIVE.dev, LIVE.shell):LIVE_T(LIVE.room, LIVE.dev)); LIVE.ok=true; LIVE.closed=false; liveIdle();
     LIVE.conn=false; LIVE.downAt=performance.now();
     LIVE.T.onConnected((c,ever)=>{
-      LIVE.conn=c;
+      LIVE.conn=c; if(STU.on) stuBarRender();
       if(c){ if(LIVE.meta!==null) liveConnectedPill(); LIVE.sent=null; livePush(true); return; }
       LIVE.downAt=performance.now();
       livePill(ever?'연결이 끊겼어요 — 다시 잇는 중… (세기는 계속돼요)':'선생님 화면에 연결하는 중…',ever);
     });
     // 오래 안 붙으면 원인 안내 (학교망 차단이 가장 흔함)
-    setInterval(()=>{ if(!LIVE.conn&&performance.now()-LIVE.downAt>15000)
+    setInterval(()=>{ if(LIVE.on&&LIVE.ok&&!LIVE.conn&&performance.now()-LIVE.downAt>15000)
       livePill('아직 연결이 안 돼요 — 학교 와이파이가 막고 있을 수 있어요. 휴대폰 데이터·핫스팟으로 해 보거나 선생님께 알려 주세요 (세기는 계속돼요)',true); },5000);
     LIVE.T.onMeta(m=>{
       if(!m||!+m.g||!+m.c){ LIVE.meta=null; if(!LIVE.me) livePill('방을 찾지 못했어요 — 선생님 화면의 QR로 다시 들어와요',true); return; }
