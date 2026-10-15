@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 판정기 v1.2.2 · 카메라로 진짜 뛰는지 보기</title>
+<title>줄넘기 판정기 v1.2.3 · 카메라로 진짜 뛰는지 보기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -292,7 +292,7 @@
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
     <div class="titles">
-      <h1>줄넘기 판정기<span class="ver">v1.2.2</span></h1>
+      <h1>줄넘기 판정기<span class="ver">v1.2.3</span></h1>
       <span class="sub">머리부터 발까지 보이게 서서, 몸이 뜨고 팔이 돌 때만 1회로 세요</span>
     </div>
     <div class="who" id="who"></div>
@@ -524,7 +524,7 @@ const $=id=>document.getElementById(id);
 const video=$('video'), cv=$('overlay'), cx=cv.getContext('2d');
 let landmarker=null, stream=null, facing='user', running=false, t0=0, raf=0, lastVideoT=-1, frames=0, fpsT=0;
 /* ---------- 앱 연동: 체육교사 보조 프로그램의 줄넘기 화면에서 열리면 ?app=앱주소&t=학생표&kind=종류 가 붙어 와요 ---------- */
-const VER='1.2.2';
+const VER='1.2.3';
 const Q=new URLSearchParams(location.search);
 const LINK={ app:Q.get('app')||'', t:Q.get('t')||'', kind:Q.get('kind')||'', sens:+(Q.get('sens')||0)||0, target:(Q.get('target')==='fit'?'fit':'rope'), who:null, saved:null,
   // mode=post : 오프라인판(파일로 여는 프로그램)이 연 창. 서버 대신 window.opener.postMessage 로 결과를 돌려준다.
@@ -868,11 +868,11 @@ async function stuSave(id,st,dur){
   catch(e){ el.style.color='var(--red)'; el.innerHTML=`기록을 보내지 못했어요: ${esc(e.message)} <button id="stuRe" style="min-height:34px;padding:4px 12px;font-size:14px">다시 보내기</button>`; $('stuRe').onclick=()=>stuSave(id,st,dur); }
 }
 async function LIVE_TL(room, dev, shell){
-  let off=0, full={}, ctlCb=null, metaCb=null, connCb=()=>{}, conn=false, ever=false, lastCtl='', lastMeta='', busy=false, again=false, wantMeta=true, lastAt=0;
+  let off=0, bestRt=1e9, full={}, ctlCb=null, metaCb=null, connCb=()=>{}, conn=false, ever=false, lastCtl='', lastMeta='', busy=false, again=false, wantMeta=true, lastAt=0;
   const rpc=async(fn,args)=>{ const t0=Date.now();
     const r=await fetch(shell,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn,args}),redirect:'follow'});
     if(!r.ok) throw new Error('HTTP '+r.status); const j=await r.json(); if(!j.ok) throw new Error(j.error||'fail');
-    const t1=Date.now(); if(j.result&&j.result.t&&t1-t0<4000) off=j.result.t-(t0+t1)/2; return j.result; };
+    const t1=Date.now(), res=j.result; if(res&&res.t&&t1-t0<4000){ const rt=t1-t0; if(rt<=bestRt+150){ bestRt=Math.min(bestRt,rt); off=res.t-(t0+t1)/2; } else bestRt+=100; } return res; };
   const apply=res=>{
     if(!conn){ conn=true; ever=true; connCb(true,ever); }
     if(res.closed){ if(lastMeta!=='closed'){ lastMeta='closed'; metaCb&&metaCb(null); } if(lastCtl!=='null'){ lastCtl='null'; ctlCb&&ctlCb(null); } return; }
@@ -1093,10 +1093,10 @@ function onControl(c){
       const now=LIVE.T.now();
       if(!running){
         const left=Math.ceil((c.at-now)/1000);
-        if(left<=0){ runStart(); LIVE.startedRun=LIVE.ctlRun; const b=$('burst'); b.textContent='시작!'; b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); beep(1046,0.25,0.25); livePush(true); }
-        else if(left!==shown&&left<=5){ shown=left; const b=$('burst'); b.textContent=String(left); b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); beep(660,0.08,0.18); $('status').textContent=left+'초 뒤 시작!'; $('status').className='status idle'; }
+        if(left<=0){ shown=null; runStart(); LIVE.startedRun=LIVE.ctlRun; const b=$('burst'); b.textContent='시작!'; b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); beep(1046,0.25,0.25); livePush(true); }
+        else if(left<=5&&(shown===null||left<shown)){ shown=left; const b=$('burst'); b.textContent=String(left); b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); beep(660,0.08,0.18); $('status').textContent=left+'초 뒤 시작!'; $('status').className='status idle'; }
       } else if(LIVE.ctlEnd&&now>=LIVE.ctlEnd){ runEnd(); }
-      else if(LIVE.ctlEnd){ const r=Math.ceil((LIVE.ctlEnd-now)/1000); if(r<=5&&r>0&&r!==shown){ shown=r; const b=$('burst'); b.textContent=String(r); b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); beep(990,0.06,0.15); } }
+      else if(LIVE.ctlEnd){ const r=Math.ceil((LIVE.ctlEnd-now)/1000); if(r<=5&&r>0&&(shown===null||r<shown)){ shown=r; const b=$('burst'); b.textContent=String(r); b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); beep(990,0.06,0.15); } }
     },100);
   } else if(c.ph==='go'&&LIVE.ctlRun&&String(c.id)===LIVE.ctlRun){ LIVE.ctlEnd=c.dur>0?c.at+c.dur*1000:0;   // 선생님이 '끝' → 5초 뒤 끝으로 바뀜
   } else if(c.ph==='end'&&LIVE.ctlRun&&(!c.id||String(c.id)===LIVE.ctlRun)){ if(running) runEnd(); else { if(LIVE.cdTimer){ clearInterval(LIVE.cdTimer); LIVE.cdTimer=0; } liveIdle(); } }
