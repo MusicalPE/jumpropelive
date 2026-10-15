@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 판정기 v1.2.0 · 카메라로 진짜 뛰는지 보기</title>
+<title>줄넘기 판정기 v1.2.1 · 카메라로 진짜 뛰는지 보기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -292,7 +292,7 @@
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
     <div class="titles">
-      <h1>줄넘기 판정기<span class="ver">v1.2.0</span></h1>
+      <h1>줄넘기 판정기<span class="ver">v1.2.1</span></h1>
       <span class="sub">머리부터 발까지 보이게 서서, 몸이 뜨고 팔이 돌 때만 1회로 세요</span>
     </div>
     <div class="who" id="who"></div>
@@ -524,7 +524,7 @@ const $=id=>document.getElementById(id);
 const video=$('video'), cv=$('overlay'), cx=cv.getContext('2d');
 let landmarker=null, stream=null, facing='user', running=false, t0=0, raf=0, lastVideoT=-1, frames=0, fpsT=0;
 /* ---------- 앱 연동: 체육교사 보조 프로그램의 줄넘기 화면에서 열리면 ?app=앱주소&t=학생표&kind=종류 가 붙어 와요 ---------- */
-const VER='1.2.0';
+const VER='1.2.1';
 const Q=new URLSearchParams(location.search);
 const LINK={ app:Q.get('app')||'', t:Q.get('t')||'', kind:Q.get('kind')||'', sens:+(Q.get('sens')||0)||0, target:(Q.get('target')==='fit'?'fit':'rope'), who:null, saved:null,
   // mode=post : 오프라인판(파일로 여는 프로그램)이 연 창. 서버 대신 window.opener.postMessage 로 결과를 돌려준다.
@@ -804,7 +804,7 @@ function stuModal(){
 async function stuEnter(room,code){
   STU.on=true; STU.code=code; LIVE.room=room; LIVE.shell=LINK.app; LIVE.on=true;
   const b=$('stuBtn'); if(b) b.remove();
-  let bar=$('stuBar'); if(!bar){ bar=document.createElement('div'); bar.id='stuBar'; bar.className='card'; bar.style.cssText='margin:8px auto 0;padding:12px 16px;border-radius:18px;max-width:640px;display:flex;flex-direction:column;gap:8px;font-size:15px'; $('who').after(bar); }
+  let bar=$('stuBar'); if(!bar){ bar=document.createElement('div'); bar.id='stuBar'; bar.className='who on'; bar.style.cssText='padding:5px 8px 5px 14px;border-radius:99px;display:flex;align-items:center;gap:8px;font-size:14px;white-space:nowrap;min-width:0;max-width:100%;overflow:hidden'; $('who').after(bar); }
   stuBarRender();
   await liveInit();
   STU.poll=setInterval(stuPoll,3000); stuPoll();
@@ -815,14 +815,14 @@ function stuBarRender(){
   const bar=$('stuBar'); if(!bar) return;
   const r=STU.board, run=LIVE.ctl&&LIVE.ctl.ph==='go'&&(running||LIVE.cdTimer);
   const ppl=r?Object.entries(r.ppl||{}):[], on=new Set(r?r.devs.filter(d=>d.st!=='off').map(d=>d.k):[]);
-  const names=ppl.map(([k,n])=>`<span style="display:inline-block;margin:2px 4px;padding:2px 10px;border-radius:99px;background:${on.has(k)?'var(--accent-soft,#FFF0EE)':'var(--soft,#F3F4F6)'};color:${on.has(k)?'var(--accent-ink,#E2513F)':'var(--muted)'};font-weight:700">${esc(n)}</span>`).join('');
+  const chip=(k,n)=>`<span style="padding:1px 8px;border-radius:99px;background:${on.has(k)?'var(--accent-soft,#FFF0EE)':'var(--soft,#F3F4F6)'};color:${on.has(k)?'var(--accent-ink,#E2513F)':'var(--muted)'};font-weight:700">${esc(n)}</span>`;
+  const names=ppl.slice(0,5).map(([k,n])=>chip(k,n)).join('')+(ppl.length>5?`<span style="color:var(--muted)">+${ppl.length-5}</span>`:'');
   let ctl='';
-  if(STU.host){ ctl=run?'<span style="color:var(--muted)">뛰는 중이에요 — 끝나면 결과를 함께 봐요</span>'
-    :`<div style="display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap"><select id="stuDur" style="font:inherit;font-size:16px;padding:8px;border-radius:12px;border:1px solid var(--line)"><option value="30">30초</option><option value="60" selected>1분</option><option value="120">2분</option></select><button class="primary" id="stuGo" style="font-size:17px;padding:10px 26px">${STU.lastRun?'한 번 더 시작':'시작'}</button></div>`; }
-  else ctl=`<span style="color:var(--muted)">${run?'뛰는 중이에요 — 끝나면 결과를 함께 봐요':esc(STU.hostName||'방장')+' 친구가 시작하면 같이 세요'}</span>`;
+  if(run) ctl='<span style="color:var(--muted)">끝나면 함께 공개</span>';
+  else if(STU.host) ctl=`<select id="stuDur" style="font:inherit;font-size:14px;padding:4px 6px;border-radius:10px;border:1px solid var(--line)"><option value="30">30초</option><option value="60" selected>1분</option><option value="120">2분</option></select><button class="primary" id="stuGo" style="font-size:15px;padding:6px 16px;min-height:34px">${STU.lastRun?'한 번 더':'시작'}</button>`;
+  else ctl=`<span style="color:var(--muted)">${esc(STU.hostName||'방장')} 친구가 시작해요</span>`;
   const keep=$('stuDur')?$('stuDur').value:'';
-  bar.innerHTML=`<div style="display:flex;align-items:baseline;gap:10px;justify-content:center;flex-wrap:wrap"><b style="font-size:15px">방 번호</b><b style="font-size:30px;letter-spacing:.08em;color:var(--accent-ink,#E2513F)">${STU.code}</b><span style="color:var(--muted)">친구들에게 알려 줘요 · ${ppl.length}명</span></div>
-    <div style="text-align:center">${names||'<span style="color:var(--muted)">들어오는 중…</span>'}</div><div style="text-align:center">${ctl}</div>`;
+  bar.innerHTML=`<b>방</b><b style="font-size:20px;letter-spacing:.06em;color:var(--accent-ink,#E2513F)">${STU.code}</b><span style="color:var(--muted)">${ppl.length}명</span><span style="display:flex;gap:4px;min-width:0;overflow:hidden">${names}</span>${ctl}`;
   if($('stuDur')&&keep) $('stuDur').value=keep;
   const g=$('stuGo'); if(g) g.onclick=stuGo;
 }
@@ -852,7 +852,7 @@ function stuFinish(){
     const html=rows.map((d,i)=>{ if(d.cnt!==prev){ rank=i+1; prev=d.cnt; } const mine=d.k===mk;
       return `<tr style="${mine?'background:var(--accent-soft,#FFF0EE);font-weight:800':''}"><td style="padding:6px 10px;color:var(--muted)">${rank}</td><td style="padding:6px 10px;text-align:left">${esc(d.name)}${mine?' (나)':''}</td><td style="padding:6px 10px;text-align:right;font-weight:800">${d.cnt}회</td></tr>`; }).join('');
     const sum=rows.reduce((a,d)=>a+d.cnt,0);
-    $('smTitle').textContent='모두 수고했어요!';
+    $('smTitle').textContent='모두 수고했어요!'; $('status').textContent='결과를 함께 봤어요';
     $('smNote').innerHTML=`<div style="max-height:40vh;overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:17px">${html}</table></div><div style="margin-top:8px;color:var(--muted)">${rows.length}명 함께 · 모두 합쳐 <b style="color:var(--accent-ink,#E2513F)">${sum}회</b></div><div id="stuSave" style="margin-top:8px;font-weight:700"></div>`;
     $('smBtns').innerHTML='<button class="primary" id="smOk" style="font-size:18px;padding:12px 24px">확인</button>'; $('smOk').onclick=()=>$('saveModal').classList.remove('on');
     confetti(60); beep(1046,0.15,0.25); setTimeout(()=>beep(1318,0.3,0.25),160);
@@ -1041,7 +1041,7 @@ function guideCheck(lm){
 function liveLocked(){ return LIVE.on&&LIVE.ok&&!LIVE.closed; }
 function liveIdle(){
   const lk=liveLocked();
-  $('btnStart').disabled=lk; $('btnReset').disabled=lk; $('btnStart').textContent=lk?(STU.on?(STU.host?'아래 시작을 눌러요':'방장이 시작해요'):'선생님이 시작해요'):'시작';
+  $('btnStart').disabled=lk; $('btnReset').disabled=lk; $('btnStart').textContent=lk?(STU.on?(STU.host?'위쪽 시작을 눌러요':'방장이 시작해요'):'선생님이 시작해요'):'시작';
   if(lk&&!running&&!LIVE.cdTimer&&!det.count&&!ROPE.on){ { const t=slMate(); $('status').textContent=t&&!t.rest?t.n+'번 친구 차례예요 — 선생님이 시작하면 같이 세요':t&&t.rest?'이번엔 이 기기를 쉬어요':STU.on?'방장이 시작하면 같이 세요':'선생님이 시작하면 같이 세요'; } $('status').className='status idle'; }
   guideShow();
 }
@@ -1101,7 +1101,7 @@ function onControl(c){
   } else if(c.ph==='go'&&LIVE.ctlRun&&String(c.id)===LIVE.ctlRun){ LIVE.ctlEnd=c.dur>0?c.at+c.dur*1000:0;   // 선생님이 '끝' → 5초 뒤 끝으로 바뀜
   } else if(c.ph==='end'&&LIVE.ctlRun&&(!c.id||String(c.id)===LIVE.ctlRun)){ if(running) runEnd(); else { if(LIVE.cdTimer){ clearInterval(LIVE.cdTimer); LIVE.cdTimer=0; } liveIdle(); } }
 }
-function liveConnectedPill(){ const m=LIVE.me; if(STU.on&&m) return livePill(`친구 방 <b>${STU.code}</b>에 연결됨 · ${m.g}학년 ${m.c}반 ${m.n}번<br><span style="color:var(--muted)">내 횟수는 내 화면에만 보여요 · 끝나고 함께 공개돼요</span>`); livePill(m?`선생님 화면에 연결됨 · ${m.n>60?'돌려 쓰는 기기 '+(m.n-60)+'번 · '+((t=>t?(t.rest?'이번엔 쉬어요':'지금 차례: <b>'+t.g+'학년 '+t.c+'반 '+t.n+'번</b>'):'차례인 친구는 선생님 화면에서')(slMate())):m.g+'학년 '+m.c+'반 '+m.n+'번'}${LIVE.T&&LIVE.T.mode&&LIVE.T.mode()==='lp'?' <span style="color:var(--muted)">· 우회 연결</span>':''}${LIVE.shell&&LIVE.ctl&&LIVE.ctl.rv&&LIVE.ctl.rv!=='live'?'<br><span style="color:var(--muted)">내 횟수는 내 화면에만 보여요 · 큰 화면에는 끝나고 한 번에 공개돼요</span>':''}${LIVE.picked?' <u style="cursor:pointer">'+(m.n>60?'기기 번호 바꾸기':'번호 바꾸기')+'</u>':''}`:'번호를 골라 주세요'); }
+function liveConnectedPill(){ const m=LIVE.me; if(STU.on&&m) return livePill('친구 방에 연결됨 · 내 횟수는 끝나고 함께 공개돼요'); livePill(m?`선생님 화면에 연결됨 · ${m.n>60?'돌려 쓰는 기기 '+(m.n-60)+'번 · '+((t=>t?(t.rest?'이번엔 쉬어요':'지금 차례: <b>'+t.g+'학년 '+t.c+'반 '+t.n+'번</b>'):'차례인 친구는 선생님 화면에서')(slMate())):m.g+'학년 '+m.c+'반 '+m.n+'번'}${LIVE.T&&LIVE.T.mode&&LIVE.T.mode()==='lp'?' <span style="color:var(--muted)">· 우회 연결</span>':''}${LIVE.shell&&LIVE.ctl&&LIVE.ctl.rv&&LIVE.ctl.rv!=='live'?'<br><span style="color:var(--muted)">내 횟수는 내 화면에만 보여요 · 큰 화면에는 끝나고 한 번에 공개돼요</span>':''}${LIVE.picked?' <u style="cursor:pointer">'+(m.n>60?'기기 번호 바꾸기':'번호 바꾸기')+'</u>':''}`:'번호를 골라 주세요'); }
 // 번호 고르기 (QR로 바로 들어온 학생) — 이름은 선생님 현황판에만 있고, 여기서는 번호만 고름
 // 반 고르기 → 번호 고르기. 여러 반이 함께 수업하는 방(5·6학년 등)이면 반부터 고름
 // 돌려 쓰는 기기: 여러 친구가 번갈아 쓰는 노트북·태블릿은 '기기 k번'으로 한 번만 들어옴 (번호 60+k 로 보냄)
