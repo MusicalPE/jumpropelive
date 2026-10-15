@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.8.1</title>
+<title>점프 라이브 v0.8.2</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -135,11 +135,11 @@
 
   /* 점프 Live (Lite) */
   .tile .n .lhbar{display:inline-block;width:58%;height:.62em;border-radius:12px;background:repeating-linear-gradient(135deg,#EEF0F3 0 10px,#F7F8FA 10px 20px);vertical-align:middle}
-  .lite-ban{position:fixed;left:50%;top:calc(var(--hdr,64px) + 70px);transform:translateX(-50%);z-index:29;background:#1F2A44;color:#fff;border-radius:18px;padding:12px 26px;font-weight:900;font-size:min(34px,5vh);box-shadow:0 12px 30px rgba(0,0,0,.25);white-space:nowrap;pointer-events:none}
-  .lite-ban.cheer{background:var(--accent);font-size:min(46px,6.5vh)}
+  .lite-ban{position:fixed;left:50%;top:calc(var(--hdr,64px) + 70px);transform:translateX(-50%);z-index:29;background:#fff;color:var(--accent-ink);border:2px solid var(--accent);border-radius:18px;padding:12px 26px;font-weight:900;font-size:min(34px,5vh);box-shadow:0 12px 30px rgba(0,0,0,.25);white-space:nowrap;pointer-events:none}
+  .lite-ban.cheer{color:var(--accent-ink);font-size:min(46px,6.5vh)}
   .lite-ban[hidden],.lite-col[hidden]{display:none}
-  .lite-col{position:fixed;left:50%;top:calc(var(--hdr,64px) + 60px);transform:translateX(-50%);z-index:29;background:#fff;border:2px solid var(--mint);border-radius:18px;padding:14px 26px;box-shadow:0 12px 30px rgba(0,0,0,.15);display:flex;flex-direction:column;align-items:center;gap:2px}
-  .lite-col b{font-size:min(30px,4.5vh)} .lite-col span{font-size:min(40px,6vh);font-weight:900;color:var(--mint)} .lite-col small{color:var(--muted);font-weight:700}
+  .lite-col{position:fixed;left:50%;top:calc(var(--hdr,64px) + 60px);transform:translateX(-50%);z-index:29;background:#fff;border:2px solid var(--accent);border-radius:18px;padding:14px 26px;box-shadow:0 12px 30px rgba(0,0,0,.15);display:flex;flex-direction:column;align-items:center;gap:2px}
+  .lite-col b{font-size:min(30px,4.5vh);color:var(--accent-ink)} .lite-col span{font-size:min(40px,6vh);font-weight:900;color:var(--accent)} .lite-col small{color:var(--muted);font-weight:700}
   .grid.flip .tile{animation:liteflip .6s ease both}
   @keyframes liteflip{0%{transform:rotateX(90deg);opacity:.2}100%{transform:none;opacity:1}}
   .big{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);z-index:30;pointer-events:none;font-size:min(42vh,40vw);font-weight:800;color:var(--accent);opacity:0;letter-spacing:-.06em;will-change:transform,opacity;contain:layout paint}
@@ -283,7 +283,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.8.1</span></h1>
+    <h1>점프 라이브<span class="ver">v0.8.2</span></h1>
     <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button><button id="btnDev" title="돌려 쓰는 기기(노트북·태블릿) 찾기" hidden>기기</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
@@ -465,7 +465,7 @@
 </div>
 <div class="big" id="big"></div>
 <div class="lite-ban" id="liteBan" hidden></div>
-<div class="lite-col" id="liteCol" hidden><b>결과 모으는 중…</b><span id="liteColN"></span><small>학생 기기의 마지막 횟수를 기다려요 (길어야 15초)</small></div>
+<div class="lite-col" id="liteCol" hidden><b>결과 모으는 중…</b><span id="liteColN"></span><small>학생 기기의 마지막 횟수를 기다려요 (길어야 20초)</small></div>
 <div class="hub" id="hub" hidden>
   <div class="mh">줄넘기 허브 <span class="hst" id="hubSt">연결 안 됨</span><button class="x" id="hubX">닫기</button></div>
   <div class="hr"><button class="primary" id="hubConn">허브 연결</button><button id="hubRole" disabled>줄넘기 찾기</button><button id="hubBatt" disabled>배터리</button><button id="hubVib" disabled title="모든 줄넘기 진동 + 벨">모두 찾기</button><button id="hubSeq" disabled title="줄넘기 번호와 상관없이, 켜진 줄넘기를 작은 번호부터 1번 학생, 2번 학생… 차례로 이어요">1번 학생부터 잇기</button><button id="hubAuto" disabled hidden>전체 자동번호</button></div>
@@ -710,12 +710,16 @@ async function openRoom(){
   store.set('jrl_last',gkey(groups[0].g,groups[0].c)); if(type) store.set('jrl_type',type);
   // 서버에는 학년·반·인원만 (첫 반은 g·c·max — 예전 판정기도 읽게, 여러 반이면 list 에 모두)
   const meta={g:groups[0].g,c:groups[0].c,max:groups[0].max}; if(groups.length>1) meta.list=groups.map(x=>`${x.g}-${x.c}:${x.max}`).join(',');
-  if(LITE){   // Lite: 빠진 번호도 알려서 판정기 번호판에서 뺌 (g-c:max:빠진번호-빠진번호)
+  const plainList=meta.list;
+  {   // 빠진 번호(전학 등)도 알려서 판정기 번호판에서 뺌 (g-c:max:빠진번호-빠진번호)
     const skip=x=>{ const s=seats(x); return Array.from({length:x.max},(_,i)=>i+1).filter(n=>!s.includes(n)); };
     if(groups.some(x=>skip(x).length)){ const l=groups.map(x=>`${x.g}-${x.c}:${x.max}`+(skip(x).length?':'+skip(x).join('-'):'')).join(','); if(l.length<=200) meta.list=l; } }
   $('btnOpen').disabled=true; $('btnOpen').textContent='방 여는 중…';
   try{
-    const room=genKey(); await B.openRoom(room,meta);
+    const room=genKey();
+    try{ await B.openRoom(room,meta); }
+    catch(e){ if(LITE||DEMO||meta.list===plainList) throw e;   // 예전 규칙(빠진 번호를 모름)이면 빠진 번호 없이 다시
+      if(plainList) meta.list=plainList; else delete meta.list; await B.openRoom(room,meta); }
     Object.assign(S,{room,groups,type,devs:{},ctl:{ph:'open'},lastRun:null,prevCnt:{},endShown:''});
     store.set('jrl_open',JSON.stringify({room,groups,type,uid:USER.uid,app:APPM?{s:SHELL}:null}));
     $('clsName').textContent=clsLabel(groups)+(type?` · ${type}`:''); view('vLive'); $('vLive').style.display='flex';
@@ -845,10 +849,11 @@ function render(){
     // 같은 번호 기기가 여럿이면 지금 이번 회차를 뛰는(또는 횟수가 큰) 기기를 보여 줌
     const pick=(on.length?on:list).slice().sort((a,b)=>((b.ctl===runId)-(a.ctl===runId))||(b.cnt-a.cnt))[0];
     const gl=S.lastRun&&S.lastRun.id===runId?S.lastRun.goal:0;   // 목표 횟수 회차: 닿으면 목표 횟수만큼만 기록
-    const st=pick?pick.st:'none', cnt0=pick&&runId&&pick.ctl===runId?pick.cnt:0, cnt=gl?Math.min(cnt0,gl):cnt0;   // 선생님이 시작한 회차의 횟수만 (학생이 혼자 센 건 안 셈)
+    const fz=LITE&&S.frz&&S.frz.id===runId?S.frz.m[k]:null;   // Lite: 결과를 다 모은 뒤에는 횟수를 고정 (늦게 온 숫자로 바뀌지 않게)
+    const st=pick?pick.st:'none', cnt0=fz?fz.cnt:pick&&runId&&pick.ctl===runId?pick.cnt:0, cnt=gl?Math.min(cnt0,gl):cnt0;   // 선생님이 시작한 회차의 횟수만 (학생이 혼자 센 건 안 셈)
     if(on.length) join++; if(st==='jump') jump++; sum+=cnt;
     const cam=on.filter(d=>!isRope(d)).length, rope=on.some(isRope);   // 카메라 기기 수 · 줄넘기(허브·블루투스) 여부 (같은 학생이면 높은 횟수 하나만 씀)
-    rows.push({k,g:x.g,c:x.c,n,name:x.names[n]||'',id:x.ids[n]||'',st,cnt,rate:pick&&pick.run?pick.rate:0,best:pick?pick.best||0:0,dup:on.length,cam,rope,src:pick&&runId&&pick.ctl===runId?(isRope(pick)?'rope':'cam'):'',pick});
+    rows.push({k,g:x.g,c:x.c,n,name:x.names[n]||'',id:x.ids[n]||'',st,cnt,rate:pick&&pick.run?pick.rate:0,best:fz?fz.best:pick?pick.best||0:0,dup:on.length,cam,rope,src:pick&&runId&&pick.ctl===runId?(isRope(pick)?'rope':'cam'):'',pick});
   } });
   const total=rows.length;
   // 목표 횟수 회차: 닿은 시각 기록 · 들어온 학생이 모두 닿으면 저절로 끝
@@ -1189,12 +1194,16 @@ function liteHide(){ const rv=liteRv(); if(!rv) return false; if(S.collecting) r
 function liteBan(html,cls,ms){ const b=$('liteBan'); b.className='lite-ban'+(cls?' '+cls:''); b.innerHTML=html; b.hidden=!html; clearTimeout(S.banT); if(html&&ms) S.banT=setTimeout(()=>{ b.hidden=true; },ms); }
 setInterval(()=>{ if(!LITE||S.ctl.ph!=='go') return; const h=liteHide(), m=liteMid(); if(h!==S._lh){ S._lh=h; render(); } if(m!==S._lm){ S._lm=m; liteBan(m?'중간 점검!':'',''); } },300);
 function liteCollect(done){
-  const id=S.lastRun.id, t0=Date.now(); S.collecting=true; liteBan(''); render(); $('liteCol').hidden=false;
+  // 학생 기기의 마지막 횟수를 기다림: 모두 끝났거나, 새로 받은 소식이 4번 이어서 그대로면 끝 (길어야 20초)
+  const id=S.lastRun.id, t0=Date.now(); let seen=null, same=0, sig=null;
+  S.collecting=true; S.frz=null; liteBan(''); render(); $('liteCol').hidden=false;
   const iv=setInterval(()=>{
-    const devs=liveDevs().filter(d=>d.ctl===id&&!d.hub), fin=devs.filter(d=>!d.run||d.st==='off').length;
+    const devs=liveDevs().filter(d=>d.ctl===id&&!d.hub), fin=devs.filter(d=>!d.run||d.st==='off').length, el=Date.now()-t0;
+    if(S.devs!==seen){ seen=S.devs; const g=devs.map(d=>d.g+'-'+d.c+'-'+d.n+':'+d.cnt+':'+(d.run?1:0)).sort().join(','); if(g===sig) same++; else { sig=g; same=0; } }
     $('liteColN').textContent=fin+' / '+devs.length+'명';
-    if((fin===devs.length&&Date.now()-t0>2500)||Date.now()-t0>15000){
+    if((fin===devs.length&&el>2500)||(same>=4&&el>2500)||el>20000){
       clearInterval(iv); S.collecting=false; $('liteCol').hidden=true; render();
+      S.frz={id,m:{}}; (S.rows||[]).forEach(r=>{ S.frz.m[r.k]={cnt:r.cnt,best:r.best}; });   // 여기서 결과 고정 · 더 모으지 않음
       const g=$('grid'); g.classList.remove('flip'); void g.offsetWidth; g.classList.add('flip');
       const L=CHEER_ALL; let h=0; for(const ch of id) h=(h*31+ch.charCodeAt(0))>>>0;
       liteBan(L[h%L.length],'cheer',5000); beep(1046,.15,.25); setTimeout(()=>beep(1318,.3,.25),160);

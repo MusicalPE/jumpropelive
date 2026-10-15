@@ -42,7 +42,7 @@
             ".validate": "newData.isNumber()"
           },
           "list": {
-            ".validate": "newData.isString() && newData.val().length <= 200 && newData.val().matches(/^[0-9]{1,2}-[0-9]{1,2}:[0-9]{1,2}(,[0-9]{1,2}-[0-9]{1,2}:[0-9]{1,2})*$/)"
+            ".validate": "newData.isString() && newData.val().length <= 200 && newData.val().matches(/^[0-9]{1,2}-[0-9]{1,2}:[0-9]{1,2}(:[0-9]{1,2}(-[0-9]{1,2})*)?(,[0-9]{1,2}-[0-9]{1,2}:[0-9]{1,2}(:[0-9]{1,2}(-[0-9]{1,2})*)?)*$/)"
           },
           "$other": {
             ".validate": false
