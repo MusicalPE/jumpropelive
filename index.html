@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 판정기 v1.2.5 · 카메라로 진짜 뛰는지 보기</title>
+<title>줄넘기 판정기 v1.2.6 · 카메라로 진짜 뛰는지 보기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -293,7 +293,7 @@
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
     <div class="titles">
-      <h1>줄넘기 판정기<span class="ver">v1.2.5</span></h1>
+      <h1>줄넘기 판정기<span class="ver">v1.2.6</span></h1>
       <span class="sub">머리부터 발까지 보이게 서서, 몸이 뜨고 팔이 돌 때만 1회로 세요</span>
     </div>
     <div class="who" id="who"></div>
@@ -525,7 +525,7 @@ const $=id=>document.getElementById(id);
 const video=$('video'), cv=$('overlay'), cx=cv.getContext('2d');
 let landmarker=null, stream=null, facing='user', running=false, t0=0, raf=0, lastVideoT=-1, frames=0, fpsT=0;
 /* ---------- 앱 연동: 체육교사 보조 프로그램의 줄넘기 화면에서 열리면 ?app=앱주소&t=학생표&kind=종류 가 붙어 와요 ---------- */
-const VER='1.2.5';
+const VER='1.2.6';
 const Q=new URLSearchParams(location.search);
 const LINK={ app:Q.get('app')||'', t:Q.get('t')||'', kind:Q.get('kind')||'', sens:+(Q.get('sens')||0)||0, target:(Q.get('target')==='fit'?'fit':'rope'), who:null, saved:null,
   // mode=post : 오프라인판(파일로 여는 프로그램)이 연 창. 서버 대신 window.opener.postMessage 로 결과를 돌려준다.
@@ -824,7 +824,7 @@ function stuBarRender(){
   else if(STU.host) ctl=`<select id="stuDur" style="font:inherit;font-size:15px;padding:5px 6px;border-radius:10px;border:1px solid var(--line)"><option value="30">30초</option><option value="60" selected>1분</option><option value="120">2분</option></select><button class="primary" id="stuGo" style="${bs};padding:6px 18px">${STU.lastRun?'한 번 더':'시작'}</button>`;
   else ctl=`<span style="color:var(--muted)">${esc(STU.hostName||'방장')} 친구가 시작해요</span>`;
   const keep=$('stuDur')?$('stuDur').value:'', dot=LIVE.conn?'var(--mint,#2BB3A3)':'var(--red,#E5484D)';
-  bar.innerHTML=`<div style="display:flex;align-items:center;gap:10px;white-space:nowrap"><span title="${LIVE.conn?'연결됨':'연결하는 중'}" style="width:10px;height:10px;border-radius:50%;background:${dot};flex:none"></span><b style="font-size:18px">방</b><b style="font-size:32px;line-height:1;letter-spacing:.06em;color:var(--accent-ink,#E2513F)">${STU.code}</b><span style="color:var(--muted);font-weight:700">${ppl.length}명</span><span style="flex:1"></span>${ctl}<button id="stuOut" style="font-size:14px;padding:6px 12px;min-height:36px">나가기</button></div><div style="display:flex;flex-wrap:wrap;gap:6px;max-height:84px;overflow:auto">${names||'<span style="color:var(--muted)">친구들이 들어오면 이름이 떠요</span>'}</div>`;
+  bar.innerHTML=`<div style="display:flex;align-items:center;gap:8px 10px;white-space:nowrap;flex-wrap:wrap"><span title="${LIVE.conn?'연결됨':'연결하는 중'}" style="width:10px;height:10px;border-radius:50%;background:${dot};flex:none"></span><b style="font-size:18px">방</b><b style="font-size:32px;line-height:1;letter-spacing:.06em;color:var(--accent-ink,#E2513F)">${STU.code}</b><span style="color:var(--muted);font-weight:700">${ppl.length}명</span><span style="flex:1"></span>${ctl}<button id="stuOut" style="font-size:14px;padding:6px 12px;min-height:36px">나가기</button></div><div style="display:flex;flex-wrap:wrap;gap:6px;max-height:84px;overflow:auto">${names||'<span style="color:var(--muted)">친구들이 들어오면 이름이 떠요</span>'}</div>`;
   if($('stuDur')&&keep) $('stuDur').value=keep;
   const x=$('stuStop'); if(x) x.onclick=stuStop;
   $('stuOut').onclick=()=>stuLeave(false);
