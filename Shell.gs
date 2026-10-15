@@ -10,7 +10,7 @@
  * 배포 설정: 다음 사용자로 실행 = 나, 액세스 권한 = 모든 사용자
  *************************************************************/
 
-const SHELL_VERSION = 6;                      // 껍데기 판 (화면이 확인함)  2: 새 학교는 승인 절차 기본 켜짐, 카메라 기록은 기본 바로 승인  3: 급수(Levels 시트)  4: 전국 현황판 비밀 키를 학생 화면에 내보내지 않음(오늘 기록은 이 껍데기가 직접 보냄)  5: 한 번에 최고 연속(스마트 줄넘기·카메라 판정기) 기록·전국 현황판 보고  6: 점프 Live (Lite) — 학교 시트만으로 수업 방(바깥 서버 없이)
+const SHELL_VERSION = 6;                      // 껍데기 판 (화면이 확인함)  2: 새 학교는 승인 절차 기본 켜짐, 카메라 기록은 기본 바로 승인  3: 급수(Levels 시트)  4: 전국 현황판 비밀 키를 학생 화면에 내보내지 않음(오늘 기록은 이 껍데기가 직접 보냄)  5: 한 번에 최고 연속(스마트 줄넘기·카메라 판정기) 기록·전국 현황판 보고  6: 점프 Live (Lite) — 학교 시트만으로 수업 방(바깥 서버 없이) · 학생 방(친구들과 함께 뛰기, 기록은 승인 대기)
 const APP_URL = 'https://musicalpe.github.io/jumprope/';
 const BETA_URL = 'https://musicalpe.github.io/jumprope/beta/';
 
@@ -77,7 +77,7 @@ const RPC_ALLOW_ = [
   'setCameraSettings', 'issueCameraToken', 'generateMotivationMessage', 'getGeminiModelList', 'getMotivationSettings',
   'saveGeminiApiKey', 'regenerateMotivationNow', 'getLevelsPublic', 'saveLevelPasses',
   'getExtraSettingsAdmin', 'natReportToday', 'addLiveRecordsAdmin',
-  'liteOpenRoom', 'liteSetControl', 'litePull', 'liteCloseRoom', 'liteInfo', 'liteSend'
+  'liteOpenRoom', 'liteSetControl', 'litePull', 'liteCloseRoom', 'liteInfo', 'liteSend', 'liteStuOpen', 'liteStuJoin', 'liteStuBoard'
 ];
 function doPost(e) {
   let out;
@@ -97,7 +97,7 @@ function doPost(e) {
 }
 
 function ping() {
-  return { shell: SHELL_VERSION, live: 1, lite: 1, appUrl: APP_URL, self: ScriptApp.getService().getUrl(), title: getSS_().getName() };
+  return { shell: SHELL_VERSION, live: 1, lite: 2, appUrl: APP_URL, self: ScriptApp.getService().getUrl(), title: getSS_().getName() };
 }
 
 /************ 점프 라이브 — 선생님 화면(현황판)이 끝난 회차 결과를 한꺼번에 기록 ************
@@ -1246,7 +1246,7 @@ function handleCameraApi_(q) {
     if (api === 'rope_x_who') {
       return cameraJson_({ ok: true, data: {
         학년: info.grade, 반: info.cls, 번호: info.number, 이름: info.name,
-        오늘: todayTotalForStudent_(info.id), 하루목표: goal, 최소: 1
+        오늘: todayTotalForStudent_(info.id), 하루목표: goal, 최소: 1, 방: 1   // 방: 친구들과 함께 뛰기(학생 방)를 쓸 수 있음 (6판)
       } });
     }
     if (api === 'rope_x_save') {
@@ -1258,7 +1258,10 @@ function handleCameraApi_(q) {
       const now = new Date();
       const dateStr = formatDate_(now);
       const timeStr = Utilities.formatDate(now, Session.getScriptTimeZone(), 'HH:mm');
-      const status = (c.autoApprove || !approvalOn_()) ? 'approved' : 'pending';
+      // 학생 방(친구들과 함께 뛰기) 기록은 늘 승인 대기 · 같은 회차는 한 번만 · 따로 한 줄로 (선생님이 한꺼번에 승인)
+      const inRoom = q.room === '1', runKey = inRoom ? 'JL_sv_' + String(q.t) + '_' + String(q.run || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 24) : '';
+      if (inRoom && CacheService.getScriptCache().get(runKey)) return cameraJson_({ ok: true, data: { 횟수: cnt, 오늘: todayTotalForStudent_(info.id), 하루목표: goal, 달성: false, 승인대기: true, 이미: true } });
+      const status = inRoom ? 'pending' : (c.autoApprove || !approvalOn_()) ? 'approved' : 'pending';
       const sh = getRecordsSheet_();
       const data = sh.getDataRange().getValues();
       let rowIndex = -1;
@@ -1266,6 +1269,7 @@ function handleCameraApi_(q) {
         if (String(data[i][2]).trim() === info.id && formatDate_(data[i][3]) === dateStr &&
             String(data[i][7] || '').trim() === type) { rowIndex = i + 1; break; }
       }
+      if (inRoom) rowIndex = -1;
       if (rowIndex > 0) {
         // 같은 날·같은 종류 기록이 있으면 거기에 더한다 ("한 번 더 뛰기"로 여러 번 뛰어도 합산). 거절된 기록이면 새 값으로.
         const prevStatus = String(data[rowIndex - 1][5] || 'approved');
@@ -1280,6 +1284,7 @@ function handleCameraApi_(q) {
       } else {
         sh.appendRow([Utilities.getUuid(), now, info.id, dateStr, cnt, status, timeStr, type, 'camera', bst > 0 ? bst : '']);
       }
+      if (inRoom) CacheService.getScriptCache().put(runKey, '1', LITE_TTL_);
       const todayTotal = todayTotalForStudent_(info.id);
       return cameraJson_({ ok: true, data: { 횟수: cnt, 오늘: todayTotal, 하루목표: goal, 달성: todayTotal >= goal, 승인대기: status === 'pending' } });
     }
@@ -1596,8 +1601,10 @@ function litePull(room, owner) {
 }
 function liteCloseRoom(room, owner) {
   room = liteRoom_(room); liteOwner_(room, owner);
-  const keys = ['own', 'meta', 'ctl', 'devs'].map(function (k) { return liteKey_(room, k); })
-    .concat(liteDevList_(room).map(function (d) { return liteKey_(room, 'd_' + d); }));
+  const meta = liteJson_(CacheService.getScriptCache().get(liteKey_(room, 'meta')), {});
+  const keys = ['own', 'meta', 'ctl', 'devs', 'ppl'].map(function (k) { return liteKey_(room, k); })
+    .concat(liteDevList_(room).map(function (d) { return liteKey_(room, 'd_' + d); }))
+    .concat(meta && meta.code ? ['JL_code_' + meta.code] : []);
   CacheService.getScriptCache().removeAll(keys);
   return { t: Date.now() };
 }
@@ -1635,4 +1642,66 @@ function liteSend(room, dev, data, wantMeta) {
   const out = { t: rec.t, ctl: liteJson_(got[liteKey_(room, 'ctl')], null) };
   if (wantMeta) out.meta = liteJson_(meta, null);
   return out;
+}
+
+/* ---- 학생 방 (6판 · 학생 누구나) ----
+ * 앱의 "카메라로 뛰기"로 받은 연결표(t)로 누구인지 확인하고, 4자리 방 번호로 친구들이 들어옴.
+ * 큰 화면 없이 모두 판정기로 뛰고, 끝나면 각자 화면에 함께 뛴 결과. 기록은 rope_x_save(room=1) 로 승인 대기 */
+function liteStu_(t) {
+  if (!getCameraSettings_().enabled) throw new Error('카메라 판정기 사용이 꺼져 있습니다.');
+  const raw = t ? CacheService.getScriptCache().get('CAM_' + String(t)) : null;
+  if (!raw) throw new Error('연결이 만료됐어요. 앱에서 "카메라로 뛰기"를 다시 눌러 주세요.');
+  const info = getStudentInfo(liteJson_(raw, {}).sid);
+  if (!info) throw new Error('학생 정보를 찾을 수 없습니다.');
+  return { g: Number(info.grade) || 0, c: Number(info.cls) || 0, n: Number(info.number) || 0, name: String(info.name || '').slice(0, 20) };
+}
+function liteStuAdd_(room, who) {   // 방 사람 명단 (학년-반-번호 → 이름) — 결과에 이름을 보이게
+  const c = CacheService.getScriptCache(), k = liteKey_(room, 'ppl'), lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) throw new Error('잠시 뒤에 다시 해 주세요.');
+  try {
+    const p = liteJson_(c.get(k), {}), key = who.g + '-' + who.c + '-' + who.n;
+    if (!(key in p) && Object.keys(p).length >= 40) throw new Error('방이 꽉 찼어요 (40명까지).');
+    p[key] = who.name; c.put(k, JSON.stringify(p), LITE_TTL_);
+  } finally { lock.releaseLock(); }
+}
+function liteStuOpen(t) {
+  const who = liteStu_(t), c = CacheService.getScriptCache(), hk = 'JL_host_' + String(t);
+  const prev = liteJson_(c.get(hk), null);
+  if (prev && prev.room && c.get(liteKey_(prev.room, 'meta'))) return { room: prev.room, owner: prev.owner, code: prev.code, t: Date.now() };   // 이미 연 방
+  let code = '';
+  for (let i = 0; i < 30 && !code; i++) { const k = String(1000 + Math.floor(Math.random() * 9000)); if (!c.get('JL_code_' + k)) code = k; }
+  if (!code) throw new Error('지금은 열린 방이 너무 많아요. 잠시 뒤에 다시 해 주세요.');
+  const room = 'S' + Utilities.getUuid().replace(/-/g, ''), owner = Utilities.getUuid().replace(/-/g, '');
+  const put = {};
+  put[liteKey_(room, 'own')] = owner;
+  put[liteKey_(room, 'meta')] = JSON.stringify({ at: Date.now(), g: who.g, c: who.c, max: 60, stu: 1, code: code, host: who.name });
+  put[liteKey_(room, 'ctl')] = JSON.stringify({ ph: 'open' });
+  put[liteKey_(room, 'devs')] = '[]';
+  put['JL_code_' + code] = room;
+  put[hk] = JSON.stringify({ room: room, owner: owner, code: code });
+  c.putAll(put, LITE_TTL_);
+  liteStuAdd_(room, who);
+  return { room: room, owner: owner, code: code, t: Date.now() };
+}
+function liteStuJoin(t, code) {
+  const who = liteStu_(t), c = CacheService.getScriptCache();
+  code = String(code || '').replace(/\D/g, '');
+  const room = /^\d{4}$/.test(code) ? c.get('JL_code_' + code) : null;
+  if (!room || !c.get(liteKey_(room, 'meta'))) throw new Error('그 방 번호를 찾지 못했어요. 번호를 다시 확인해 주세요.');
+  liteStuAdd_(room, who);
+  return { room: room, code: code, t: Date.now() };
+}
+function liteStuBoard(room) {   // 방 사람들 이름과 각자 상태·횟수 (학생 방만)
+  room = liteRoom_(room);
+  const c = CacheService.getScriptCache(), got = c.getAll([liteKey_(room, 'meta'), liteKey_(room, 'ctl'), liteKey_(room, 'ppl')]);
+  const meta = liteJson_(got[liteKey_(room, 'meta')], null);
+  if (!meta) return { t: Date.now(), closed: true };
+  if (!meta.stu) throw new Error('학생 방이 아닙니다.');
+  const ppl = liteJson_(got[liteKey_(room, 'ppl')], {}), devs = liteDevs_(room), now = Date.now(), list = [];
+  Object.keys(devs).forEach(function (k) {
+    const d = devs[k]; if (!d) return;
+    const key = d.g + '-' + d.c + '-' + d.n; if (!(key in ppl)) return;
+    list.push({ k: key, name: ppl[key], cnt: d.cnt, best: d.best, run: d.run, ctl: d.ctl, st: now - (d.t || 0) > 30000 ? 'off' : d.st });
+  });
+  return { t: now, ppl: ppl, devs: list, ctl: liteJson_(got[liteKey_(room, 'ctl')], null), host: meta.host, code: meta.code };
 }
