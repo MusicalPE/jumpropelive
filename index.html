@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 판정기 v1.0.0 · 카메라로 진짜 뛰는지 보기</title>
+<title>줄넘기 판정기 v1.1.0 · 카메라로 진짜 뛰는지 보기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -292,7 +292,7 @@
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
     <div class="titles">
-      <h1>줄넘기 판정기<span class="ver">v1.0.0</span></h1>
+      <h1>줄넘기 판정기<span class="ver">v1.1.0</span></h1>
       <span class="sub">머리부터 발까지 보이게 서서, 몸이 뜨고 팔이 돌 때만 1회로 세요</span>
     </div>
     <div class="who" id="who"></div>
@@ -524,7 +524,7 @@ const $=id=>document.getElementById(id);
 const video=$('video'), cv=$('overlay'), cx=cv.getContext('2d');
 let landmarker=null, stream=null, facing='user', running=false, t0=0, raf=0, lastVideoT=-1, frames=0, fpsT=0;
 /* ---------- 앱 연동: 체육교사 보조 프로그램의 줄넘기 화면에서 열리면 ?app=앱주소&t=학생표&kind=종류 가 붙어 와요 ---------- */
-const VER='1.0.0';
+const VER='1.1.0';
 const Q=new URLSearchParams(location.search);
 const LINK={ app:Q.get('app')||'', t:Q.get('t')||'', kind:Q.get('kind')||'', sens:+(Q.get('sens')||0)||0, target:(Q.get('target')==='fit'?'fit':'rope'), who:null, saved:null,
   // mode=post : 오프라인판(파일로 여는 프로그램)이 연 창. 서버 대신 window.opener.postMessage 로 결과를 돌려준다.
@@ -768,6 +768,39 @@ const FB_SDK='https://www.gstatic.com/firebasejs/10.14.1';
 const LIVE={ room:'', on:false, ok:false, dev:'', me:null, T:null, sent:null, lastSend:0, timer:0, beat:0,
   ctl:null, ctlRun:'', ctlEnd:0, cdTimer:0, wake:null, hidden:false, meta:undefined, picked:false };
 { const r=Q.get('room')||''; if(/^[A-Za-z0-9_-]{20,64}$/.test(r)){ LIVE.room=r; LIVE.on=true; } }
+// 점프 Live (Lite): &ls=학교 시트 스크립트 주소 가 있으면 Firebase 대신 그 학교 시트로 주고받음 (3초쯤마다)
+{ const v=Q.get('ls')||''; LIVE.shell=/^https:\/\/script\.google(usercontent)?\.com\//.test(v)?v:''; }
+async function LIVE_TL(room, dev, shell){
+  let off=0, full={}, ctlCb=null, metaCb=null, connCb=()=>{}, conn=false, ever=false, lastCtl='', lastMeta='', busy=false, again=false, wantMeta=true, lastAt=0;
+  const rpc=async(fn,args)=>{ const t0=Date.now();
+    const r=await fetch(shell,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn,args}),redirect:'follow'});
+    if(!r.ok) throw new Error('HTTP '+r.status); const j=await r.json(); if(!j.ok) throw new Error(j.error||'fail');
+    const t1=Date.now(); if(j.result&&j.result.t&&t1-t0<4000) off=j.result.t-(t0+t1)/2; return j.result; };
+  const apply=res=>{
+    if(!conn){ conn=true; ever=true; connCb(true,ever); }
+    if(res.closed){ if(lastMeta!=='closed'){ lastMeta='closed'; metaCb&&metaCb(null); } if(lastCtl!=='null'){ lastCtl='null'; ctlCb&&ctlCb(null); } return; }
+    if(res.meta){ wantMeta=false; const m=JSON.stringify(res.meta); if(m!==lastMeta){ lastMeta=m; metaCb&&metaCb(res.meta); } }
+    if('ctl' in res){ const c=JSON.stringify(res.ctl); if(c!==lastCtl){ lastCtl=c; ctlCb&&ctlCb(res.ctl); } }
+  };
+  async function tick(){
+    if(busy){ again=true; return; } busy=true; lastAt=Date.now();
+    try{ apply(full.g!==undefined?await rpc('liteSend',[room,dev,full,wantMeta]):await rpc('liteInfo',[room])); }
+    catch(e){ console.warn('lite',e); if(conn||!ever){ conn=false; connCb(false,ever); } }
+    finally{ busy=false; if(again){ again=false; setTimeout(tick,300); } }
+  }
+  setInterval(tick,3000); setTimeout(tick,0);
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') tick(); });
+  return {
+    // 횟수는 3초마다 모아서 보냄 · 회차가 끝난 순간(run 이 꺼질 때)은 바로 보냄
+    send:(data)=>{ const was=full.run; Object.assign(full,data); if((was&&data.run===false)||!lastAt||Date.now()-lastAt>3000) tick(); return Promise.resolve(); },
+    onControl:(cb)=>{ ctlCb=cb; if(lastCtl&&lastCtl!=='null') cb(JSON.parse(lastCtl)); },
+    onConnected:(cb)=>{ connCb=cb; cb(conn,ever); },
+    onMeta:(cb)=>{ metaCb=cb; if(lastMeta&&lastMeta!=='closed') cb(JSON.parse(lastMeta)); },
+    mode:()=>'lite',
+    taken:async()=>{ try{ const r=await rpc('liteInfo',[room]); return r.taken||[]; }catch(e){ return []; } },
+    now:()=>Date.now()+off
+  };
+}
 // 전송 방식 (Firebase Realtime Database). connect → {send, offOnDisconnect, onControl, now}
 async function LIVE_T(room, dev){
   const A=await import(FB_SDK+'/firebase-app.js'), D=await import(FB_SDK+'/firebase-database.js');
@@ -934,6 +967,7 @@ function slMate(){ const me=LIVE.me, k=me&&me.n>60?me.n-60:0; if(!k||!LIVE.sl) r
   const hit=String(LIVE.sl).split(',').map(x=>x.split(':')).find(x=>+x[0]===k); if(!hit) return null;
   if(hit[1]==='-') return {rest:true}; const p=hit[1].split('-').map(Number); return p.length===3&&p[2]?{g:p[0],c:p[1],n:p[2]}:null; }
 function onControl(c){
+  if(LIVE.shell&&c&&c.rv!==(LIVE.ctl&&LIVE.ctl.rv)){ setTimeout(()=>{ if(LIVE.me) liveConnectedPill(); },0); }
   if(c&&c.sl!==undefined&&c.sl!==LIVE.sl){ LIVE.sl=c.sl; if(LIVE.me&&LIVE.me.n>60){ liveConnectedPill(); if(!running&&!LIVE.cdTimer) liveIdle(); } }
   if(findSignal(c)) return;   // 찾기 신호는 회차와 상관없음 (LIVE.ctl 도 그대로)
   // c = {ph:'go', id:회차, at:시작시각(서버 ms), dur:초(0=선생님이 끝낼 때까지)} | {ph:'end', id} | {ph:'open'} | null(방 닫힘)
@@ -968,7 +1002,7 @@ function onControl(c){
   } else if(c.ph==='go'&&LIVE.ctlRun&&String(c.id)===LIVE.ctlRun){ LIVE.ctlEnd=c.dur>0?c.at+c.dur*1000:0;   // 선생님이 '끝' → 5초 뒤 끝으로 바뀜
   } else if(c.ph==='end'&&LIVE.ctlRun&&(!c.id||String(c.id)===LIVE.ctlRun)){ if(running) runEnd(); else { if(LIVE.cdTimer){ clearInterval(LIVE.cdTimer); LIVE.cdTimer=0; } liveIdle(); } }
 }
-function liveConnectedPill(){ const m=LIVE.me; livePill(m?`선생님 화면에 연결됨 · ${m.n>60?'돌려 쓰는 기기 '+(m.n-60)+'번 · '+((t=>t?(t.rest?'이번엔 쉬어요':'지금 차례: <b>'+t.g+'학년 '+t.c+'반 '+t.n+'번</b>'):'차례인 친구는 선생님 화면에서')(slMate())):m.g+'학년 '+m.c+'반 '+m.n+'번'}${LIVE.T&&LIVE.T.mode&&LIVE.T.mode()==='lp'?' <span style="color:var(--muted)">· 우회 연결</span>':''}${LIVE.picked?' <u style="cursor:pointer">'+(m.n>60?'기기 번호 바꾸기':'번호 바꾸기')+'</u>':''}`:'번호를 골라 주세요'); }
+function liveConnectedPill(){ const m=LIVE.me; livePill(m?`선생님 화면에 연결됨 · ${m.n>60?'돌려 쓰는 기기 '+(m.n-60)+'번 · '+((t=>t?(t.rest?'이번엔 쉬어요':'지금 차례: <b>'+t.g+'학년 '+t.c+'반 '+t.n+'번</b>'):'차례인 친구는 선생님 화면에서')(slMate())):m.g+'학년 '+m.c+'반 '+m.n+'번'}${LIVE.T&&LIVE.T.mode&&LIVE.T.mode()==='lp'?' <span style="color:var(--muted)">· 우회 연결</span>':''}${LIVE.shell&&LIVE.ctl&&LIVE.ctl.rv&&LIVE.ctl.rv!=='live'?'<br><span style="color:var(--muted)">내 횟수는 내 화면에만 보여요 · 큰 화면에는 끝나고 한 번에 공개돼요</span>':''}${LIVE.picked?' <u style="cursor:pointer">'+(m.n>60?'기기 번호 바꾸기':'번호 바꾸기')+'</u>':''}`:'번호를 골라 주세요'); }
 // 번호 고르기 (QR로 바로 들어온 학생) — 이름은 선생님 현황판에만 있고, 여기서는 번호만 고름
 // 반 고르기 → 번호 고르기. 여러 반이 함께 수업하는 방(5·6학년 등)이면 반부터 고름
 // 돌려 쓰는 기기: 여러 친구가 번갈아 쓰는 노트북·태블릿은 '기기 k번'으로 한 번만 들어옴 (번호 60+k 로 보냄)
@@ -1022,7 +1056,7 @@ async function liveInit(){
   LIVE.me=me;
   livePill('선생님 화면에 연결하는 중…');
   try{
-    LIVE.T=await LIVE_T(LIVE.room, LIVE.dev); LIVE.ok=true; LIVE.closed=false; liveIdle();
+    LIVE.T=await (LIVE.shell?LIVE_TL(LIVE.room, LIVE.dev, LIVE.shell):LIVE_T(LIVE.room, LIVE.dev)); LIVE.ok=true; LIVE.closed=false; liveIdle();
     LIVE.conn=false; LIVE.downAt=performance.now();
     LIVE.T.onConnected((c,ever)=>{
       LIVE.conn=c;

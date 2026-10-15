@@ -10,7 +10,7 @@
  * 배포 설정: 다음 사용자로 실행 = 나, 액세스 권한 = 모든 사용자
  *************************************************************/
 
-const SHELL_VERSION = 5;                      // 껍데기 판 (화면이 확인함)  2: 새 학교는 승인 절차 기본 켜짐, 카메라 기록은 기본 바로 승인  3: 급수(Levels 시트)  4: 전국 현황판 비밀 키를 학생 화면에 내보내지 않음(오늘 기록은 이 껍데기가 직접 보냄)  5: 한 번에 최고 연속(스마트 줄넘기·카메라 판정기) 기록·전국 현황판 보고
+const SHELL_VERSION = 6;                      // 껍데기 판 (화면이 확인함)  2: 새 학교는 승인 절차 기본 켜짐, 카메라 기록은 기본 바로 승인  3: 급수(Levels 시트)  4: 전국 현황판 비밀 키를 학생 화면에 내보내지 않음(오늘 기록은 이 껍데기가 직접 보냄)  5: 한 번에 최고 연속(스마트 줄넘기·카메라 판정기) 기록·전국 현황판 보고  6: 점프 Live (Lite) — 학교 시트만으로 수업 방(바깥 서버 없이)
 const APP_URL = 'https://musicalpe.github.io/jumprope/';
 const BETA_URL = 'https://musicalpe.github.io/jumprope/beta/';
 
@@ -76,7 +76,8 @@ const RPC_ALLOW_ = [
   'updateRecordAdmin', 'deleteRecordAdmin', 'getTheme', 'setTheme', 'getCameraSettings', 'getCameraSettingsAdmin',
   'setCameraSettings', 'issueCameraToken', 'generateMotivationMessage', 'getGeminiModelList', 'getMotivationSettings',
   'saveGeminiApiKey', 'regenerateMotivationNow', 'getLevelsPublic', 'saveLevelPasses',
-  'getExtraSettingsAdmin', 'natReportToday', 'addLiveRecordsAdmin'
+  'getExtraSettingsAdmin', 'natReportToday', 'addLiveRecordsAdmin',
+  'liteOpenRoom', 'liteSetControl', 'litePull', 'liteCloseRoom', 'liteInfo', 'liteSend'
 ];
 function doPost(e) {
   let out;
@@ -96,7 +97,7 @@ function doPost(e) {
 }
 
 function ping() {
-  return { shell: SHELL_VERSION, live: 1, appUrl: APP_URL, self: ScriptApp.getService().getUrl(), title: getSS_().getName() };
+  return { shell: SHELL_VERSION, live: 1, lite: 1, appUrl: APP_URL, self: ScriptApp.getService().getUrl(), title: getSS_().getName() };
 }
 
 /************ 점프 라이브 — 선생님 화면(현황판)이 끝난 회차 결과를 한꺼번에 기록 ************
@@ -1538,4 +1539,100 @@ function saveLevelPasses(token, changes) {
     lock.releaseLock();
   }
   return getLevelsPublic();
+}
+
+/************ 점프 Live (Lite) — 학교 시트 스크립트만으로 돌리는 수업 방 (6판) ************
+ * Firebase 같은 바깥 서버 없이, 이 스크립트의 캐시(최대 6시간)에 잠깐 두었다가 방을 닫으면 지움. 시트에는 쓰지 않음
+ * (끝난 회차 결과는 선생님 화면이 addLiveRecordsAdmin 으로 한꺼번에 기록)
+ * 선생님 화면: liteOpenRoom(관리자 토큰) → 방 열쇠(owner)를 받아 liteSetControl · litePull · liteCloseRoom 에 씀
+ * 학생 기기: liteInfo(방 정보·신호·들어온 번호) · liteSend(내 상태를 보내고 지금 신호를 받음) — 3초쯤마다 */
+const LITE_TTL_ = 6 * 60 * 60;
+const LITE_ST_ = ['ready', 'away', 'hand', 'jump', 'stop', 'hidden', 'off'];
+function liteKey_(room, k) { return 'JL_' + room + '_' + k; }
+function liteRoom_(room) {
+  const r = String(room || '');
+  if (!/^[A-Za-z0-9_-]{16,64}$/.test(r)) throw new Error('방 번호가 올바르지 않습니다.');
+  return r;
+}
+function liteOwner_(room, owner) {
+  const c = CacheService.getScriptCache().get(liteKey_(room, 'own'));
+  if (!c || c !== String(owner || '')) throw new Error('방이 닫혔거나 방 열쇠가 맞지 않습니다.');
+}
+function liteJson_(s, d) { try { return s ? JSON.parse(s) : d; } catch (e) { return d; } }
+function liteOpenRoom(token, room, meta) {
+  if (!checkAdminToken_(token)) throw new Error('권한이 없습니다. 관리자 비밀번호로 다시 로그인해 주세요.');
+  room = liteRoom_(room);
+  const m = { at: Date.now() };
+  ['g', 'c', 'max'].forEach(function (k) { m[k] = Math.max(0, Math.min(60, Math.round(Number(meta && meta[k]) || 0))); });
+  if (meta && typeof meta.list === 'string' && /^[0-9,:\-]{0,200}$/.test(meta.list)) m.list = meta.list;
+  const owner = Utilities.getUuid().replace(/-/g, '');
+  const put = {};
+  put[liteKey_(room, 'own')] = owner;
+  put[liteKey_(room, 'meta')] = JSON.stringify(m);
+  put[liteKey_(room, 'ctl')] = JSON.stringify({ ph: 'open' });
+  put[liteKey_(room, 'devs')] = '[]';
+  CacheService.getScriptCache().putAll(put, LITE_TTL_);
+  return { owner: owner, t: Date.now() };
+}
+function liteSetControl(room, owner, ctl) {
+  room = liteRoom_(room); liteOwner_(room, owner);
+  if (!ctl || typeof ctl !== 'object' || !/^(open|go|end)$/.test(String(ctl.ph))) throw new Error('신호 형식이 올바르지 않습니다.');
+  const s = JSON.stringify(ctl);
+  if (s.length > 2000) throw new Error('신호가 너무 깁니다.');
+  CacheService.getScriptCache().put(liteKey_(room, 'ctl'), s, LITE_TTL_);
+  return { t: Date.now() };
+}
+function liteDevList_(room) { return liteJson_(CacheService.getScriptCache().get(liteKey_(room, 'devs')), []); }
+function liteDevs_(room) {
+  const ids = liteDevList_(room), out = {};
+  if (!ids.length) return out;
+  const got = CacheService.getScriptCache().getAll(ids.map(function (d) { return liteKey_(room, 'd_' + d); }));
+  ids.forEach(function (d) { const v = got[liteKey_(room, 'd_' + d)]; if (v) out[d] = liteJson_(v, null); });
+  return out;
+}
+function litePull(room, owner) {
+  room = liteRoom_(room); liteOwner_(room, owner);
+  return { t: Date.now(), devs: liteDevs_(room) };
+}
+function liteCloseRoom(room, owner) {
+  room = liteRoom_(room); liteOwner_(room, owner);
+  const keys = ['own', 'meta', 'ctl', 'devs'].map(function (k) { return liteKey_(room, k); })
+    .concat(liteDevList_(room).map(function (d) { return liteKey_(room, 'd_' + d); }));
+  CacheService.getScriptCache().removeAll(keys);
+  return { t: Date.now() };
+}
+function liteInfo(room) {
+  room = liteRoom_(room);
+  const c = CacheService.getScriptCache(), got = c.getAll([liteKey_(room, 'meta'), liteKey_(room, 'ctl')]);
+  const meta = liteJson_(got[liteKey_(room, 'meta')], null);
+  if (!meta) return { t: Date.now(), closed: true };
+  const devs = liteDevs_(room), taken = [];
+  Object.keys(devs).forEach(function (k) { const d = devs[k]; if (d && d.st !== 'off' && Date.now() - (d.t || 0) < 30000) taken.push({ g: d.g, c: d.c, n: d.n }); });
+  return { t: Date.now(), meta: meta, ctl: liteJson_(got[liteKey_(room, 'ctl')], null), taken: taken };
+}
+function liteSend(room, dev, data, wantMeta) {
+  room = liteRoom_(room);
+  dev = String(dev || '');
+  if (!/^[a-z0-9]{8,16}$/.test(dev)) throw new Error('기기 번호가 올바르지 않습니다.');
+  const c = CacheService.getScriptCache(), got = c.getAll([liteKey_(room, 'meta'), liteKey_(room, 'ctl')]);
+  const meta = got[liteKey_(room, 'meta')];
+  if (!meta) return { t: Date.now(), closed: true };
+  const d = data || {}, num = function (v, lo, hi) { const x = Math.round(Number(v) || 0); return Math.max(lo, Math.min(hi, x)); };
+  const st = LITE_ST_.indexOf(String(d.st)) >= 0 ? String(d.st) : 'ready';
+  const rec = { g: num(d.g, 0, 6), c: num(d.c, 0, 30), n: num(d.n, 0, 99), cnt: num(d.cnt, 0, 5000), best: num(d.best, 0, 5000),
+    st: st, run: d.run === true, ctl: String(d.ctl || '').slice(0, 32), v: String(d.v || '').slice(0, 16), t: Date.now() };
+  c.put(liteKey_(room, 'd_' + dev), JSON.stringify(rec), LITE_TTL_);
+  const ids = liteDevList_(room);
+  if (ids.indexOf(dev) < 0) {
+    const lock = LockService.getScriptLock();
+    if (lock.tryLock(5000)) {
+      try {
+        const now = liteDevList_(room);
+        if (now.indexOf(dev) < 0 && now.length < 120) { now.push(dev); c.put(liteKey_(room, 'devs'), JSON.stringify(now), LITE_TTL_); }
+      } finally { lock.releaseLock(); }
+    }
+  }
+  const out = { t: rec.t, ctl: liteJson_(got[liteKey_(room, 'ctl')], null) };
+  if (wantMeta) out.meta = liteJson_(meta, null);
+  return out;
 }
