@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v0.8.0</title>
+<title>점프 라이브 v0.8.1</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -283,7 +283,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v0.8.0</span></h1>
+    <h1>점프 라이브<span class="ver">v0.8.1</span></h1>
     <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button><button id="btnDev" title="돌려 쓰는 기기(노트북·태블릿) 찾기" hidden>기기</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
@@ -580,7 +580,7 @@ function demoBackend(){
     onUser:cb=>setTimeout(()=>cb({uid:'demo',name:'시험 모드'}),0),
     signIn:async()=>{}, signOut:async()=>{},
     async openRoom(room,m){ meta=m; devs={}; const join=[];
-      const gs=m.list?m.list.split(',').map(x=>{ const r=/^(\d+)-(\d+):(\d+)$/.exec(x); return {g:+r[1],c:+r[2],max:+r[3]}; }):[{g:m.g,c:m.c,max:m.max}];
+      const gs=m.list?m.list.split(',').map(x=>{ const r=/^(\d+)-(\d+):(\d+)/.exec(x); return {g:+r[1],c:+r[2],max:+r[3]}; }):[{g:m.g,c:m.c,max:m.max}];
       const SLN=Math.min(10,+Q.get('slots')||0);   // 시험: &slots=7 → 돌려 쓰는 기기 7대만 들어옴
       if(SLN) for(let k=1;k<=SLN;k++) join.push([gs[0].g,gs[0].c,60+k]);
       else gs.forEach(x=>{ for(let n=1;n<=x.max;n++) if(!(x===gs[0]&&(n===4||n===x.max-1))) join.push([x.g,x.c,n]); });
@@ -675,7 +675,10 @@ const gkey=(g,c)=>g+'-'+c, skey=(g,c,n)=>g+'-'+c+'-'+n;
 const here=r=>r.dup>0||HUB.on||slotKeys().length>0;   // 돌려 쓰는 기기가 있어도 명단 전체
 const multi=()=>S.groups.length>1;
 const clsLabel=gs=>gs.map(x=>`${x.g}학년 ${x.c}반`).join(' · ');
-const totalMax=()=>S.groups.reduce((a,x)=>a+x.max,0);
+// 자리(번호) 목록: 앱 명단이면 등록된 번호만 (전학 등으로 빠진 번호는 칸을 만들지 않음), 직접 입력이면 1~max
+const seats=x=>{ const k=Object.keys(x.ids||{}).map(Number).filter(n=>n>=1&&n<=60).sort((a,b)=>a-b); return k.length?k:Array.from({length:x.max},(_,i)=>i+1); };
+const hasSeat=(x,n)=>seats(x).includes(+n);
+const totalMax=()=>S.groups.reduce((a,x)=>a+seats(x).length,0);
 function view(v){ ['vLogin','vSetup','vLive'].forEach(id=>$(id).hidden=id!==v); }
 
 function parseRoster(txt){
@@ -707,6 +710,9 @@ async function openRoom(){
   store.set('jrl_last',gkey(groups[0].g,groups[0].c)); if(type) store.set('jrl_type',type);
   // 서버에는 학년·반·인원만 (첫 반은 g·c·max — 예전 판정기도 읽게, 여러 반이면 list 에 모두)
   const meta={g:groups[0].g,c:groups[0].c,max:groups[0].max}; if(groups.length>1) meta.list=groups.map(x=>`${x.g}-${x.c}:${x.max}`).join(',');
+  if(LITE){   // Lite: 빠진 번호도 알려서 판정기 번호판에서 뺌 (g-c:max:빠진번호-빠진번호)
+    const skip=x=>{ const s=seats(x); return Array.from({length:x.max},(_,i)=>i+1).filter(n=>!s.includes(n)); };
+    if(groups.some(x=>skip(x).length)){ const l=groups.map(x=>`${x.g}-${x.c}:${x.max}`+(skip(x).length?':'+skip(x).join('-'):'')).join(','); if(l.length<=200) meta.list=l; } }
   $('btnOpen').disabled=true; $('btnOpen').textContent='방 여는 중…';
   try{
     const room=genKey(); await B.openRoom(room,meta);
@@ -830,11 +836,11 @@ function srcIcons(r){ if(!r.cam&&!r.rope) return '';
 function render(){
   $('hdrTools').hidden=$('btnClose').hidden=!S.room; slSync(); { const n=S.room?slotKeys().length:0; $('btnDev').hidden=!n; if(!n) $('devp').hidden=true; else if(!$('devp').hidden) devRender(); }   // 방을 연 뒤에만 맨 위 QR·허브·음악·방 닫기
   const all=liveDevs(), mine={}, others=[], gs=S.groups, M=multi();
-  const inGroup=d=>gs.some(x=>x.g===d.g&&x.c===d.c&&d.n>=1&&d.n<=x.max);
+  const inGroup=d=>gs.some(x=>x.g===d.g&&x.c===d.c&&hasSeat(x,d.n));
   all.forEach(d=>{ if(inGroup(d)) (mine[skey(d.g,d.c,d.n)]=mine[skey(d.g,d.c,d.n)]||[]).push(d); else others.push(d); });
   const runId=S.ctl.ph!=='open'?S.ctl.id:'';
   const rows=[]; let join=0, jump=0, sum=0;
-  gs.forEach(x=>{ for(let n=1;n<=x.max;n++){
+  gs.forEach(x=>{ for(const n of seats(x)){
     const k=skey(x.g,x.c,n), list=(mine[k]||[]), on=list.filter(d=>d.st!=='off');
     // 같은 번호 기기가 여럿이면 지금 이번 회차를 뛰는(또는 횟수가 큰) 기기를 보여 줌
     const pick=(on.length?on:list).slice().sort((a,b)=>((b.ctl===runId)-(a.ctl===runId))||(b.cnt-a.cnt))[0];
@@ -1002,8 +1008,8 @@ function hubRope(n){ n=+n; if(!(n>0)) return null; return HUB.ropes[n]=HUB.ropes
 // 줄넘기 번호 → 학생 {g,c,n}
 function hubStudent(n){
   const m=HUB.map[n]; if(m==='-') return null;   // 조별 차례에서 이번 조에 안 쓰는 줄넘기
-  if(m){ const p=m.split('-').map(Number); if(S.groups.some(x=>x.g===p[0]&&x.c===p[1]&&p[2]>=1&&p[2]<=x.max)) return {g:p[0],c:p[1],n:p[2]}; }
-  let k=String(n)[0]==='L'?+String(n).slice(1):+n; for(const x of S.groups){ if(k<=x.max) return {g:x.g,c:x.c,n:k}; k-=x.max; } return null;
+  if(m){ const p=m.split('-').map(Number); if(S.groups.some(x=>x.g===p[0]&&x.c===p[1]&&hasSeat(x,p[2]))) return {g:p[0],c:p[1],n:p[2]}; }
+  let k=String(n)[0]==='L'?+String(n).slice(1):+n; if(!(k>0)) return null; for(const x of S.groups){ const s=seats(x); if(k<=s.length) return {g:x.g,c:x.c,n:s[k-1]}; k-=s.length; } return null;
 }
 // 걸림 추정 (블루투스 줄넘기): 줄넘기는 횟수만 알려 줘서, 약 1초마다 오는 횟수로 봄.
 //  그 사이 늘어난 수가 0이거나 그 친구 평소 빠르기보다 확 줄면(한 번 사이 45%, 두 번 사이 62% 아래) '걸려서 멈춤'. 다시 제 빠르기로 뛰기 시작하면 걸림 1번.
@@ -1048,7 +1054,7 @@ function hubDevs(){
 function hubPush(){ trackRate(hubDevs()); hubRender(); renderSoon(); }
 function hubRender(){
   if($('hub').hidden) return;
-  const opts=S.groups.flatMap(x=>Array.from({length:x.max},(_,i)=>{ const n=i+1; return [skey(x.g,x.c,n),`${multi()?x.g+'-'+x.c+' ':''}${n}번 ${x.names[n]||''}`]; }));
+  const opts=S.groups.flatMap(x=>seats(x).map(n=>{ return [skey(x.g,x.c,n),`${multi()?x.g+'-'+x.c+' ':''}${n}번 ${x.names[n]||''}`]; }));
   const rs=Object.values(HUB.ropes).sort((a,b)=>a.n-b.n), now=Date.now();
   $('hubBody').innerHTML=rs.map(r=>{ const st=hubStudent(r.n), cur=st?skey(st.g,st.c,st.n):'', on=r.seen&&now-r.seen<20000;
     return `<tr data-n="${r.n}"><td class="no">${r.n}</td><td><select data-map>${S.groups.length?'':'<option value="">방을 먼저 열어요</option>'}${opts.map(([v,l])=>`<option value="${v}"${v===cur?' selected':''}>${esc(l)}</option>`).join('')}</select></td>
@@ -1124,7 +1130,7 @@ function hubInit(){
   // 다른 학교에서 11~19번처럼 번호가 정해진 줄넘기를 쓸 때: 켜진 줄넘기를 작은 번호부터 이 반 1번, 2번… 학생에게 차례로 이음
   $('hubSeq').onclick=()=>{ const now=Date.now(), ropes=Object.values(HUB.ropes).filter(r=>r.n>0&&r.seen&&now-r.seen<20000).map(r=>r.n).sort((a,b)=>a-b);
     if(!ropes.length) return hubMsg('켜진 줄넘기가 안 보여요 — "줄넘기 찾기"를 먼저 눌러요');
-    const studs=[]; S.groups.forEach(x=>{ for(let n=1;n<=x.max;n++) studs.push(skey(x.g,x.c,n)); });
+    const studs=[]; S.groups.forEach(x=>{ for(const n of seats(x)) studs.push(skey(x.g,x.c,n)); });
     ropes.forEach((n,i)=>{ HUB.map[n]=studs[i]||'-'; }); store.set('jl_hubmap',JSON.stringify(HUB.map)); hubPush();
     hubMsg(`줄넘기 ${ropes[0]}~${ropes[ropes.length-1]}번 (${ropes.length}개)을 1번 학생부터 차례로 이었어요`+(ropes.length>studs.length?' · 남는 줄넘기는 쓰지 않아요':'')); };
   $('hubAuto').onclick=()=>{ if(confirm('켜져 있는 줄넘기 번호를 처음부터 다시 매길까요? (지금 번호가 바뀔 수 있어요)')){ HUB.ropes={}; hubRender(); hubSend('assignall'); } };
