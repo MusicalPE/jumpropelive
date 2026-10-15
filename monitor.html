@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v1.0.1</title>
+<title>점프 라이브 v1.0.2</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -283,7 +283,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v1.0.1</span></h1>
+    <h1>점프 라이브<span class="ver">v1.0.2</span></h1>
     <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button><button id="btnDev" title="돌려 쓰는 기기(노트북·태블릿) 찾기" hidden>기기</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
@@ -617,22 +617,23 @@ const SHELL=(()=>{ const v=Q.get('s')||''; return /^https:\/\/script\.google(use
 const APPM=!!SHELL;
 // 점프 Live (Lite): ?s=껍데기&lite=1 — Firebase·구글 로그인 없이 그 학교 시트(6판 껍데기)로 방을 돌림. 다른 학교도 쓸 수 있는 보급판
 const LITE=APPM&&Q.get('lite')==='1';
+const CLUB=Q.get('club')==='1', SCH=CLUB?'클럽':'학교';   // 클럽판(스포츠클럽·도장)에서 열면 '학교' 대신 '클럽'
 const JR={ students:[], types:[], live:false, lite:false, admin:null, cur:null };
 function sessGet(){ try{ const v=JSON.parse(localStorage.getItem('jumpropeAdminSession')||'null'); if(v&&v.token&&Date.now()-v.ts<55*60e3) return v.token; }catch(e){} return null; }
 function sessSet(t){ try{ localStorage.setItem('jumpropeAdminSession',JSON.stringify({token:t,ts:Date.now()})); }catch(e){} }
 async function rpc(fn,args){
   const r=await fetch(SHELL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn,args:args||[]}),redirect:'follow'});
-  if(!r.ok) throw new Error('학교 시트 응답 오류 ('+r.status+')');
+  if(!r.ok) throw new Error(SCH+' 시트 응답 오류 ('+r.status+')');
   const j=await r.json(); if(!j.ok) throw new Error(j.error||'요청 실패'); return j.result;
 }
 async function adminLogin(pw){ const r=await rpc('verifyAdminPassword',[pw]); if(!r||!r.ok) throw new Error((r&&r.message)||'비밀번호가 올바르지 않습니다.'); sessSet(r.token); JR.admin=r.token; return r.token; }
 async function appLoad(){
   $('appBox').hidden=false; $('rosterBox').hidden=true; $('maxLab').hidden=true; $('typeLab').hidden=false;
-  $('appInfo').textContent='학교 시트에서 불러오는 중…'; $('btnOpen').disabled=true;
+  $('appInfo').textContent=SCH+' 시트에서 불러오는 중…'; $('btnOpen').disabled=true;
   try{ const [p,types]=await Promise.all([rpc('ping'),rpc('getJumpTypes')]); JR.live=!!(p&&p.live); JR.lite=!!(p&&p.lite); JR.types=types||[];
-    if(LITE&&!JR.lite){ $('appInfo').innerHTML='<span class="err">이 학교 껍데기는 6판이 아니라 점프 Live (Lite)를 쓸 수 없어요 — 관리자 설정의 안내대로 껍데기를 6판으로 바꿔 주세요</span>'; return; }
+    if(LITE&&!JR.lite){ $('appInfo').innerHTML='<span class="err">이 '+SCH+' 껍데기는 6판이 아니라 점프 Live (Lite)를 쓸 수 없어요 — 관리자 설정의 안내대로 껍데기를 6판으로 바꿔 주세요</span>'; return; }
     const sel=$('selType'), last=store.get('jrl_type'); sel.innerHTML=''; JR.types.forEach(t=>sel.add(new Option(t,t))); if(last&&JR.types.includes(last)) sel.value=last; }
-  catch(e){ $('appInfo').textContent='학교 시트에 연결하지 못했어요: '+e.message; return; }
+  catch(e){ $('appInfo').textContent=SCH+' 시트에 연결하지 못했어요: '+e.message; return; }
   JR.admin=sessGet();
   if(JR.admin){ try{ JR.students=await rpc('getAllStudents',[JR.admin]); return appClasses(); }catch(e){ JR.admin=null; } }
   $('pwRow').hidden=false; $('appInfo').textContent='명단을 가져오려면 관리자 비밀번호를 넣어 주세요'; $('inPw').focus();
@@ -663,7 +664,7 @@ function appRoster(){
     return {g,c,max,names,ids}; }).sort((a,b)=>a.g-b.g||a.c-b.c);
   JR.cur=groups;
   const cnt=groups.reduce((a,x)=>a+Object.keys(x.names).length,0);
-  $('appInfo').innerHTML=(groups.length>1?`${groups.length}개 반 함께 · `:'')+`${cnt}명 — 함께 수업하는 반을 모두 눌러 고르세요`+((LITE?JR.lite:JR.live)?'':' · <span class="err">이 학교 껍데기는 점프 라이브판이 아니라 결과가 자동 저장되지 않아요</span>');
+  $('appInfo').innerHTML=(groups.length>1?`${groups.length}개 반 함께 · `:'')+`${cnt}명 — 함께 수업하는 반을 모두 눌러 고르세요`+((LITE?JR.lite:JR.live)?'':' · <span class="err">이 '+SCH+' 껍데기는 점프 라이브판이 아니라 결과가 자동 저장되지 않아요</span>');
 }
 
 /* ---------- 화면 상태 ---------- */
@@ -698,7 +699,7 @@ function setupInit(){
     $('roster').value=nm.map((x,i)=>(i+1)+' '+x).join('\n'); info(); }
 }
 function genKey(){ return btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
-function studentUrl(){ const u=new URL('./',location.href); u.search='?room='+S.room+(LITE?'&ls='+encodeURIComponent(SHELL):''); return u.toString(); }
+function studentUrl(){ const u=new URL('./',location.href); u.search='?room='+S.room+(LITE?'&ls='+encodeURIComponent(SHELL):'')+(CLUB?'&club=1':''); return u.toString(); }
 
 async function openRoom(){
   $('setupErr').textContent='';
@@ -1303,7 +1304,7 @@ async function chalFinish(){
   const m=savedRuns(); m[run.id]=m[run.id]||'chal'; store.set('jrl_saved',JSON.stringify(m)); S.copied=run.id;   // 다음 시작 때 '저장 안 됨' 경고가 안 뜨게
   chalRender(); chalLogRender();
   if(APPM&&$('chSave').checked&&r.id&&cnt>0){
-    if(!JR.live){ CH.msg='자동 기록이 안 돼요 — 이 학교 껍데기가 점프 라이브판이 아니에요'; CH.bad=true; return chalRender(); }
+    if(!(LITE?JR.lite:JR.live)){ CH.msg='자동 기록이 안 돼요 — 이 '+SCH+' 껍데기가 '+(LITE?'6판':'점프 라이브판')+'이 아니에요'; CH.bad=true; return chalRender(); }
     const tok=JR.admin||sessGet(); if(!tok){ CH.msg='관리자 로그인이 끝나서 기록하지 못했어요 (도전 기록은 아래 목록에 남아 있어요)'; CH.bad=true; return chalRender(); }
     try{ const res=await rpc('addLiveRecordsAdmin',[tok,S.type,[{id:r.id,count:cnt}],run.id]); CH.msg=res.already?'이미 기록한 도전이에요':`✓ 시트에 ${cnt}회 기록했어요 (${S.type})`;
       try{ if(window.opener&&!window.opener.closed) window.opener.postMessage({type:'jumplive-saved'},location.origin); }catch(e){} }
@@ -1548,7 +1549,7 @@ async function relayDone(){
   const sum=RL.legs.reduce((a,x)=>a+x.cnt,0); big('끝!'); beep(1046,.15,.25); setTimeout(()=>beep(1318,.3,.25),160); relayRender();
   const rows=RL.legs.filter(x=>x.id&&x.cnt>0).map(x=>({id:x.id,count:x.cnt}));
   if(APPM&&$('rlSave').checked&&rows.length){
-    if(!JR.live){ RL.msg='자동 기록이 안 돼요 — 이 학교 껍데기가 점프 라이브판이 아니에요'; RL.bad=true; return relayRender(); }
+    if(!(LITE?JR.lite:JR.live)){ RL.msg='자동 기록이 안 돼요 — 이 '+SCH+' 껍데기가 '+(LITE?'6판':'점프 라이브판')+'이 아니에요'; RL.bad=true; return relayRender(); }
     const tok=JR.admin||sessGet(); if(!tok){ RL.msg='관리자 로그인이 끝나서 기록하지 못했어요'; RL.bad=true; return relayRender(); }
     try{ const res=await rpc('addLiveRecordsAdmin',[tok,S.type,rows,RL.id]); RL.msg=res.already?'이미 기록한 릴레이예요':`✓ 시트에 ${res.saved}명 기록했어요 (${S.type})`;
       try{ if(window.opener&&!window.opener.closed) window.opener.postMessage({type:'jumplive-saved'},location.origin); }catch(e){} }
@@ -1798,7 +1799,7 @@ function resSaveUi(msg,bad,needPw,retry){
 }
 async function saveResult(){
   const id=S.lastRun&&S.lastRun.id; if(!id) return;
-  if(!(LITE?JR.lite:JR.live)) return resSaveUi('자동 저장이 안 돼요 — 이 학교 껍데기가 점프 라이브판이 아니에요. 결과 복사로 옮겨 주세요',true);
+  if(!(LITE?JR.lite:JR.live)) return resSaveUi('자동 저장이 안 돼요 — 이 '+SCH+' 껍데기가 점프 라이브판이 아니에요. 결과 복사로 옮겨 주세요',true);
   if(savedRuns()[id]) return resSaveUi();
   const rows=resultRows().filter(r=>r.id&&r.cnt>0).map(r=>({id:r.id,count:r.cnt,best:Math.min(r.best||0,r.cnt)}));   // best: 한 번에 최고 연속 (점프 라이브판 5판부터 시트에 남음)
   if(!rows.length) return resSaveUi('저장할 기록이 없어요',true);
@@ -1856,6 +1857,7 @@ setInterval(()=>{ if(S.room) render(); },3000);   // 신호가 끊긴 기기를 
 (async()=>{
   $('demoTag').hidden=!DEMO||Q.get('clean')==='1';   // &clean=1 : 영상 찍을 때 '시험 모드' 표시 숨김
   if(DEMO&&Q.get('clean')==='1') $('me').style.visibility='hidden';
+  if(CLUB){ const m=$('mMsg'); if(m) m.textContent=m.textContent.replace('학교망에서','이곳 인터넷에서'); }
   if(LITE){   // 점프 Live (Lite): 이름·보이기 칸, 맞지 않는 놀이(릴레이·목표 횟수 먼저 닿기)는 뺌
     document.title='점프 Live (Lite)'; const h=document.querySelector('header h1'); if(h) h.innerHTML='점프 Live<span class="ver">Lite · '+(h.querySelector('.ver')||{}).textContent+'</span>';
     $('rvLab').hidden=false; { const v=store.get('jrl_rv'); if(v&&[...$('selRv').options].some(o=>o.value===v)) $('selRv').value=v; }
