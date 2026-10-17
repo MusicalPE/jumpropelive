@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v1.0.2</title>
+<title>점프 라이브 v1.0.3</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -283,7 +283,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v1.0.2</span></h1>
+    <h1>점프 라이브<span class="ver">v1.0.3</span></h1>
     <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button><button id="btnDev" title="돌려 쓰는 기기(노트북·태블릿) 찾기" hidden>기기</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
@@ -822,7 +822,7 @@ function modeResume(snap){
   const st=snap.st, lab={rot:()=>`조별 차례 — ${st.g+1}조 차례`, team:()=>`팀 차례 — ${(TEAM_C[st.sq.i]||TEAM_C[0])[0]} 팀 차례`, bak:()=>`박 터트리기 팀 차례 — ${(TEAM_C[st.sq.i]||TEAM_C[0])[0]} 팀 차례`, trel:()=>`팀 릴레이 — ${st.leg+1}번째 주자`}[snap.kind];
   if(!lab||!confirm(`새로 고치기 전에 하던 놀이가 있어요.\n\n${lab()}부터 이어 할까요?${st.phase==='run'?'\n(뛰던 중이었으면 그 차례는 다시 뛰어요)':''}`)){ store.set(MODE_KEY,''); return; }
   if(snap.lastRun) S.lastRun=snap.lastRun;
-  if(snap.kind==='rot'){ rotOpen(); Object.assign(RO,st); if(RO.phase==='run') RO.phase='ready'; if(RO.groups[0]) $('roN').value=RO.groups[0].length;
+  if(snap.kind==='rot'){ rotOpen(); Object.assign(RO,st); if(RO.phase==='run') RO.phase='ready'; if(RO.groups[0]) $('roN').value=(RO.ropes&&RO.ropes.length)||RO.groups[0].length;
     Array.prototype.forEach.call($('roDur').children,x=>x.classList.toggle('on',+x.dataset.d===RO.dur)); Array.prototype.forEach.call($('roOrd').children,x=>x.classList.toggle('on',x.dataset.o===RO.ord)); rotRender(); }
   else if(snap.kind==='team'){ teamOpen(); Object.assign(TM,st); if(TM.phase==='run') TM.phase='between'; teamRender(); }
   else if(snap.kind==='bak'){ bakOpen(); Object.assign(BK,st); if(BK.phase==='run') BK.phase='sqbetween';
@@ -1591,10 +1591,12 @@ const RO={ on:false, ord:'no', dur:60, groups:[], ropes:[], g:0, phase:'setup', 
 function roRopes(n,pad=true){ const seen=HUB.on?Object.keys(HUB.ropes).map(Number).filter(x=>x>0).sort((a,b)=>a-b):[]; const out=seen.concat(slotKeys()).slice(0,n);
   if(pad||HUB.on) for(let k=1;out.length<n&&k<100;k++) if(!out.includes(k)) out.push(k);
   return out.sort((a,b)=>(typeof a==='string')-(typeof b==='string')||(typeof a==='string'?+a.slice(1)-+b.slice(1):a-b)); }
+// 조 크기를 고르게 나눔 (조 수는 줄넘기 수로 정하고, 남는 인원을 앞 조부터 한 명씩)
+function roSizes(t,n){ const g=Math.max(1,Math.ceil(t/n)), b=Math.floor(t/g), x=t%g; return Array.from({length:g},(_,i)=>b+(i<x?1:0)).filter(z=>z>0); }
 function rotMake(){
   const n=Math.max(1,Math.min(60,Math.round(+$('roN').value)||9)); $('roN').value=n;
   const all=(S.rows||[]).slice(); if(RO.ord==='rand') for(let i=all.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [all[i],all[j]]=[all[j],all[i]]; }
-  RO.groups=[]; for(let i=0;i<all.length;i+=n) RO.groups.push(all.slice(i,i+n).map(r=>r.k));
+  RO.groups=[]; const gs=roSizes(all.length,n); let at=0; gs.forEach(z=>{ RO.groups.push(all.slice(at,at+z).map(r=>r.k)); at+=z; });   // 고르게: 22명·9개 → 8·7·7
   if(!RO.saved) RO.saved=JSON.stringify(HUB.map);   // 끝나고 다 같이 뛰기로 돌아갈 때 원래 줄넘기 연결로 되돌림
   RO.ropes=roRopes(n); RO.g=0; RO.res={}; RO.phase='ready'; rotApply(0); rotRender();
 }
@@ -1619,7 +1621,7 @@ function rotRender(){
   $('roList').innerHTML=G.length?G.map((grp,i)=>`<div class="ch-li" style="${i===RO.g&&RO.phase!=='final'?'background:var(--mint-soft);border-radius:10px':''}"><span class="t ${i<RO.g||RO.phase==='final'||(i===RO.g&&RO.phase==='between')?'y':'n'}" style="${i===RO.g&&RO.phase==='run'?'background:var(--accent)':''}">${i<RO.g||RO.phase==='final'||(i===RO.g&&RO.phase==='between')?'✓':i+1}</span><span class="nm">${i+1}조 · ${grp.length}명</span><span class="c" style="font-size:14px;color:var(--muted)">${grp.map(k=>(S.rows.find(r=>r.k===k)||{}).n).join(', ')}</span></div>`).join(''):'<div class="ch-left">줄넘기 수와 순서를 고르고 "이대로 조 나누기"를 눌러요</div>';
   let body='';
   if(RO.phase==='setup'||!G.length){ const n=(S.rows||[]).length, r=Math.max(1,+$('roN').value||9);
-    body=`<div class="ch-eyebrow" style="margin-top:12vh">줄넘기 ${r}개로 ${n}명이 ${Math.ceil(n/r)}개 조로 차례대로 뛰어요</div><div class="ch-msg">오른쪽에서 줄넘기 수·순서·시간을 고르고 "이대로 조 나누기"를 눌러요${HUB.on?' · 지금 허브에 줄넘기 '+Object.keys(HUB.ropes).length+'개가 보여요':' · 허브를 먼저 연결해 두면 줄넘기 번호를 알아서 맞춰요'}${slotKeys().length?' · 돌려 쓰는 기기 '+slotKeys().length+'대가 들어와 있어요 — 조가 바뀌면 저절로 다음 친구로 이어요':''}</div>`; }
+    body=`<div class="ch-eyebrow" style="margin-top:12vh">줄넘기 ${r}개로 ${n}명이 ${Math.ceil(n/r)}개 조(${roSizes(n,r).join('·')}명)로 차례대로 뛰어요</div><div class="ch-msg">오른쪽에서 줄넘기 수·순서·시간을 고르고 "이대로 조 나누기"를 눌러요${HUB.on?' · 지금 허브에 줄넘기 '+Object.keys(HUB.ropes).length+'개가 보여요':' · 허브를 먼저 연결해 두면 줄넘기 번호를 알아서 맞춰요'}${slotKeys().length?' · 돌려 쓰는 기기 '+slotKeys().length+'대가 들어와 있어요 — 조가 바뀌면 저절로 다음 친구로 이어요':''}</div>`; }
   else if(RO.phase==='ready'){
     const prev=RO.g>0?G[RO.g-1]:null;
     const rows=RO.ropes.map((n,j)=>{ const to=cur[j]; if(!to) return ''; const from=prev&&prev[j];
