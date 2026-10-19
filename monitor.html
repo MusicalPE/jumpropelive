@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v1.0.5</title>
+<title>점프 라이브 v1.0.6</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -283,7 +283,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v1.0.5</span></h1>
+    <h1>점프 라이브<span class="ver">v1.0.6</span></h1>
     <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button><button id="btnDev" title="돌려 쓰는 기기(노트북·태블릿) 찾기" hidden>기기</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
@@ -1185,7 +1185,9 @@ function finish(){ // 학생 기기가 마지막 숫자를 보낼 시간을 2초
   if(rl) whistle(.3,.8); else { whistle(.45); setTimeout(()=>whistle(1.1),600); } big(rl?'다음!':'끝!'); if(!rl) musicEnd(); hubOnEnd();
   if(S.lastRun.chal){ setTimeout(()=>{ render(); chalFinish(); },2000); return; }
   if(S.lastRun.relay){ setTimeout(()=>{ render(); relayLeg(); },1600); return; }   // 릴레이: 이 주자 끝 → 다음 주자
-  if(S.lastRun.mode){ setTimeout(()=>{ render(); if(S.lastRun.mode==='bak') bakFinish(); else if(S.lastRun.mode==='rot') rotFinish(); else if(S.lastRun.mode==='trel') trelLeg(); else teamFinish(); $('btnResult').disabled=false; if(APPM&&S.groups.some(x=>Object.keys(x.ids||{}).length)) saveResult(); },2000); return; }   // 박·팀전: 도전 화면에서 끝 보여 주고, 기록은 다 같이 뛰기처럼 시트에   // 랜덤 한 명 도전은 결과 창 대신 도전 화면에
+  if(S.lastRun.mode){ setTimeout(()=>{ render(); if(S.lastRun.mode==='bak') bakFinish(); else if(S.lastRun.mode==='rot') rotFinish(); else if(S.lastRun.mode==='trel') trelLeg(); else teamFinish(); $('btnResult').disabled=false; if(APPM&&S.groups.some(x=>Object.keys(x.ids||{}).length)) saveResult();
+    const m=S.lastRun.mode, rid=S.lastRun.id, one=(m==='bak'&&BK.phase==='done')||(m==='team'&&TM.phase==='done'&&!(S.lastRun.team&&S.lastRun.team.seq));   // 박·팀전(한 판): 축하 화면을 4초 보여 준 뒤 결과 창
+    if(one) setTimeout(()=>{ if(S.lastRun&&S.lastRun.id===rid&&S.ctl.ph!=='go') showResult(); },4000); },2000); return; }   // 박·팀전: 도전 화면에서 끝 보여 주고, 기록은 다 같이 뛰기처럼 시트에   // 랜덤 한 명 도전은 결과 창 대신 도전 화면에
   if(LITE){ const rid=S.lastRun.id; liteCollect(()=>{ $('btnResult').disabled=false; if(S.groups.some(x=>Object.keys(x.ids||{}).length)) saveResult();
     setTimeout(()=>{ if(S.lastRun&&S.lastRun.id===rid&&S.ctl.ph!=='go') showResult(); },2000); }); return; }   // 뒤집어 공개한 뒤 2초 있다가 결과 창 (끝나고 길어야 10초)
   setTimeout(()=>{ render(); showResult(); $('btnResult').disabled=false; if(APPM&&S.groups.some(x=>Object.keys(x.ids||{}).length)) saveResult(); },2000);
