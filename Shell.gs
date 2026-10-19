@@ -17,7 +17,7 @@ const BETA_URL = 'https://musicalpe.github.io/jumprope/beta/';
 const SHEET_STUDENTS = 'Students';
 const SHEET_RECORDS  = 'Records';
 const SHEET_LEVELS   = 'Levels';   // 3판: 급수 인증 (교사가 통과시킨 항목 한 줄씩)
-const TOKEN_TTL_SEC   = 60 * 60; // 관리자 토큰 유효시간: 1시간
+const TOKEN_TTL_SEC   = 24 * 60 * 60; // 관리자 토큰 유효시간: 하루 (수업 중 점프 Live 와 이어진 채로)
 const DEFAULT_DAILY_GOAL = 100;  // 하루 목표 줄넘기 횟수 (관리자가 바꾸지 않았을 때 기본값)
 
 function getDailyGoal_() {
@@ -504,7 +504,10 @@ function verifyAdminPassword(password) {
     return { ok: false, message: '비밀번호가 올바르지 않습니다.' };
   }
   const token = Utilities.getUuid();
-  CacheService.getScriptCache().put('ADMIN_' + token, '1', TOKEN_TTL_SEC);
+  CacheService.getScriptCache().put('ADMIN_' + token, '1', 21600);   // 캐시는 6시간이 최대 — 그 뒤는 아래 속성으로 확인
+  const props = PropertiesService.getScriptProperties(), now = Date.now(), all = props.getProperties();
+  Object.keys(all).forEach(function (k) { if (k.indexOf('AT_') === 0 && +all[k] < now) props.deleteProperty(k); });   // 지난 토큰 정리
+  props.setProperty('AT_' + token, String(now + TOKEN_TTL_SEC * 1000));
   return { ok: true, token: token };
 }
 
@@ -519,7 +522,11 @@ function changeAdminPassword(token, newPassword) {
 
 function checkAdminToken_(token) {
   if (!token) return false;
-  return !!CacheService.getScriptCache().get('ADMIN_' + token);
+  const cache = CacheService.getScriptCache();
+  if (cache.get('ADMIN_' + token)) return true;
+  const exp = +(PropertiesService.getScriptProperties().getProperty('AT_' + token) || 0);   // 6시간이 지나 캐시에서 빠졌으면 하루 기한으로 확인
+  if (exp > Date.now()) { cache.put('ADMIN_' + token, '1', Math.max(1, Math.min(21600, Math.floor((exp - Date.now()) / 1000)))); return true; }
+  return false;
 }
 
 /************ 학생 관리 (관리자 전용) ************/

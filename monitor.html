@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v1.0.9</title>
+<title>점프 라이브 v1.1.0</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -283,7 +283,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v1.0.9</span></h1>
+    <h1>점프 라이브<span class="ver">v1.1.0</span></h1>
     <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button><button id="btnDev" title="돌려 쓰는 기기(노트북·태블릿) 찾기" hidden>기기</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
@@ -619,7 +619,7 @@ const APPM=!!SHELL;
 const LITE=APPM&&Q.get('lite')==='1';
 const CLUB=Q.get('club')==='1', SCH=CLUB?'클럽':'학교';   // 클럽판(스포츠클럽·도장)에서 열면 '학교' 대신 '클럽'
 const JR={ students:[], types:[], live:false, lite:false, admin:null, cur:null };
-function sessGet(){ try{ const v=JSON.parse(localStorage.getItem('jumpropeAdminSession')||'null'); if(v&&v.token&&Date.now()-v.ts<55*60e3) return v.token; }catch(e){} return null; }
+function sessGet(){ try{ const v=JSON.parse(localStorage.getItem('jumpropeAdminSession')||'null'); if(v&&v.token&&Date.now()-v.ts<24*3600e3) return v.token; }catch(e){} return null; }
 function sessSet(t){ try{ localStorage.setItem('jumpropeAdminSession',JSON.stringify({token:t,ts:Date.now()})); }catch(e){} }
 async function rpc(fn,args){
   const r=await fetch(SHELL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn,args:args||[]}),redirect:'follow'});
