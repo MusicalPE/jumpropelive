@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v1.0.7</title>
+<title>점프 라이브 v1.0.8</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -283,7 +283,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v1.0.7</span></h1>
+    <h1>점프 라이브<span class="ver">v1.0.8</span></h1>
     <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button><button id="btnDev" title="돌려 쓰는 기기(노트북·태블릿) 찾기" hidden>기기</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
@@ -1616,7 +1616,8 @@ function rotMake(){
   if(!RO.saved) RO.saved=JSON.stringify(HUB.map);   // 끝나고 다 같이 뛰기로 돌아갈 때 원래 줄넘기 연결로 되돌림
   RO.ropes=roRopes(n); RO.g=0; RO.res={}; RO.phase='ready'; rotApply(0); rotRender();
 }
-function rotApply(g){ const grp=RO.groups[g]||[]; RO.ropes.forEach((n,j)=>{ HUB.map[n]=grp[j]||'-'; }); store.set('jl_hubmap',JSON.stringify(HUB.map)); hubPush(); if(HUB.on) hubSend('vibrate all'); }
+// 조 바꾸기: 돌려 쓰는 기기만 저절로 다음 친구로 · 허브 줄넘기는 선생님이 허브 목록에서 직접 학생을 바꿈 (조별 차례는 학생만 알려 줌)
+function rotApply(g){ const grp=RO.groups[g]||[]; let ch=false; RO.ropes.forEach((n,j)=>{ if(String(n)[0]==='L'){ HUB.map[n]=grp[j]||'-'; ch=true; } }); if(ch){ store.set('jl_hubmap',JSON.stringify(HUB.map)); hubPush(); } }
 function rotOpen(){ if(S.ctl.ph==='go') return alert('지금 뛰는 중이에요. 끝난 뒤에 열어 주세요.'); modeCloseAll(); RO.on=true; $('rot').hidden=false; $('roCls').textContent=clsLabel(S.groups)+(S.type?' · '+S.type:'');
   if(!RO.groups.length){ const seen=(HUB.on?Object.keys(HUB.ropes).length:0)+slotKeys().length; if(seen) $('roN').value=seen; RO.phase='setup'; }
   clearInterval(RO.tickT); RO.tickT=setInterval(()=>{ if(RO.phase==='run'){ $('roClock').textContent=modeTime(); } },250); rotRender(); }
@@ -1643,6 +1644,11 @@ function rotRender(){
     const rows=RO.ropes.map((n,j)=>{ const to=cur[j]; if(!to) return ''; const from=prev&&prev[j];
       return `<tr><td style="font-weight:900;font-size:22px;color:var(--accent-ink)">${devLblLong(n)}</td>${prev?`<td style="font-size:20px">${from?esc(roName(from)):'<span style="color:var(--muted)">(바구니에서)</span>'}</td><td style="font-size:26px;color:var(--muted)">→</td>`:''}<td style="font-size:22px;font-weight:800">${esc(roName(to))}</td></tr>`; }).join('');
     const extra=prev?prev.slice(cur.length).filter(Boolean):[];
+    if(!devOnly(RO.ropes)){   // 허브 줄넘기: 학생만 보여 줌
+      body=`<div class="ch-eyebrow">${RO.g+1}조 준비 · ${cur.length}명</div><h2 style="margin:6px 0 14px;font-size:min(44px,5vh)">${prev?RO.g+'조는 줄넘기를 '+(RO.g+1)+'조에게 건네주세요':'1조 나와요!'}</h2>
+        <div style="display:grid;grid-template-columns:repeat(${Math.min(4,Math.max(1,cur.length))},1fr);gap:12px;width:min(1000px,96%)">${cur.map(k=>`<div class="card" style="padding:14px 16px;font-size:min(30px,3.6vh);font-weight:800;text-align:center">${esc(roName(k))}</div>`).join('')}</div>
+        <div class="ch-btns" style="margin-top:16px"><button class="primary" data-ro="go">${RO.g+1}조 시작 · ${durTxt(RO.dur)}</button></div><div class="ch-msg">${HUB.on?'허브 목록에서 줄넘기마다 '+(RO.g+1)+'조 친구를 골라 주세요':''}${slotKeys().length?(HUB.on?' · ':'')+'돌려 쓰는 기기는 저절로 다음 친구로 바뀌어요':''}</div>`;
+    } else
     body=`<div class="ch-eyebrow">${RO.g+1}조 준비 · ${cur.length}명</div><h2 style="margin:6px 0 10px;font-size:min(44px,5vh)">${devOnly(RO.ropes)?(prev?'기기를 다음 친구에게':'기기 앞에 서요'):prev?'줄넘기를 건네주세요':'줄넘기를 나눠 주세요'}</h2>
       <div class="res" style="width:min(900px,96%)"><table style="width:100%"><thead><tr><th>${devHead(RO.ropes)}</th>${prev?'<th>주는 친구 ('+RO.g+'조)</th><th></th>':''}<th>받는 친구 (${RO.g+1}조)</th></tr></thead><tbody>${rows}</tbody></table></div>
       ${extra.length?`<div class="ch-msg">줄넘기를 바구니에 내려놓아요: ${extra.map(k=>esc(roName(k))).join(', ')}</div>`:''}
@@ -1650,7 +1656,7 @@ function rotRender(){
   else if(RO.phase==='run'){
     const rows=(S.rows||[]).filter(r=>cur.includes(r.k)), top=Math.max(1,...rows.map(r=>r.cnt));
     body=`<div class="ch-eyebrow">${RO.g+1}조 뛰는 중 · ${cur.length}명 · 합계 ${rows.reduce((a,r)=>a+r.cnt,0).toLocaleString()}회</div>
-      <div style="display:grid;grid-template-columns:repeat(${Math.min(5,Math.ceil(Math.sqrt(rows.length*1.6)))},1fr);gap:12px;width:100%;margin-top:12px">${rows.map(r=>{ const rope=RO.ropes[cur.indexOf(r.k)];
+      <div style="display:grid;grid-template-columns:repeat(${Math.min(5,Math.ceil(Math.sqrt(rows.length*1.6)))},1fr);gap:12px;width:100%;margin-top:12px">${rows.map(r=>{ const rope=devOnly(RO.ropes)?RO.ropes[cur.indexOf(r.k)]:chalRope(r);
         return `<div class="card" style="padding:12px 14px;${r.cnt===top&&r.cnt?'border-color:var(--accent);':''}"><div style="font-weight:800;color:var(--muted);font-size:15px">${rope?devLblLong(rope):''}</div><div style="font-weight:800;font-size:22px">${esc(r.name||r.n+'번')}</div><div style="font-size:min(64px,7vh);font-weight:900;line-height:1.1">${r.cnt}<small style="font-size:.35em;color:var(--muted)">회</small></div></div>`; }).join('')}</div>`; }
   else { const fin=RO.phase==='final', done=Object.keys(RO.res);
     const list=(S.rows||[]).filter(r=>RO.res[r.k]!=null).map(r=>({r,c:RO.res[r.k]})).sort((a,b)=>b.c-a.c);
