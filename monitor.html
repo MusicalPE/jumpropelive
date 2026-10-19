@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v1.0.8</title>
+<title>점프 라이브 v1.0.9</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -283,7 +283,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v1.0.8</span></h1>
+    <h1>점프 라이브<span class="ver">v1.0.9</span></h1>
     <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button><button id="btnDev" title="돌려 쓰는 기기(노트북·태블릿) 찾기" hidden>기기</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
@@ -1112,13 +1112,14 @@ function hubModeCmd(){ const v=$('selDur').value, g=goalOf(v), d=durOf(v);
   return {m:'free',cmd:'free all'}; }
 function hubModeUi(){ const v=$('selDur').value, g=goalOf(v), d=durOf(v);
   $('hubModeTip').textContent='줄넘기 세기는 화면 위 "목표"를 따라가요 — '+(g?`${g}회가 되면 줄넘기가 스스로 멈춰요`:d?`${durTxt(d)}이 되면 줄넘기가 스스로 멈춰요`:'제한 없음: 끝을 누를 때까지 세요'); }
-function hubOnGo(id){ if(!HUB.on) return; clearTimeout(HUB.freeT); HUB.runId=id; HUB.mode=S.lastRun&&(S.lastRun.chal||S.lastRun.mode||S.lastRun.relay)?(S.lastRun.dur?{m:'time',cmd:'time all '+S.lastRun.dur}:{m:'free',cmd:'free all'}):hubModeCmd(); HUB.autoEnd=false;
+function hubOnGo(id){ if(!HUB.on) return; clearTimeout(HUB.freeT); HUB.runId=id; HUB.one=0;   // HUB.one: 한 명만 뛰는 회차(랜덤 도전·릴레이)의 그 친구 줄넘기 — 진동도 그 줄넘기만
+  HUB.mode=S.lastRun&&(S.lastRun.chal||S.lastRun.mode||S.lastRun.relay)?(S.lastRun.dur?{m:'time',cmd:'time all '+S.lastRun.dur}:{m:'free',cmd:'free all'}):hubModeCmd(); HUB.autoEnd=false;
   Object.values(HUB.ropes).forEach(r=>{ r.cnt=0; r.ctl=''; r.lastUp=0; r.doneDs=0; r.trk=null; });
   const cmd=HUB.mode.cmd; hubSend('stop all').then(()=>setTimeout(()=>hubSend(cmd),300)); hubPush(); }
 function hubOnStart(){ if(!HUB.on||!HUB.runId) return; HUB.startAt=Date.now(); HUB.accept=true; clearTimeout(HUB.freeT);
   Object.values(HUB.ropes).forEach(r=>{ r.ctl=HUB.runId; r.cnt=0; r.trk=trkNew(); });
-  const one=S.lastRun&&S.lastRun.chal?chalRope(chalRow(S.lastRun.chal.k)):0;   // 랜덤 도전: 뽑힌 친구 줄넘기에는 한 번 더 따로 '시작'
-  hubSend('start all').then(()=>{ if(one) setTimeout(()=>hubSend('start '+one),150); if($('hubBuzz').checked) setTimeout(()=>hubSend('vibrate all'),one?450:250); }); hubStartPoll(); hubPush(); }
+  const one=HUB.one||(S.lastRun&&S.lastRun.chal?chalRope(chalRow(S.lastRun.chal.k)):0);   // 랜덤 도전·릴레이: 그 친구 줄넘기에는 한 번 더 따로 '시작' · 진동도 그 줄넘기만
+  hubSend('start all').then(()=>{ if(one) setTimeout(()=>hubSend('start '+one),150); if($('hubBuzz').checked) setTimeout(()=>hubSend(one?'vibrate '+one:'vibrate all'),one?450:250); }); hubStartPoll(); hubPush(); }
 function hubStartPoll(){ hubStopPoll(); HUB.polling=true;
   const tick=async()=>{ if(!HUB.polling||!HUB.on) return; const t=Date.now(); HUB.pollT=t; await hubSend('getData all');
     setTimeout(()=>{ if(!HUB.polling) return; Object.values(HUB.ropes).forEach(r=>{ if(r.seen&&Date.now()-r.seen<20000&&r.data<t) hubSend('getData '+r.n); }); },650);
@@ -1126,7 +1127,7 @@ function hubStartPoll(){ hubStopPoll(); HUB.polling=true;
   tick(); }
 function hubStopPoll(){ HUB.polling=false; clearTimeout(HUB.timer); }
 function hubOnEnd(){ if(!HUB.on||!HUB.runId) return; hubStopPoll(); const t=Date.now();
-  hubSend('stop all').then(()=>{ if($('hubBuzz').checked) setTimeout(()=>hubSend('vibrate all'),200);
+  const one=HUB.one; hubSend('stop all').then(()=>{ if($('hubBuzz').checked) setTimeout(()=>hubSend(one?'vibrate '+one:'vibrate all'),200);
     setTimeout(()=>hubSend('getData all'),450);
     [1100,1600].forEach(ms=>setTimeout(()=>Object.values(HUB.ropes).forEach(r=>{ if(r.seen&&r.data<t) hubSend('getData '+r.n); }),ms));
     // 마지막 횟수를 받은 뒤: 줄넘기를 다시 '세는 상태'로 돌려놓음 — 멈춤으로 두면 학생이 혼자 뛸 때(앱·화면) 안 셈
@@ -1290,7 +1291,7 @@ async function chalGo(){
   const id='r'+Date.now().toString(36)+'c', c={ph:'go',id,at:B.now()+5000,dur:CH.secs,who:whoOf(CH.k)};
   try{ await B.setControl(S.room,c); }catch(e){ return alert('시작 신호를 보내지 못했어요: '+e.message); }
   S.ctl=c; S.lastRun={id,dur:CH.secs,goal:0,at:c.at,chal:{k:CH.k,goal:CH.goal}}; S.done={}; S.autoEnd=''; S.endShown=''; S.prevCnt={}; S.ending='';
-  CH.used[CH.k]=1; CH.phase='run'; musicCountdown(); hubOnGo(id); chalRender();
+  CH.used[CH.k]=1; CH.phase='run'; musicCountdown(); hubOnGo(id); HUB.one=chalRope(r); chalRender();
   { const one=chalRope(r); if(one&&HUB.mode&&HUB.mode.cmd) setTimeout(()=>{ if(S.ctl.id===id) hubSend(HUB.mode.cmd.replace(' all',' '+one)); },1500); }   // 뽑힌 친구 줄넘기에 모드를 한 번 더 따로
 }
 function chalRender(){
@@ -1551,7 +1552,7 @@ async function relayRun(lead){
   const id='r'+Date.now().toString(36)+'l', c={ph:'go',id,at:B.now()+lead,dur:RL.secs,who:whoOf(k)};
   try{ await B.setControl(S.room,c); }catch(e){ RL.msg='신호를 보내지 못했어요: '+e.message; RL.bad=true; RL.phase='done'; return relayRender(); }
   S.ctl=c; S.lastRun={id,dur:RL.secs,goal:0,at:c.at,relay:{k,leg:RL.i}}; S.done={}; S.endShown=''; S.prevCnt={}; S.ending=''; S.startShown=''; S.cdShown=null; S.endCd=null;
-  hubOnGo(id); const n=chalRope(r); if(n){ hubSend('vibrate '+n); }
+  hubOnGo(id); const n=chalRope(r); HUB.one=n; if(n){ hubSend('vibrate '+n); }
   beep(784,.12,.2); relayRender();
 }
 function relayLeg(){   // 한 주자 끝 (finish 에서 부름)
