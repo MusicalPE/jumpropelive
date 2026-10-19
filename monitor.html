@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v1.0.3</title>
+<title>점프 라이브 v1.0.4</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -283,7 +283,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v1.0.3</span></h1>
+    <h1>점프 라이브<span class="ver">v1.0.4</span></h1>
     <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button><button id="btnDev" title="돌려 쓰는 기기(노트북·태블릿) 찾기" hidden>기기</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
@@ -465,7 +465,7 @@
 </div>
 <div class="big" id="big"></div>
 <div class="lite-ban" id="liteBan" hidden></div>
-<div class="lite-col" id="liteCol" hidden><b>결과 모으는 중…</b><span id="liteColN"></span><small>학생 기기의 마지막 횟수를 기다려요 (길어야 20초)</small></div>
+<div class="lite-col" id="liteCol" hidden><b>결과 모으는 중…</b><span id="liteColN"></span><small>학생 기기의 마지막 횟수를 기다려요 (길어야 8초)</small></div>
 <div class="hub" id="hub" hidden>
   <div class="mh">줄넘기 허브 <span class="hst" id="hubSt">연결 안 됨</span><button class="x" id="hubX">닫기</button></div>
   <div class="hr"><button class="primary" id="hubConn">허브 연결</button><button id="hubRole" disabled>줄넘기 찾기</button><button id="hubBatt" disabled>배터리</button><button id="hubVib" disabled title="모든 줄넘기 진동 + 벨">모두 찾기</button><button id="hubSeq" disabled title="줄넘기 번호와 상관없이, 켜진 줄넘기를 작은 번호부터 1번 학생, 2번 학생… 차례로 이어요">1번 학생부터 잇기</button><button id="hubAuto" disabled hidden>전체 자동번호</button></div>
@@ -1184,7 +1184,8 @@ function finish(){ // 학생 기기가 마지막 숫자를 보낼 시간을 2초
   if(S.lastRun.chal){ setTimeout(()=>{ render(); chalFinish(); },2000); return; }
   if(S.lastRun.relay){ setTimeout(()=>{ render(); relayLeg(); },1600); return; }   // 릴레이: 이 주자 끝 → 다음 주자
   if(S.lastRun.mode){ setTimeout(()=>{ render(); if(S.lastRun.mode==='bak') bakFinish(); else if(S.lastRun.mode==='rot') rotFinish(); else if(S.lastRun.mode==='trel') trelLeg(); else teamFinish(); $('btnResult').disabled=false; if(APPM&&S.groups.some(x=>Object.keys(x.ids||{}).length)) saveResult(); },2000); return; }   // 박·팀전: 도전 화면에서 끝 보여 주고, 기록은 다 같이 뛰기처럼 시트에   // 랜덤 한 명 도전은 결과 창 대신 도전 화면에
-  if(LITE){ liteCollect(()=>{ $('btnResult').disabled=false; if(S.groups.some(x=>Object.keys(x.ids||{}).length)) saveResult(); }); return; }
+  if(LITE){ const rid=S.lastRun.id; liteCollect(()=>{ $('btnResult').disabled=false; if(S.groups.some(x=>Object.keys(x.ids||{}).length)) saveResult();
+    setTimeout(()=>{ if(S.lastRun&&S.lastRun.id===rid&&S.ctl.ph!=='go') showResult(); },2000); }); return; }   // 뒤집어 공개한 뒤 2초 있다가 결과 창 (끝나고 길어야 10초)
   setTimeout(()=>{ render(); showResult(); $('btnResult').disabled=false; if(APPM&&S.groups.some(x=>Object.keys(x.ids||{}).length)) saveResult(); },2000);
 }
 /* ---------- 점프 Live (Lite): 가리기 · 중간 공개 · 결과 모아서 한 번에 공개 ---------- */
@@ -1195,14 +1196,14 @@ function liteHide(){ const rv=liteRv(); if(!rv) return false; if(S.collecting) r
 function liteBan(html,cls,ms){ const b=$('liteBan'); b.className='lite-ban'+(cls?' '+cls:''); b.innerHTML=html; b.hidden=!html; clearTimeout(S.banT); if(html&&ms) S.banT=setTimeout(()=>{ b.hidden=true; },ms); }
 setInterval(()=>{ if(!LITE||S.ctl.ph!=='go') return; const h=liteHide(), m=liteMid(); if(h!==S._lh){ S._lh=h; render(); } if(m!==S._lm){ S._lm=m; liteBan(m?'중간 점검!':'',''); } },300);
 function liteCollect(done){
-  // 학생 기기의 마지막 횟수를 기다림: 모두 끝났거나, 새로 받은 소식이 4번 이어서 그대로면 끝 (길어야 20초)
+  // 학생 기기의 마지막 횟수를 기다림: 모두 끝났거나, 새로 받은 소식이 4번 이어서 그대로면 끝 (길어야 8초 — 결과 창까지 10초 안에)
   const id=S.lastRun.id, t0=Date.now(); let seen=null, same=0, sig=null;
   S.collecting=true; S.frz=null; liteBan(''); render(); $('liteCol').hidden=false;
   const iv=setInterval(()=>{
     const devs=liveDevs().filter(d=>d.ctl===id&&!d.hub), fin=devs.filter(d=>!d.run||d.st==='off').length, el=Date.now()-t0;
     if(S.devs!==seen){ seen=S.devs; const g=devs.map(d=>d.g+'-'+d.c+'-'+d.n+':'+d.cnt+':'+(d.run?1:0)).sort().join(','); if(g===sig) same++; else { sig=g; same=0; } }
     $('liteColN').textContent=fin+' / '+devs.length+'명';
-    if((fin===devs.length&&el>2500)||(same>=4&&el>2500)||el>20000){
+    if((fin===devs.length&&el>2500)||(same>=4&&el>2500)||el>8000){
       clearInterval(iv); S.collecting=false; $('liteCol').hidden=true; render();
       S.frz={id,m:{}}; (S.rows||[]).forEach(r=>{ S.frz.m[r.k]={cnt:r.cnt,best:r.best}; });   // 여기서 결과 고정 · 더 모으지 않음
       const g=$('grid'); g.classList.remove('flip'); void g.offsetWidth; g.classList.add('flip');
