@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v1.1.0</title>
+<title>점프 라이브 v1.1.1</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -283,7 +283,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v1.1.0</span></h1>
+    <h1>점프 라이브<span class="ver">v1.1.1</span></h1>
     <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button><button id="btnDev" title="돌려 쓰는 기기(노트북·태블릿) 찾기" hidden>기기</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
@@ -831,6 +831,8 @@ function modeResume(snap){
   render();
 }
 const useDevs=()=>HUB.on||slotKeys().length>0;
+// 팀·조 친구가 모두 자기 줄넘기에 이어져 있으면(허브 목록) 줄넘기를 건네고 바꿀 필요가 없음
+const ownAll=teams=>HUB.on&&!slotKeys().length&&teams.every(t=>t.every(k=>chalRope(chalRow(k))>0));
 // 들어온 방법 표시: 카메라 기기(휴대폰·태블릿·컴퓨터) · 줄넘기(허브). 둘 다면 둘 다, 지금 숫자를 쓰는 쪽은 진하게
 const IC_CAM='<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>';
 const IC_ROPE='<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M8 13.5 C3 4 9 1.5 12 1.5 S21 4 16 13.5" stroke-width="1.8"/><path d="M8.3 14 L5 21.5M15.7 14 L19 21.5" stroke-width="4"/></svg>';
@@ -1195,7 +1197,9 @@ function finish(){ // 학생 기기가 마지막 숫자를 보낼 시간을 2초
   if(S.lastRun.chal){ setTimeout(()=>{ render(); chalFinish(); },2000); return; }
   if(S.lastRun.relay){ setTimeout(()=>{ render(); relayLeg(); },1600); return; }   // 릴레이: 이 주자 끝 → 다음 주자
   if(S.lastRun.mode){ setTimeout(()=>{ render(); if(S.lastRun.mode==='bak') bakFinish(); else if(S.lastRun.mode==='rot') rotFinish(); else if(S.lastRun.mode==='trel') trelLeg(); else teamFinish(); $('btnResult').disabled=false; if(APPM&&S.groups.some(x=>Object.keys(x.ids||{}).length)) saveResult();
-    const m=S.lastRun.mode, rid=S.lastRun.id, one=(m==='bak'&&BK.phase==='done')||(m==='team'&&TM.phase==='done'&&!(S.lastRun.team&&S.lastRun.team.seq));   // 박·팀전(한 판): 축하 화면을 4초 보여 준 뒤 결과 창
+    const m=S.lastRun.mode, rid=S.lastRun.id, one=(m==='bak'&&BK.phase==='done')||(m==='team'&&TM.phase==='done'&&!(S.lastRun.team&&S.lastRun.team.seq));
+    const all=(m==='bak'&&BK.phase==='sqdone'&&BK.sq)?BK.sq:(m==='team'&&TM.phase==='done'&&S.lastRun.team&&S.lastRun.team.seq&&TM.sq)?TM.sq:null;   // 팀 차례로: 마지막 팀까지 끝나면 모두 모아서
+    if(all) setTimeout(()=>{ if(S.lastRun&&S.lastRun.id===rid&&S.ctl.ph!=='go') showSeqResult(all); },4000);   // 박·팀전(한 판): 축하 화면을 4초 보여 준 뒤 결과 창
     if(one) setTimeout(()=>{ if(S.lastRun&&S.lastRun.id===rid&&S.ctl.ph!=='go') showResult(); },4000); },2000); return; }   // 박·팀전: 도전 화면에서 끝 보여 주고, 기록은 다 같이 뛰기처럼 시트에   // 랜덤 한 명 도전은 결과 창 대신 도전 화면에
   if(LITE){ const rid=S.lastRun.id; liteCollect(()=>{ $('btnResult').disabled=false; if(S.groups.some(x=>Object.keys(x.ids||{}).length)) saveResult();
     setTimeout(()=>{ if(S.lastRun&&S.lastRun.id===rid&&S.ctl.ph!=='go') showResult(); },2000); }); return; }   // 뒤집어 공개한 뒤 2초 있다가 결과 창 (끝나고 길어야 10초)
@@ -1482,11 +1486,12 @@ function tmSeqApply(i){ const sq=TM.sq; if(!sq||!sq.ropes.length) return; const 
 function tmSeqRestore(){ const sq=TM.sq; if(sq&&sq.saved){ HUB.map=JSON.parse(sq.saved); sq.saved=''; store.set('jl_hubmap',JSON.stringify(HUB.map)); hubPush(); } }
 async function teamSeqGo(){
   if(!TM.sq||TM.phase==='setup'||TM.phase==='done'){ tmSeqRestore(); const teams=tmTeams().map(m=>m.map(r=>r.k));
-    TM.sq={ i:0, teams, res:[], ropes:useDevs()?roRopes(Math.max(...teams.map(t=>t.length)),false):[], saved:useDevs()?JSON.stringify(HUB.map):'' }; tmSeqApply(0); }
+    const sh=useDevs()&&!ownAll(teams);   // 각자 줄넘기가 있으면 건네기·번호 바꾸기 없이
+    TM.sq={ i:0, teams, res:[], ids:[], ropes:sh?roRopes(Math.max(...teams.map(t=>t.length)),false):[], saved:sh?JSON.stringify(HUB.map):'' }; tmSeqApply(0); }
   const sq=TM.sq, i=sq.i;
   if(await modeGo('team',TM.dur,{team:{n:TM.n,map:Object.assign({},TM.map),by:TM.by,seq:{i,members:sq.teams[i]}}})){ TM.phase='run'; TM.res=null; teamRender(); }
 }
-function teamSeqFinish(){ const sq=TM.sq, i=sq.i; sq.res[i]=tmSeqScore(sq.teams[i],tmSeqCnt(sq.teams[i])); sq.i++;
+function teamSeqFinish(){ const sq=TM.sq, i=sq.i; sq.res[i]=tmSeqScore(sq.teams[i],tmSeqCnt(sq.teams[i])); (sq.ids=sq.ids||[])[i]=S.lastRun.id; sq.i++;
   if(sq.i<sq.teams.length&&!TM.stopReq){ TM.phase='between'; tmSeqApply(sq.i); teamRender(); return; }
   tmSeqDone(); }
 function tmSeqDone(){ const sq=TM.sq, key=TM.by==='avg'?'avg':'sum', best=Math.max(0,...sq.res.map(x=>x?x[key]:0)); TM.stopReq=false;
@@ -1747,13 +1752,14 @@ function bakSeqTeams(){ if(!tmLoad()){ TM.n=TM.n||2; tmShuffle(); } return tmTea
 function bakSeqApply(i){ const sq=BK.sq; if(!sq||!sq.ropes.length) return; const m=sq.teams[i]||[]; sq.ropes.forEach((n,j)=>{ HUB.map[n]=m[j]||'-'; }); store.set('jl_hubmap',JSON.stringify(HUB.map)); hubPush(); if(HUB.on) hubSend('vibrate all'); }
 async function bakSeqGo(){
   if(!BK.sq||BK.phase==='sqdone'||BK.phase==='idle'){ const T=bakSeqTeams(); const teams=T.map(m=>m.map(r=>r.k));
-    BK.sq={ i:0, teams, goals:bakTeamGoals(T), res:[], ropes:useDevs()?roRopes(Math.max(...teams.map(t=>t.length)),false):[], saved:BK.sq&&BK.sq.saved||(useDevs()?JSON.stringify(HUB.map):'') }; bakSeqApply(0); }
+    const sh=useDevs()&&!ownAll(teams);   // 각자 줄넘기가 있으면 건네기·번호 바꾸기 없이
+    BK.sq={ i:0, teams, goals:bakTeamGoals(T), res:[], ids:[], ropes:sh?roRopes(Math.max(...teams.map(t=>t.length)),false):[], saved:BK.sq&&BK.sq.saved||(sh?JSON.stringify(HUB.map):'') }; bakSeqApply(0); }
   const sq=BK.sq, i=sq.i;
   if(await modeGo('bak',BK.dur,{bak:{goal:sq.goals[i],seq:{i,members:sq.teams[i]}}})){ BK.phase='run'; BK.stage=0; BK.res=null; BK.burst=''; bakRender(); }
 }
 function bakSeqFinish(){ const sq=BK.sq, i=sq.i, mem=sq.teams[i], id=S.lastRun.id;
   const sum=(S.rows||[]).filter(r=>mem.includes(r.k)&&r.pick&&r.pick.ctl===id).reduce((a,r)=>a+r.cnt,0), goal=sq.goals[i], ok=!!BK.burst;
-  sq.res[i]={sum,goal,ok,ms:ok?BK.burstAt-S.lastRun.at:null}; BK.burst='';
+  sq.res[i]={sum,goal,ok,ms:ok?BK.burstAt-S.lastRun.at:null,cnt:tmSeqCnt(mem)}; (sq.ids=sq.ids||[])[i]=id; BK.burst='';
   if(!ok) beep(392,.4,.2);
   sq.i++; BK.phase=sq.i<sq.teams.length?'sqbetween':'sqdone';
   if(BK.phase==='sqbetween') bakSeqApply(sq.i);
@@ -1794,15 +1800,19 @@ function resultRows(){
   const only=S.lastRun.rot?RO.groups[S.lastRun.rot.g]:S.lastRun.trel?S.lastRun.trel.runners:S.lastRun.bak&&S.lastRun.bak.seq?S.lastRun.bak.seq.members:S.lastRun.team&&S.lastRun.team.seq?S.lastRun.team.seq.members:null;   // 조별 차례: 이번 조만 · 팀 릴레이: 이번 주자들만
   return (S.rows||[]).filter(r=>r.pick&&r.pick.ctl===S.lastRun.id&&(!only||only.includes(r.k))).sort((a,b)=>(b.cnt-a.cnt)||(fin(a)-fin(b))||(a.g-b.g)||(a.c-b.c)||(a.n-b.n));
 }
-function showResult(){
-  const rows=resultRows(), dur=S.lastRun.dur;
+// 팀 차례로(팀전·박): 모든 팀이 끝나면 팀마다 뛴 기록을 한 결과 창에 모아 보여 줌 (기록은 팀마다 이미 시트에 저장됨)
+function showSeqResult(sq){ if(!sq||!sq.res) return; const rows=[];
+  sq.teams.forEach((t,i)=>{ const c=sq.res[i]&&sq.res[i].cnt; if(!c) return; t.forEach(k=>{ const r=(S.rows||[]).find(x=>x.k===k); if(r&&c[k]>0) rows.push(Object.assign({},r,{cnt:c[k]})); }); });
+  rows.sort((a,b)=>(b.cnt-a.cnt)||(a.g-b.g)||(a.c-b.c)||(a.n-b.n)); showResult({rows,ids:(sq.ids||[]).filter(Boolean)}); }
+function showResult(over){
+  const rows=over?over.rows:resultRows(), dur=S.lastRun.dur;
   let rank=0, prev=-1;
   $('resBody').innerHTML=rows.map((r,i)=>{ const ds=doneDs(r), key=r.cnt+'|'+ds; if(key!==prev){ rank=i+1; prev=key; } return `<tr class="${rank<=3?'top':''}"><td>${rank}</td><td>${multi()?r.g+'-'+r.c+' · ':''}${r.n}</td><td>${esc(r.name)}</td><td class="c">${r.cnt}${ds?` <small style="font-weight:600;color:var(--muted)">${(ds/10).toFixed(1)}초에 도착</small>`:''}</td><td>${r.best||'—'}</td></tr>`; }).join('')
     || '<tr><td colspan="5" style="color:var(--muted)">이번 회차에 뛴 학생이 없어요</td></tr>';
   const got=new Set(rows.map(r=>r.k)), missing=(S.rows||[]).filter(r=>!got.has(r.k)).map(r=>multi()?`${r.g}-${r.c} ${r.n}`:r.n);
   $('resTitle').textContent=`${clsLabel(S.groups)} · ${S.lastRun.goal?'목표 '+S.lastRun.goal+'회':dur?durTxt(dur):'제한 없음'} 결과`;
   $('resNote').textContent=`${rows.length}명 · 합계 ${rows.reduce((s,r)=>s+r.cnt,0).toLocaleString()}회`+(missing.length?` · 기록 없음: ${missing.join(', ')}번`:'')+(APPM?'':' · 결과 복사로 시트에 옮겨 주세요');
-  $('resSaveRow').hidden=!APPM; if(APPM) resSaveUi();
+  $('resSaveRow').hidden=!APPM; if(APPM){ resSaveUi(); if(over){ const sv=savedRuns(), n=over.ids.reduce((a,id)=>a+(+sv[id]||0),0); if(n) $('resSave').textContent=`✓ 팀마다 뛸 때 시트에 ${n}명 기록했어요 (${S.type}, 승인됨)`; } }
   $('resMsg').textContent=''; $('btnResClose').textContent=S.closeWarned===S.lastRun.id?'저장 안 하고 닫기':'닫기'; $('resModal').classList.add('on');
 }
 // 이 회차 결과를 남겼나: 앱에서 열었으면 시트 저장, 아니면 결과 복사. 뛴 학생이 없으면 남길 것도 없음
@@ -1869,7 +1879,7 @@ document.querySelectorAll('.chal .ch-top').forEach(top=>{ const id=top.parentEle
   const add=(txt,title,fn)=>{ const b=document.createElement('button'); b.type='button'; b.textContent=txt; b.title=title; b.onclick=fn; grp.appendChild(b); return b; };
   if(!(id==='bak'||id==='trel')) grp.remove(); if(id==='bak'||id==='trel'){ const b=add('팀 나누기','팀 수와 팀원 정하기 (랜덤 또는 이름을 눌러 옮기기)',teamDlgOpen); b.dataset.tmbtn=id; } });
 $('btnCopy').onclick=async()=>{ try{ await navigator.clipboard.writeText(studentUrl()); $('btnCopy').textContent='복사했어요'; setTimeout(()=>$('btnCopy').textContent='주소 복사',1500); }catch(e){} };
-$('btnResult').onclick=showResult; $('btnResCopy').onclick=copyResult;
+$('btnResult').onclick=()=>showResult(); $('btnResCopy').onclick=copyResult;
 // 저장(앱에서 연 경우 시트 저장, 아니면 결과 복사)을 안 하고 닫으면 한 번 알려 줌 — 한 번 더 누르면 그냥 닫힘
 $('btnResClose').onclick=()=>{ const id=S.lastRun&&S.lastRun.id;
   if(id&&!runKept(id)&&S.closeWarned!==id){ S.closeWarned=id; $('resMsg').innerHTML='<b style="color:var(--red)">아직 시트에 들어가지 않았어요 — 이대로 닫아도 되면 한 번 더 눌러요</b>'; $('btnResClose').textContent='저장 안 하고 닫기'; return; }
