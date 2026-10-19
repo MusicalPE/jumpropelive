@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v1.1.1</title>
+<title>점프 라이브 v1.1.2</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -283,7 +283,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v1.1.1</span></h1>
+    <h1>점프 라이브<span class="ver">v1.1.2</span></h1>
     <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button><button id="btnDev" title="돌려 쓰는 기기(노트북·태블릿) 찾기" hidden>기기</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
@@ -832,6 +832,7 @@ function modeResume(snap){
 }
 const useDevs=()=>HUB.on||slotKeys().length>0;
 // 팀·조 친구가 모두 자기 줄넘기에 이어져 있으면(허브 목록) 줄넘기를 건네고 바꿀 필요가 없음
+const seqPick=(sq,i)=>`<div class="ch-msg" style="margin-top:10px;font-size:20px">허브 목록에서 줄넘기마다 <b style="color:${TEAM_C[i][1]}">${TEAM_C[i][0]} 팀</b> 친구를 골라 주세요: ${sq.teams[i].map(k=>{ const r=(S.rows||[]).find(x=>x.k===k); return '<b>'+esc(r?(r.name||r.n+'번'):k)+'</b>'; }).join(' · ')}</div>`;   // 팀 차례로: 줄넘기는 선생님이 지금 상태에 맞춰 직접
 const ownAll=teams=>HUB.on&&!slotKeys().length&&teams.every(t=>t.every(k=>chalRope(chalRow(k))>0));
 // 들어온 방법 표시: 카메라 기기(휴대폰·태블릿·컴퓨터) · 줄넘기(허브). 둘 다면 둘 다, 지금 숫자를 쓰는 쪽은 진하게
 const IC_CAM='<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>';
@@ -1477,17 +1478,18 @@ function teamRender(){
   let hand='';
   if(sq&&TM.phase==='between'&&sq.ropes.length){ const i=sq.i, prev=sq.teams[i-1]||[], cur=sq.teams[i], nm=k=>{ const r=(S.rows||[]).find(x=>x.k===k); return r?(r.name||r.n+'번'):''; };
     hand=`<div class="res" style="margin:0"><table style="width:100%"><thead><tr><th>${devHead(sq.ropes)}</th><th>주는 친구</th><th></th><th>받는 친구 (${TEAM_C[i][0]} 팀)</th></tr></thead><tbody>${sq.ropes.map((n,j)=>cur[j]?`<tr><td style="font-weight:900;color:var(--accent-ink)">${devLbl(n)}</td><td>${esc(nm(prev[j]))||'<span style="color:var(--muted)">(바구니에서)</span>'}</td><td>→</td><td style="font-weight:800">${esc(nm(cur[j]))}</td></tr>`:'').join('')}</tbody></table></div>`; }
+  if(!hand&&sq&&TM.phase==='between'&&sq.manual) hand=seqPick(sq,sq.i);
   if($('tmHand').dataset.k!==hand){ $('tmHand').innerHTML=hand; $('tmHand').dataset.k=hand; $('tmHand').hidden=!hand; }
 }
 /* 팀전 · 팀 차례로: 줄넘기가 적을 때 한 팀씩 뛰고 팀 기록(합계/평균)으로 겨루기 */
 function tmSeqCnt(mem){ const id=S.lastRun&&S.lastRun.id, o={}; mem.forEach(k=>{ const r=(S.rows||[]).find(x=>x.k===k); o[k]=r&&r.pick&&r.pick.ctl===id?r.cnt:0; }); return o; }
 function tmSeqScore(mem,cnt){ const sum=mem.reduce((a,k)=>a+(cnt[k]||0),0), act=mem.filter(k=>{ const r=(S.rows||[]).find(x=>x.k===k); return (cnt[k]||0)>0||(r&&here(r)); }).length; return {sum,n:act,avg:sum/Math.max(1,act),cnt}; }
-function tmSeqApply(i){ const sq=TM.sq; if(!sq||!sq.ropes.length) return; const m=sq.teams[i]||[]; sq.ropes.forEach((n,j)=>{ HUB.map[n]=m[j]||'-'; }); store.set('jl_hubmap',JSON.stringify(HUB.map)); hubPush(); if(HUB.on) hubSend('vibrate all'); }
+function tmSeqApply(i){ const sq=TM.sq; if(!sq||!sq.ropes.length) return; const m=sq.teams[i]||[]; sq.ropes.forEach((n,j)=>{ HUB.map[n]=m[j]||'-'; }); store.set('jl_hubmap',JSON.stringify(HUB.map)); hubPush(); }
 function tmSeqRestore(){ const sq=TM.sq; if(sq&&sq.saved){ HUB.map=JSON.parse(sq.saved); sq.saved=''; store.set('jl_hubmap',JSON.stringify(HUB.map)); hubPush(); } }
 async function teamSeqGo(){
   if(!TM.sq||TM.phase==='setup'||TM.phase==='done'){ tmSeqRestore(); const teams=tmTeams().map(m=>m.map(r=>r.k));
     const sh=useDevs()&&!ownAll(teams);   // 각자 줄넘기가 있으면 건네기·번호 바꾸기 없이
-    TM.sq={ i:0, teams, res:[], ids:[], ropes:sh?roRopes(Math.max(...teams.map(t=>t.length)),false):[], saved:sh?JSON.stringify(HUB.map):'' }; tmSeqApply(0); }
+    TM.sq={ i:0, teams, res:[], ids:[], manual:HUB.on&&!ownAll(teams), ropes:sh?roRopes(Math.max(...teams.map(t=>t.length)),false).filter(n=>String(n)[0]==='L'):[], saved:sh?JSON.stringify(HUB.map):'' }; tmSeqApply(0); }   // 허브 줄넘기는 선생님이 허브 목록에서 직접 (돌려 쓰는 기기만 저절로)
   const sq=TM.sq, i=sq.i;
   if(await modeGo('team',TM.dur,{team:{n:TM.n,map:Object.assign({},TM.map),by:TM.by,seq:{i,members:sq.teams[i]}}})){ TM.phase='run'; TM.res=null; teamRender(); }
 }
@@ -1749,11 +1751,11 @@ $('trCols').onchange=e=>{ const s=e.target.closest('[data-ex]'); if(!s) return; 
 
 /* ---------- 박 터트리기 · 팀 차례로: 한 팀씩 박을 깨고 걸린 시간으로 겨루기 (줄넘기가 적어도 됨) ---------- */
 function bakSeqTeams(){ if(!tmLoad()){ TM.n=TM.n||2; tmShuffle(); } return tmTeams(); }
-function bakSeqApply(i){ const sq=BK.sq; if(!sq||!sq.ropes.length) return; const m=sq.teams[i]||[]; sq.ropes.forEach((n,j)=>{ HUB.map[n]=m[j]||'-'; }); store.set('jl_hubmap',JSON.stringify(HUB.map)); hubPush(); if(HUB.on) hubSend('vibrate all'); }
+function bakSeqApply(i){ const sq=BK.sq; if(!sq||!sq.ropes.length) return; const m=sq.teams[i]||[]; sq.ropes.forEach((n,j)=>{ HUB.map[n]=m[j]||'-'; }); store.set('jl_hubmap',JSON.stringify(HUB.map)); hubPush(); }
 async function bakSeqGo(){
   if(!BK.sq||BK.phase==='sqdone'||BK.phase==='idle'){ const T=bakSeqTeams(); const teams=T.map(m=>m.map(r=>r.k));
     const sh=useDevs()&&!ownAll(teams);   // 각자 줄넘기가 있으면 건네기·번호 바꾸기 없이
-    BK.sq={ i:0, teams, goals:bakTeamGoals(T), res:[], ids:[], ropes:sh?roRopes(Math.max(...teams.map(t=>t.length)),false):[], saved:BK.sq&&BK.sq.saved||(sh?JSON.stringify(HUB.map):'') }; bakSeqApply(0); }
+    BK.sq={ i:0, teams, goals:bakTeamGoals(T), res:[], ids:[], manual:HUB.on&&!ownAll(teams), ropes:sh?roRopes(Math.max(...teams.map(t=>t.length)),false).filter(n=>String(n)[0]==='L'):[], saved:BK.sq&&BK.sq.saved||(sh?JSON.stringify(HUB.map):'') }; bakSeqApply(0); }   // 허브 줄넘기는 선생님이 허브 목록에서 직접 (돌려 쓰는 기기만 저절로)
   const sq=BK.sq, i=sq.i;
   if(await modeGo('bak',BK.dur,{bak:{goal:sq.goals[i],seq:{i,members:sq.teams[i]}}})){ BK.phase='run'; BK.stage=0; BK.res=null; BK.burst=''; bakRender(); }
 }
@@ -1774,7 +1776,7 @@ function bakSeqRender(st,running){
   const resTbl=()=>{ const rk=sq?bakSeqRank():[]; let n=0; return `<div class="res" style="width:min(820px,96%);margin-top:8px"><table style="width:100%"><thead><tr><th>순위</th><th>팀</th><th>결과</th><th>횟수</th></tr></thead><tbody>${teams.map((t,i)=>{ const x=rk.findIndex(z=>z.i===i), r=sq&&sq.res[i];
       return `<tr class="${r&&x===0&&r.ok?'top':''}"><td>${r?x+1:'—'}</td><td style="color:${TEAM_C[i][1]};font-weight:800">${TEAM_C[i][0]} 팀 <small style="color:var(--muted)">${t.length}명</small></td><td class="c">${r?(r.ok?secTxt(r.ms)+' 만에 깸':'못 깼어요'):(sq&&i===sq.i?'지금 차례':'기다리는 중')}</td><td>${r?r.sum+' / '+r.goal:'목표 '+goals[i]}</td></tr>`; }).join('')}</tbody></table></div>`; };
   let body;
-  if(!sq||BK.phase==='idle') body=`<div class="ch-eyebrow">팀 차례로 박 깨기 — 한 팀씩, 빨리 깬 팀이 이겨요</div>${resTbl()}<div class="bk-tip">위의 "시작"을 누르면 ${TEAM_C[0][0]} 팀부터 시작해요${HUB.on?' · 줄넘기는 그 팀 친구들에게 차례로 이어 줘요':''}</div>`;
+  if(!sq||BK.phase==='idle') body=`<div class="ch-eyebrow">팀 차례로 박 깨기 — 한 팀씩, 빨리 깬 팀이 이겨요</div>${resTbl()}<div class="bk-tip">위의 "시작"을 누르면 ${TEAM_C[0][0]} 팀부터 시작해요${HUB.on?' · 줄넘기는 팀이 바뀔 때 허브 목록에서 그 팀 친구에게 이어 주세요':''}</div>`;
   else if(BK.phase==='run'){ const i=sq.i, mem=teams[i], id=S.lastRun.id, rows=(S.rows||[]).filter(r=>mem.includes(r.k)&&r.pick&&r.pick.ctl===id), sum=rows.reduce((a,r)=>a+r.cnt,0), goal=goals[i], f=Math.min(1,sum/goal), stage=f>=1?4:Math.floor(f*4);
     const hit=stage>BK.stage; if(hit){ BK.stage=stage; if(stage<4) beep(220,.15,.25); }
     if(f>=1&&running&&!BK.burst){ BK.burst=id; BK.burstAt=B.now(); beep(1046,.15,.3); setTimeout(()=>beep(1568,.4,.3),200); setTimeout(()=>{ if(S.ctl.ph==='go') end(true); },1200); }
@@ -1782,7 +1784,7 @@ function bakSeqRender(st,running){
     body=`<div class="ch-eyebrow" style="color:${TEAM_C[i][1]};font-size:28px">${TEAM_C[i][0]} 팀 차례 · ${i+1}/${teams.length}</div><img class="bk-img${hit?' hit':''}" src="${BK_IMG(stage)}" alt="박" style="width:min(420px,40vh)"><div class="bk-cnt" style="color:${TEAM_C[i][1]}">${sum}<small>/ ${goal}회</small></div><div class="bk-g"><b style="width:${f*100}%;background:${TEAM_C[i][1]}"></b></div><div class="bk-tip" style="font-size:30px;color:var(--ink)">${S.ctl.ph==='go'&&B.now()<S.ctl.at?Math.ceil((S.ctl.at-B.now())/1000)+'초 뒤 시작':BK.burst?'깼다! '+secTxt(el):secTxt(el)}</div>`;
     $('bkTop').innerHTML=rows.slice().sort((a,b)=>b.cnt-a.cnt).slice(0,8).map(r=>`<div class="ch-li"><span class="nm">${esc(r.name||r.n+'번')}</span><b>${r.cnt}회</b></div>`).join(''); }
   else if(BK.phase==='sqbetween'){ const i=sq.i, prev=teams[i-1]||[], cur=teams[i];
-    const hand=sq.ropes.length?`<div class="res" style="width:min(820px,96%);margin-top:10px"><table style="width:100%"><thead><tr><th>${devHead(sq.ropes)}</th><th>주는 친구</th><th></th><th>받는 친구 (${TEAM_C[i][0]} 팀)</th></tr></thead><tbody>${sq.ropes.map((n,j)=>cur[j]?`<tr><td style="font-weight:900;color:var(--accent-ink)">${devLbl(n)}</td><td>${esc(nm(prev[j]))||'<span style="color:var(--muted)">(바구니에서)</span>'}</td><td>→</td><td style="font-weight:800">${esc(nm(cur[j]))}</td></tr>`:'').join('')}</tbody></table></div>`:'';
+    const hand=sq.ropes.length?`<div class="res" style="width:min(820px,96%);margin-top:10px"><table style="width:100%"><thead><tr><th>${devHead(sq.ropes)}</th><th>주는 친구</th><th></th><th>받는 친구 (${TEAM_C[i][0]} 팀)</th></tr></thead><tbody>${sq.ropes.map((n,j)=>cur[j]?`<tr><td style="font-weight:900;color:var(--accent-ink)">${devLbl(n)}</td><td>${esc(nm(prev[j]))||'<span style="color:var(--muted)">(바구니에서)</span>'}</td><td>→</td><td style="font-weight:800">${esc(nm(cur[j]))}</td></tr>`:'').join('')}</tbody></table></div>`:sq.manual?seqPick(sq,i):'';
     body=`<div class="ch-eyebrow">${TEAM_C[i-1][0]} 팀 ${sq.res[i-1].ok?secTxt(sq.res[i-1].ms)+' 만에 깼어요!':'못 깼어요 ('+sq.res[i-1].sum+'/'+sq.res[i-1].goal+')'}</div>${resTbl()}${hand}<div class="ch-btns" style="margin-top:12px"><button class="primary" data-bk="next" style="background:${TEAM_C[i][1]};border-color:${TEAM_C[i][1]}">${TEAM_C[i][0]} 팀 시작</button></div>`; }
   else { const rk=bakSeqRank(), w=rk[0]&&rk[0].r.ok?rk[0]:null; let cf=''; if(w){ const col=['#FF6B5B','#2BB3A3','#F2A33A','#6E5BEF','#13A6E8']; for(let k=0;k<70;k++) cf+=`<i style="left:${(k*37)%100}%;top:${(k*53)%90}%;background:${col[k%5]};animation-delay:${(k%10)*60}ms"></i>`; }
     body=`<div class="ch-conf">${cf}</div><img class="bk-img" src="${BK_IMG(4)}" alt="박" style="width:min(320px,30vh)">${w?`<div class="bk-banner" style="margin-top:-20px">${TEAM_C[w.i][0]} 팀 승리! ${secTxt(w.r.ms)}</div>`:'<div class="bk-tip" style="font-size:30px;color:var(--amber)">아무 팀도 못 깼어요</div>'}${cheer(isClose(sq.res.map(r=>r&&r.ok?r.ms:0),true)?'close':'team')}${resTbl()}<div class="ch-btns" style="margin-top:12px"><button data-bk="again">처음부터 다시</button></div>`; }
