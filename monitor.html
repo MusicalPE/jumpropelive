@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v1.1.2</title>
+<title>점프 라이브 v1.1.3</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -283,7 +283,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v1.1.2</span></h1>
+    <h1>점프 라이브<span class="ver">v1.1.3</span></h1>
     <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button><button id="btnDev" title="돌려 쓰는 기기(노트북·태블릿) 찾기" hidden>기기</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
@@ -465,7 +465,7 @@
 </div>
 <div class="big" id="big"></div>
 <div class="lite-ban" id="liteBan" hidden></div>
-<div class="lite-col" id="liteCol" hidden><b>결과 모으는 중…</b><span id="liteColN"></span><small>학생 기기의 마지막 횟수를 기다려요 (길어야 8초)</small></div>
+<div class="lite-col" id="liteCol" hidden><b>결과 모으는 중…</b><span id="liteColN"></span><small>학생 기기의 마지막 횟수를 기다려요 (길어야 15초)</small></div>
 <div class="hub" id="hub" hidden>
   <div class="mh">줄넘기 허브 <span class="hst" id="hubSt">연결 안 됨</span><button class="x" id="hubX">닫기</button></div>
   <div class="hr"><button class="primary" id="hubConn">허브 연결</button><button id="hubRole" disabled>줄넘기 찾기</button><button id="hubBatt" disabled>배터리</button><button id="hubVib" disabled title="모든 줄넘기 진동 + 벨">모두 찾기</button><button id="hubSeq" disabled title="줄넘기 번호와 상관없이, 켜진 줄넘기를 작은 번호부터 1번 학생, 2번 학생… 차례로 이어요">1번 학생부터 잇기</button><button id="hubAuto" disabled hidden>전체 자동번호</button></div>
@@ -1216,14 +1216,20 @@ setInterval(()=>{ if(!LITE||S.ctl.ph!=='go') return; const h=liteHide(), m=liteM
   if(m!==S._lm){ S._lm=m; S.midSnap=m?{id:S.ctl.id,m:JSON.parse(JSON.stringify(S.rowCnt||{}))}:null; liteBan(m?'중간 점검!':'',''); render(); }   // 중간 점검: 그 순간 숫자·순서로 3초 멈춰 보여 줌
   if(h!==S._lh){ S._lh=h; render(); } },300);
 function liteCollect(done){
-  // 학생 기기의 마지막 횟수를 기다림: 모두 끝났거나, 새로 받은 소식이 4번 이어서 그대로면 끝 (길어야 8초 — 결과 창까지 10초 안에)
-  const id=S.lastRun.id, t0=Date.now(); let seen=null, same=0, sig=null;
+  // 학생 기기의 마지막 횟수를 기다림. '끝난 기기' = 이번 회차 번호로, 회차가 끝난 뒤에 '뛰기 멈춤'을 보낸 기기
+  //  (시작 전 카운트다운 때 보낸 '멈춤'은 끝난 게 아님 — 이걸 끝으로 보면 0회로 모아짐)
+  //  기다릴 기기 = 모으기 시작할 때 들어와 있던 학생 기기. 모두 끝나면 바로, 아니면 길어야 15초 (허브만 쓰면 2.5초)
+  const id=S.lastRun.id, t0=Date.now(), endAt=(S.lastRun.at||0)+(S.lastRun.dur||0)*1000; let seen=null, same=0, sig=null;
+  const nowB=B.now(), exp=new Set(liveDevs().filter(d=>!d.hub&&d.st!=='off'&&nowB-(d.t||0)<30000).map(d=>d.g+'-'+d.c+'-'+d.n));
+  const isFin=d=>d.st==='off'||(d.ctl===id&&!d.run&&(d.t||0)>=endAt-1500);
   S.collecting=true; S.frz=null; S.midSnap=null; S._lm=false; liteBan(''); render(); $('liteCol').hidden=false;
   const iv=setInterval(()=>{
-    const devs=liveDevs().filter(d=>d.ctl===id&&!d.hub), fin=devs.filter(d=>!d.run||d.st==='off').length, el=Date.now()-t0;
+    const all=liveDevs().filter(d=>!d.hub&&exp.has(d.g+'-'+d.c+'-'+d.n)), done1={};
+    all.forEach(d=>{ const k=d.g+'-'+d.c+'-'+d.n; if(isFin(d)) done1[k]=1; });
+    const devs=all.filter(d=>d.ctl===id), fin=Object.keys(done1).length, el=Date.now()-t0;
     if(S.devs!==seen){ seen=S.devs; const g=devs.map(d=>d.g+'-'+d.c+'-'+d.n+':'+d.cnt+':'+(d.run?1:0)).sort().join(','); if(g===sig) same++; else { sig=g; same=0; } }
-    $('liteColN').textContent=fin+' / '+devs.length+'명';
-    if((fin===devs.length&&el>2500)||(same>=4&&el>2500)||el>8000){
+    $('liteColN').textContent=fin+' / '+exp.size+'명';
+    if((fin>=exp.size&&el>2500)||(same>=8&&el>10000)||el>15000){   // 다 끝남 · 10초 넘게 새 소식 없음 · 15초
       clearInterval(iv); S.collecting=false; $('liteCol').hidden=true; render();
       S.frz={id,m:{}}; (S.rows||[]).forEach(r=>{ S.frz.m[r.k]={cnt:r.cnt,best:r.best}; });   // 여기서 결과 고정 · 더 모으지 않음
       const g=$('grid'); g.classList.remove('flip'); void g.offsetWidth; g.classList.add('flip');
