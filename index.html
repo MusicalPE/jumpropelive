@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 판정기 v1.2.9 · 카메라로 진짜 뛰는지 보기</title>
+<title>줄넘기 판정기 v1.3.0 · 카메라로 진짜 뛰는지 보기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -69,7 +69,11 @@
   body.two .duo{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:stretch}
   body.two .duo .duoP{justify-content:center}
   body.two .main>.lab{display:none}
-  body.two .duo .pip{height:min(50vh,40vw);width:auto;aspect-ratio:4/3;max-width:none;border-width:6px}
+  body.two .duo .pip{width:min(64vw,calc(50vh*16/9));height:auto;aspect-ratio:16/9;max-width:none;border-width:6px}
+  body.two .duoP{padding:10px 8px 12px}
+  body.two .duoP b{font-size:clamp(52px,7vw,180px)}
+  body.two .duoP .nm{font-size:16px}
+  body.two .duoP em{font-size:13px}
   body.two .duo .pip.big{height:90vh}
   .duoP{border-radius:20px;padding:12px 16px 14px;background:#FFF1EC;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
   .duoP.b{background:#E6F7F4}
@@ -314,7 +318,7 @@
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
     <div class="titles">
-      <h1>줄넘기 판정기<span class="ver">v1.2.9</span></h1>
+      <h1>줄넘기 판정기<span class="ver">v1.3.0</span></h1>
       <span class="sub">머리부터 발까지 보이게 서서, 몸이 뜨고 팔이 돌 때만 1회로 세요</span>
     </div>
     <div class="who" id="who"></div>
@@ -551,7 +555,7 @@ const $=id=>document.getElementById(id);
 const video=$('video'), cv=$('overlay'), cx=cv.getContext('2d');
 let landmarker=null, stream=null, facing='user', running=false, t0=0, raf=0, lastVideoT=-1, frames=0, fpsT=0;
 /* ---------- 앱 연동: 체육교사 보조 프로그램의 줄넘기 화면에서 열리면 ?app=앱주소&t=학생표&kind=종류 가 붙어 와요 ---------- */
-const VER='1.2.9';
+const VER='1.3.0';
 const Q=new URLSearchParams(location.search);
 const LINK={ app:Q.get('app')||'', t:Q.get('t')||'', kind:Q.get('kind')||'', sens:+(Q.get('sens')||0)||0, target:(Q.get('target')==='fit'?'fit':'rope'), who:null, saved:null,
   // mode=post : 오프라인판(파일로 여는 프로그램)이 연 창. 서버 대신 window.opener.postMessage 로 결과를 돌려준다.
@@ -637,6 +641,7 @@ function setTwo(on){
   { const pip=$('pip'), duo=$('duo'); if(on){ if(pip.parentNode!==duo) duo.insertBefore(pip,duo.children[1]); } else { const slot=document.querySelector('.camSlot'); if(pip.parentNode!==slot) slot.appendChild(pip); } }   // 2인: 카메라를 두 숫자 사이 가운데로
   Array.prototype.forEach.call(document.querySelectorAll('#modeSw button'),b=>b.classList.toggle('on',(b.dataset.m==='2')===on));
   twoReset();
+  if(stream) openCam().catch(e=>log('카메라 다시 켜기 실패: '+e.message));   // 2인은 넓은 화면으로 다시 받음
   if(landmarker&&landmarker.setOptions) landmarker.setOptions({numPoses:on?2:1}).catch?.(()=>{});
   $('status').textContent=on?'두 사람이 가운데 선을 사이에 두고 왼쪽·오른쪽에 서요':'시작을 누르고 카메라 앞에 서요'; $('status').className='status idle';
 }
@@ -700,7 +705,9 @@ async function loadModel(){
 /* ---------- 카메라 ---------- */
 async function openCam(){
   if(stream) stream.getTracks().forEach(t=>t.stop());
-  stream=await navigator.mediaDevices.getUserMedia({ video:{ facingMode:facing, width:{ideal:640}, height:{ideal:480}, frameRate:{ideal:30} }, audio:false });
+  const wide=TWO.on;   // 2인: 가로로 넓게(16:9) 받고, 줌이 되는 카메라면 가장 넓은 화각으로
+  stream=await navigator.mediaDevices.getUserMedia({ video:wide?{ facingMode:facing, width:{ideal:1280}, height:{ideal:720}, aspectRatio:{ideal:16/9}, frameRate:{ideal:30} }:{ facingMode:facing, width:{ideal:640}, height:{ideal:480}, frameRate:{ideal:30} }, audio:false });
+  try{ const tr=stream.getVideoTracks()[0], cap=tr.getCapabilities&&tr.getCapabilities(); if(cap&&cap.zoom) await tr.applyConstraints({advanced:[{zoom:wide?cap.zoom.min:(cap.zoom.min<=1&&cap.zoom.max>=1?1:cap.zoom.min)}]}); }catch(e){}
   video.srcObject=stream; await video.play();
   $('nocam').hidden=true; $('pip').classList.toggle('mirror',facing==='user');
   document.querySelectorAll('.pip video,.pip canvas').forEach(el=>el.style.transform=facing==='user'?'scaleX(-1)':'none');
