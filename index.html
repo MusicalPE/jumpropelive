@@ -555,7 +555,7 @@ const $=id=>document.getElementById(id);
 const video=$('video'), cv=$('overlay'), cx=cv.getContext('2d');
 let landmarker=null, stream=null, facing='user', running=false, t0=0, raf=0, lastVideoT=-1, frames=0, fpsT=0;
 /* ---------- 앱 연동: 체육교사 보조 프로그램의 줄넘기 화면에서 열리면 ?app=앱주소&t=학생표&kind=종류 가 붙어 와요 ---------- */
-const VER='1.3.2';
+const VER='1.3.3';
 const Q=new URLSearchParams(location.search);
 const LINK={ app:Q.get('app')||'', t:Q.get('t')||'', kind:Q.get('kind')||'', sens:+(Q.get('sens')||0)||0, target:(Q.get('target')==='fit'?'fit':'rope'), who:null, saved:null,
   // mode=post : 오프라인판(파일로 여는 프로그램)이 연 창. 서버 대신 window.opener.postMessage 로 결과를 돌려준다.
@@ -669,15 +669,24 @@ async function sendResult(count,sec,st){
   }catch(e){ $('smErr').textContent='기록하지 못했어요: '+e.message+' — 인터넷을 확인하고 다시 눌러 보세요. 계속 안 되면 이 숫자를 앱에 직접 넣어 주세요.'; b.disabled=false; b.textContent='다시 보내기'; }
 }
 const det=new JumpDetector({minAmp:0.10});
-// 2인 모드: 한 화면의 두 사람을 화면 왼쪽·오른쪽으로 나눠 따로 셈 (혼자 쓰기 + 앱 기록 t2 · 점프 Live 연결은 다음 단계)
-const TWO={ on:false, a:new JumpDetector({minAmp:0.10}), b:new JumpDetector({minAmp:0.10}), la:0, lb:0, airA:false, airB:false };
+// 2인 모드: 한 화면의 두 사람을 화면 왼쪽·오른쪽으로 나눠 따로 셈 (혼자 쓰기 · 앱 기록 t2 · 점프 Live/Lite: 오른쪽 친구는 두 번째 기기 번호로 따로 보냄)
+const TWO={ on:false, a:det,   // 왼쪽(A)은 1인 판정기와 같은 것 — 점프 Live 로 보내는 '내 숫자'가 그대로 왼쪽 친구 숫자
+   b:new JumpDetector({minAmp:0.10}), la:0, lb:0, airA:false, airB:false };
 const TWO_OK=Math.min(screen.width,screen.height)>=600;   // 2인 모드는 태블릿·노트북처럼 화면이 넓은 기기에서만 (휴대폰은 1인)
-function twoBlocked(){ return (LINK.linked&&!LINK.t2)||LIVE.on||ROPE.on; }
+function twoBlocked(){ return twoWhy()!==''; }
+function twoWhy(){
+  if(ROPE.on) return '블루투스 줄넘기로 셀 때는 1인으로 써요.';
+  if(STU.on) return '친구 방(함께 뛰기)에서는 1인으로 써요.';
+  if(LIVE.on){ if(!LIVE.ok||!LIVE.me) return '먼저 내 번호를 골라요. 그다음 2인을 누르면 오른쪽 친구 번호를 골라요.'; if(LIVE.me.n>60) return '돌려 쓰는 기기는 1인으로 써요.'; return ''; }
+  if(LINK.linked&&!LINK.t2) return '2인으로 기록하려면 앱에서 "👥 친구와 둘이"로 열어 주세요.';
+  return '';
+}
 function twoReset(){ [TWO.a,TWO.b].forEach(d=>{ d.minAmp=det.minAmp; d.reset(); }); TWO.la=TWO.lb=0; $('cntA').textContent='0'; $('cntB').textContent='0'; }
 function setTwo(on){
   if(on&&!TWO_OK){ alert('2인 모드는 태블릿처럼 화면이 넓은 기기에서 써요. 휴대폰은 1인 모드로 뛰어요.'); on=false; }
-  else if(on&&twoBlocked()){ alert('2인으로 기록하려면 앱에서 "👥 친구와 둘이"로 열어 주세요. (점프 Live 연결은 곧 준비할게요)'); on=false; }
+  else if(on&&twoBlocked()){ alert(twoWhy()); on=false; }
   if(running) return;
+  if(!on&&LIVE.me2) liveDrop2();
   TWO.on=on; try{ localStorage.setItem('jr_two',on?'1':''); }catch(e){}
   document.body.classList.toggle('two',on); $('count').hidden=on; $('duo').hidden=!on;
   { const pip=$('pip'), duo=$('duo'); if(on){ if(pip.parentNode!==duo) duo.insertBefore(pip,duo.children[1]); } else { const slot=document.querySelector('.camSlot'); if(pip.parentNode!==slot) slot.appendChild(pip); } }   // 2인: 카메라를 두 숫자 사이 가운데로
@@ -686,6 +695,7 @@ function setTwo(on){
   if(stream) openCam().catch(e=>log('카메라 다시 켜기 실패: '+e.message));   // 2인은 넓은 화면으로 다시 받음
   if(on&&!(TWO.m1&&TWO.m2)) twoModels().catch(e=>log('2인 모델 준비 실패: '+e.message));
   $('status').textContent=on?'두 사람이 가운데 선을 사이에 두고 왼쪽·오른쪽에 서요':'시작을 누르고 카메라 앞에 서요'; $('status').className='status idle';
+  if(LIVE.on&&LIVE.ok){ if(on){ LIVE.guideOff=true; guideShow(); if(!LIVE.me2) setTimeout(()=>livePick(null,true),50); } liveConnectedPill(); if(!running&&!LIVE.cdTimer) liveIdle(); }
 }
 // 두 사람 나누기: 엉덩이 가운데의 화면 위치(셀카 화면은 좌우 반전)로 왼쪽·오른쪽
 function twoSplit(list){
@@ -861,6 +871,7 @@ function loop(){
     cx.save(); cx.setLineDash([14,12]); cx.strokeStyle='rgba(255,255,255,.7)'; cx.lineWidth=Math.max(3,cv.width/200); cx.beginPath(); cx.moveTo(cv.width/2,0); cx.lineTo(cv.width/2,cv.height); cx.stroke(); cx.restore();
     frames++; if(now-fpsT>1000){ $('fps').textContent=frames+' fps'+(frames<12?' · 느려요, 1인 권장':''); frames=0; fpsT=now; }
     if(running) twoPaint(sa,sb,A,B,t); else { $('stA').textContent=twoWord(sa,!!A); $('stB').textContent=twoWord(sb,!!B); }
+    if(LIVE.ok) livePush();
     return;
   }
   const res=landmarker.detectForVideo(video, now);
@@ -1039,7 +1050,7 @@ async function stuSave(id,st,dur){
   catch(e){ el.style.color='var(--red)'; el.innerHTML=`기록을 보내지 못했어요: ${esc(e.message)} <button id="stuRe" style="min-height:34px;padding:4px 12px;font-size:14px">다시 보내기</button>`; $('stuRe').onclick=()=>stuSave(id,st,dur); }
 }
 async function LIVE_TL(room, dev, shell){
-  let off=0, bestRt=1e9, full={}, ctlCb=null, metaCb=null, connCb=()=>{}, conn=false, ever=false, lastCtl='', lastMeta='', busy=false, again=false, wantMeta=true, lastAt=0;
+  let full2={}, dev2='', off=0, bestRt=1e9, full={}, ctlCb=null, metaCb=null, connCb=()=>{}, conn=false, ever=false, lastCtl='', lastMeta='', busy=false, again=false, wantMeta=true, lastAt=0;
   const rpc=async(fn,args)=>{ const t0=Date.now();
     const r=await fetch(shell,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn,args}),redirect:'follow'});
     if(!r.ok) throw new Error('HTTP '+r.status); const j=await r.json(); if(!j.ok) throw new Error(j.error||'fail');
@@ -1054,7 +1065,8 @@ async function LIVE_TL(room, dev, shell){
   async function tick(){
     if(stopped) return;
     if(busy){ again=true; return; } busy=true; lastAt=Date.now();
-    try{ apply(full.g!==undefined?await rpc('liteSend',[room,dev,full,wantMeta]):await rpc('liteInfo',[room])); }
+    try{ apply(full.g!==undefined?await rpc('liteSend',[room,dev,full,wantMeta]):await rpc('liteInfo',[room]));
+      if(dev2&&full2.g!==undefined){ const was=full2.st; await rpc('liteSend',[room,dev2,full2,false]); if(was==='off'){ dev2=''; full2={}; } } }   // 2인: 오른쪽 친구도 같은 3초에 한 번 더
     catch(e){ console.warn('lite',e); if(conn||!ever){ conn=false; connCb(false,ever); } }
     finally{ busy=false; if(again){ again=false; setTimeout(tick,300); } }
   }
@@ -1063,6 +1075,7 @@ async function LIVE_TL(room, dev, shell){
   return {
     // 횟수는 3초마다 모아서 보냄 · 회차가 끝난 순간(run 이 꺼질 때)은 바로 보냄
     send:(data)=>{ const was=full.run; Object.assign(full,data); if((was&&data.run===false)||!lastAt||Date.now()-lastAt>3000) tick(); return Promise.resolve(); },
+    send2:(d2,data)=>{ if(d2!==dev2){ dev2=d2; full2={}; } const was=full2.run; Object.assign(full2,data); if((was&&data.run===false)||data.st==='off') tick(); return Promise.resolve(); },
     onControl:(cb)=>{ ctlCb=cb; if(lastCtl&&lastCtl!=='null') cb(JSON.parse(lastCtl)); },
     onConnected:(cb)=>{ connCb=cb; cb(conn,ever); },
     onMeta:(cb)=>{ metaCb=cb; if(lastMeta&&lastMeta!=='closed') cb(JSON.parse(lastMeta)); },
@@ -1078,7 +1091,7 @@ async function LIVE_T(room, dev){
   // 학교 와이파이가 웹소켓을 막으면 연결이 끝없이 안 됨 → 8초 안에 안 붙으면 롱 폴링(일반 웹 요청)으로 다시 붙음
   // 한 번 롱 폴링으로 붙은 기기는 다음부터 바로 롱 폴링으로 시작
   let lp=false; try{ lp=localStorage.getItem('jl_lp')==='1'; }catch(e){}
-  let db=null, me=null, off=0, conn=false, ever=false, subs=[], gen=0, onConn=()=>{}, ctlCb=null, metaCb=null;
+  let dev2='', db=null, me=null, off=0, conn=false, ever=false, subs=[], gen=0, onConn=()=>{}, ctlCb=null, metaCb=null;
   const watch=(path,cb)=>subs.push(D.onValue(D.ref(db,path),s=>cb(s.val()),e=>cb(null,e)));
   function start(){
     const g=++gen;
@@ -1090,7 +1103,7 @@ async function LIVE_T(room, dev){
     subs.push(D.onValue(D.ref(db,'.info/serverTimeOffset'),s=>{ off=s.val()||0; }));
     subs.push(D.onValue(D.ref(db,'.info/connected'),s=>{
       if(g!==gen) return; conn=!!s.val();
-      if(conn){ ever=true; if(lp){ try{ localStorage.setItem('jl_lp','1'); }catch(e){} } D.onDisconnect(me).update({st:'off',run:false,t:D.serverTimestamp()}); }
+      if(conn){ ever=true; if(lp){ try{ localStorage.setItem('jl_lp','1'); }catch(e){} } D.onDisconnect(me).update({st:'off',run:false,t:D.serverTimestamp()}); if(dev2) D.onDisconnect(D.ref(db,`rooms/${room}/devs/${dev2}`)).update({st:'off',run:false,t:D.serverTimestamp()}); }
       onConn(conn,ever);
     }));
     if(ctlCb) watch(`rooms/${room}/control`,ctlCb);
@@ -1105,6 +1118,10 @@ async function LIVE_T(room, dev){
   setInterval(kick,8000);
   return {
     send:(data)=>D.update(me,Object.assign({},data,{t:D.serverTimestamp()})),
+    send2:(d2,data)=>{ const r=D.ref(db,`rooms/${room}/devs/${d2}`);   // 2인: 오른쪽 친구는 이 기기의 두 번째 칸
+      if(data.st==='off'){ dev2=''; try{ D.onDisconnect(r).cancel(); }catch(e){} }
+      else if(d2!==dev2){ dev2=d2; if(conn) D.onDisconnect(r).update({st:'off',run:false,t:D.serverTimestamp()}); }
+      return D.update(r,Object.assign({},data,{t:D.serverTimestamp()})); },
     onControl:(cb)=>{ ctlCb=cb; watch(`rooms/${room}/control`,cb); },
     onConnected:(cb)=>{ onConn=cb; cb(conn,ever); },
     onMeta:(cb)=>{ metaCb=cb; watch(`rooms/${room}/meta`,cb); },
@@ -1114,7 +1131,7 @@ async function LIVE_T(room, dev){
   };
 }
 // 이 기기에 그 방 기록을 들고 있음 — 새로 고침·브라우저가 꺼져도 같은 기기번호·번호·횟수로 바로 이어 감
-function liveSave(){ if(!LIVE.me||!LIVE.room) return; try{ const st=det.state(); localStorage.setItem('jl_'+LIVE.room,JSON.stringify({dev:LIVE.dev,me:LIVE.me,picked:LIVE.picked,run:LIVE.ctlRun,cnt:st.count,best:st.best,at:Date.now()})); }catch(e){} }
+function liveSave(){ if(!LIVE.me||!LIVE.room) return; try{ const st=det.state(); localStorage.setItem('jl_'+LIVE.room,JSON.stringify({dev:LIVE.dev,me:LIVE.me,picked:LIVE.picked,run:LIVE.ctlRun,cnt:st.count,best:st.best,me2:LIVE.me2||null,cnt2:LIVE.me2?TWO.b.count:0,best2:LIVE.me2?TWO.b.best:0,at:Date.now()})); }catch(e){} }
 function liveLoad(){ try{ const v=JSON.parse(localStorage.getItem('jl_'+LIVE.room)||'null'); if(v&&v.dev&&v.me&&Date.now()-v.at<3*3600e3) return v; }catch(e){} return null; }
 function livePill(text,bad){
   let p=$('livePill');
@@ -1137,6 +1154,7 @@ function liveState(st,t,seen){
 const LIVE_GAP=1000, LIVE_BEAT=10000;
 function livePush(force){
   if(running&&LIVE.goal&&LIVE.ctlRun&&det.count>=LIVE.goal) goalReached();
+  if(TWO.on&&LIVE.me2) livePush2(force);
   if(!LIVE.ok||!LIVE.me) return;
   const st=det.state(), t=(performance.now()-t0)/1000;
   const s=liveState(st,t,det.visible), now=performance.now();
@@ -1157,11 +1175,34 @@ function livePush(force){
   LIVE.T.send(out)
     .catch(e=>{ console.warn('live send',e); LIVE.sent=null; livePill('선생님 화면에 보내지 못했어요 — 세기는 계속돼요',true); });
 }
+// 2인: 오른쪽 친구 — 기기 번호 뒤에 b2 를 붙인 두 번째 칸으로 보냄 (선생님 화면에는 카드가 하나 더 생김)
+const dev2=()=>LIVE.dev.slice(0,12)+'b2';
+function liveState2(st,t){
+  if(LIVE.hidden) return 'hidden'; if(!running) return 'ready';
+  if(!st.visible||st.tooClose||!st.full) return 'away'; if(st.hand) return 'hand';
+  if(st.air||(st.count>0&&t-TWO.b.lastJump<0.6)) return 'jump'; return 'stop';
+}
+function livePush2(force){
+  if(!LIVE.ok||!LIVE.me2||!LIVE.T.send2) return;
+  const st=TWO.b.state(), t=(performance.now()-t0)/1000, now=performance.now();
+  const fresh=LIVE.ctlRun&&LIVE.startedRun!==LIVE.ctlRun;
+  const full={g:LIVE.me2.g,c:LIVE.me2.c,n:LIVE.me2.n,cnt:fresh?0:st.count,st:liveState2(st,t),run:running,ctl:LIVE.ctlRun,v:VER+'-2'};
+  if(!running) full.best=st.best;
+  const prev=LIVE.sent2||{}, diff={}; Object.keys(full).forEach(k=>{ if(prev[k]!==full[k]) diff[k]=full[k]; });
+  if(!force&&!Object.keys(diff).length&&now-(LIVE.lastSend2||0)<LIVE_BEAT) return;
+  if(!force&&now-(LIVE.lastSend2||0)<LIVE_GAP) return;   // 1초마다 다시 불리므로 따로 기다리지 않음
+  const out=LIVE.sent2?diff:full; LIVE.sent2=Object.assign({},prev,full); LIVE.lastSend2=now;
+  LIVE.T.send2(dev2(),out).catch(e=>{ console.warn('live send2',e); LIVE.sent2=null; });
+}
+function liveDrop2(){   // 2인을 끄면 오른쪽 친구 칸은 '나감'으로
+  if(LIVE.ok&&LIVE.me2&&LIVE.T.send2) LIVE.T.send2(dev2(),Object.assign({g:LIVE.me2.g,c:LIVE.me2.c,n:LIVE.me2.n,cnt:TWO.b.count,run:false},{st:'off'})).catch(()=>{});
+  LIVE.me2=null; LIVE.sent2=null; liveSave(); if(LIVE.ok) liveConnectedPill();
+}
 async function wakeOn(){ try{ if(navigator.wakeLock&&!LIVE.wake&&document.visibilityState==='visible'){ LIVE.wake=await navigator.wakeLock.request('screen'); LIVE.wake.addEventListener('release',()=>{ LIVE.wake=null; }); } }catch(e){} }
 function runStart(){ // 시작 버튼을 누른 것과 같은 일 (선생님 신호로 시작할 때)
-  if(running) return; running=true; t0=performance.now(); det.reset(); lastCount=0;
+  if(running) return; running=true; t0=performance.now(); det.reset(); lastCount=0; if(TWO.on) twoReset();
   const r=LIVE.resume; LIVE.resume=null;
-  if(r&&r.run===LIVE.ctlRun){ det.count=lastCount=r.cnt||0; det.best=r.best||0; }   // 같은 회차를 이어서 셈
+  if(r&&r.run===LIVE.ctlRun){ det.count=lastCount=r.cnt||0; det.best=r.best||0; if(TWO.on&&LIVE.me2){ TWO.b.count=r.cnt2||0; TWO.b.best=r.best2||0; } }   // 같은 회차를 이어서 셈
   $('count').innerHTML=det.count+'<small>회</small>'; beep(660,0.1,0.2);
   $('btnStart').textContent=STU.on?'뛰는 중 — 끝나면 함께 공개':'선생님 신호로 뛰는 중'; $('btnStart').classList.add('warn'); $('btnStart').classList.remove('primary'); $('btnStart').disabled=true; $('btnReset').disabled=true;
   if(ROPE.on) ropeRunStart();
@@ -1190,6 +1231,8 @@ function runEnd(){ // 선생님 신호로 끝 — 기록은 선생님 현황판�
   const st=det.state();
   $('smTitle').textContent='끝났어요!'; $('smErr').textContent='';
   $('smCount').innerHTML=st.count+'<small style="font-size:.3em;color:var(--muted)"> 회</small>';
+  if(TWO.on&&LIVE.me2){ const col=(n,w)=>`<span style="display:flex;flex-direction:column;align-items:center;gap:6px"><span>${n}<small style="font-size:.4em;color:var(--muted)"> 회</small></span><span style="font-family:var(--ui);font-size:20px;font-weight:700;letter-spacing:0;line-height:1.2;color:var(--muted)">${w}</span></span>`;
+    $('smCount').innerHTML=`<span style="display:flex;gap:40px;justify-content:center;align-items:flex-start;font-size:.62em">${col(st.count,'왼쪽 · '+LIVE.me.n+'번')}${col(TWO.b.count,'오른쪽 · '+LIVE.me2.n+'번')}</span>`; }
   $('smNote').textContent=ROPE.on?`줄넘기가 센 횟수예요${ROPE.trk&&st.best?` · 최고 연속 ${st.best}회`:''} · 기록은 선생님 화면에서 한꺼번에 해요`:`최고 연속 ${st.best}회 · 기록은 선생님 화면에서 한꺼번에 해요`;
   $('smBtns').innerHTML='<button class="primary" id="smOk" style="font-size:18px;padding:12px 24px">확인</button>';
   $('smOk').onclick=()=>$('saveModal').classList.remove('on');
@@ -1248,7 +1291,7 @@ function onControl(c){
   if(STU.on) setTimeout(stuBarRender,0);
   // 랜덤 한 명 도전: who(학년-반-번호)가 있으면 그 친구만 셈. 다른 친구는 응원 화면만
   if(c&&c.ph==='go'&&c.who){
-    const mine=!!LIVE.me&&(LIVE.me.g+'-'+LIVE.me.c+'-'+LIVE.me.n)===String(c.who);
+    const mine=(!!LIVE.me&&(LIVE.me.g+'-'+LIVE.me.c+'-'+LIVE.me.n)===String(c.who))||(TWO.on&&!!LIVE.me2&&(LIVE.me2.g+'-'+LIVE.me2.c+'-'+LIVE.me2.n)===String(c.who));
     if(!mine){ const wn=String(c.who).split('-').pop(); $('status').textContent=(+wn>60?'기기 '+(wn-60)+'번':wn+'번 친구')+' 차례예요 — 응원해요!'; $('status').className='status idle'; return; }
     if(LIVE.chalMe!==String(c.id)){ LIVE.chalMe=String(c.id); try{ if(navigator.vibrate) navigator.vibrate([400,150,400,150,400]); }catch(e){}
       const bb=$('burst'); bb.textContent='내 차례!'; bb.classList.remove('on'); void bb.offsetWidth; bb.classList.add('on'); beep(784,0.15,0.25); }
@@ -1275,7 +1318,11 @@ function onControl(c){
   } else if(c.ph==='go'&&LIVE.ctlRun&&String(c.id)===LIVE.ctlRun){ LIVE.ctlEnd=c.dur>0?c.at+c.dur*1000:0;   // 선생님이 '끝' → 5초 뒤 끝으로 바뀜
   } else if(c.ph==='end'&&LIVE.ctlRun&&(!c.id||String(c.id)===LIVE.ctlRun)){ if(running) runEnd(); else { if(LIVE.cdTimer){ clearInterval(LIVE.cdTimer); LIVE.cdTimer=0; } liveIdle(); } }
 }
-function liveConnectedPill(){ const m=LIVE.me; if(STU.on&&m) return livePill('친구 방에 연결됨 · 내 횟수는 끝나고 함께 공개돼요'); livePill(m?`선생님 화면에 연결됨 · ${m.n>60?'돌려 쓰는 기기 '+(m.n-60)+'번 · '+((t=>t?(t.rest?'이번엔 쉬어요':'지금 차례: <b>'+t.g+'학년 '+t.c+'반 '+t.n+'번</b>'):'차례인 친구는 선생님 화면에서')(slMate())):m.g+'학년 '+m.c+'반 '+m.n+'번'}${LIVE.T&&LIVE.T.mode&&LIVE.T.mode()==='lp'?' <span style="color:var(--muted)">· 우회 연결</span>':''}${LIVE.shell&&LIVE.ctl&&LIVE.ctl.rv&&LIVE.ctl.rv!=='live'?'<br><span style="color:var(--muted)">내 횟수는 내 화면에만 보여요 · 큰 화면에는 끝나고 한 번에 공개돼요</span>':''}${LIVE.picked?' <u style="cursor:pointer">'+(m.n>60?'기기 번호 바꾸기':'번호 바꾸기')+'</u>':''}`:'번호를 골라 주세요'); }
+function liveConnectedPill(){ const m=LIVE.me;
+  if(TWO.on&&m&&LIVE.me2&&!STU.on){ const m2=LIVE.me2; document.querySelector('.duoP.a .nm').textContent='왼쪽 · '+m.n+'번'; document.querySelector('.duoP.b .nm').textContent='오른쪽 · '+m2.n+'번';
+    return livePill(`선생님 화면에 연결됨 · 2인 · 왼쪽 <b>${m.g}학년 ${m.c}반 ${m.n}번</b> · 오른쪽 <b>${m2.g}학년 ${m2.c}반 ${m2.n}번</b>${LIVE.shell&&LIVE.ctl&&LIVE.ctl.rv&&LIVE.ctl.rv!=='live'?'<br><span style="color:var(--muted)">횟수는 이 화면에만 보여요 · 큰 화면에는 끝나고 한 번에 공개돼요</span>':''} <u style="cursor:pointer">내 번호</u> <u data-two="1" style="cursor:pointer">오른쪽 친구 번호</u>`); }
+  if(TWO.on&&m&&!LIVE.me2&&LIVE.on){ document.querySelector('.duoP.b .nm').textContent='오른쪽 친구'; }
+  if(STU.on&&m) return livePill('친구 방에 연결됨 · 내 횟수는 끝나고 함께 공개돼요'); livePill(m?`선생님 화면에 연결됨 · ${m.n>60?'돌려 쓰는 기기 '+(m.n-60)+'번 · '+((t=>t?(t.rest?'이번엔 쉬어요':'지금 차례: <b>'+t.g+'학년 '+t.c+'반 '+t.n+'번</b>'):'차례인 친구는 선생님 화면에서')(slMate())):m.g+'학년 '+m.c+'반 '+m.n+'번'}${LIVE.T&&LIVE.T.mode&&LIVE.T.mode()==='lp'?' <span style="color:var(--muted)">· 우회 연결</span>':''}${LIVE.shell&&LIVE.ctl&&LIVE.ctl.rv&&LIVE.ctl.rv!=='live'?'<br><span style="color:var(--muted)">내 횟수는 내 화면에만 보여요 · 큰 화면에는 끝나고 한 번에 공개돼요</span>':''}${LIVE.picked?' <u style="cursor:pointer">'+(m.n>60?'기기 번호 바꾸기':'번호 바꾸기')+'</u>':''}`:'번호를 골라 주세요'); }
 // 번호 고르기 (QR로 바로 들어온 학생) — 이름은 선생님 현황판에만 있고, 여기서는 번호만 고름
 // 반 고르기 → 번호 고르기. 여러 반이 함께 수업하는 방(5·6학년 등)이면 반부터 고름
 // 돌려 쓰는 기기: 여러 친구가 번갈아 쓰는 노트북·태블릿은 '기기 k번'으로 한 번만 들어옴 (번호 60+k 로 보냄)
@@ -1288,31 +1335,38 @@ async function pickSlots(g0,box){
       LIVE.me={g:g0.g,c:g0.c,n:60+k}; LIVE.picked=true; box.classList.remove('on'); liveConnectedPill(); livePush(true); guideShow(); };
     $('pkSlotGrid').appendChild(b); }
 }
-async function livePick(grp){
+async function livePick(grp,two){
   const meta=LIVE.meta; if(!meta||running||(LIVE.ctlRun&&LIVE.cdTimer)) return;
+  if(two&&!(TWO.on&&LIVE.me)) return;
   let box=$('pickModal');
   if(!box){ box=document.createElement('div'); box.id='pickModal'; box.className='modal'; box.innerHTML='<div class="box" style="max-width:720px"><h3 id="pkTitle"></h3><p id="pkNote">내 번호를 눌러요</p><div id="pkGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:8px;max-height:60vh;overflow:auto"></div><div id="pkBack"></div><div id="pkSlot"></div></div>'; document.body.appendChild(box); }
   const gs=meta.groups; $('pkBack').innerHTML='';
-  pickSlots(gs[0],box);
+  if(two) $('pkSlot').innerHTML=''; else pickSlots(gs[0],box);
   if(!grp&&gs.length===1) grp=gs[0];
   if(!grp){
     $('pkTitle').textContent='내 반을 눌러요'; $('pkNote').textContent='여러 반이 함께 뛰어요';
     $('pkGrid').style.gridTemplateColumns='repeat(auto-fill,minmax(150px,1fr))'; $('pkGrid').innerHTML='';
     gs.forEach(x=>{ const b=document.createElement('button'); b.textContent=`${x.g}학년 ${x.c}반`; b.style.cssText='font-size:24px;font-weight:800;min-height:80px';
-      b.onclick=()=>livePick(x); $('pkGrid').appendChild(b); });
+      b.onclick=()=>livePick(x,two); $('pkGrid').appendChild(b); });
     box.classList.add('on'); return;
   }
-  $('pkTitle').textContent=`${grp.g}학년 ${grp.c}반`;
+  $('pkTitle').textContent=two?`오른쪽 친구 번호 · ${grp.g}학년 ${grp.c}반`:`${grp.g}학년 ${grp.c}반`;
   $('pkGrid').style.gridTemplateColumns='repeat(auto-fill,minmax(64px,1fr))';
-  if(gs.length>1){ const bk=document.createElement('button'); bk.textContent='← 반 다시 고르기'; bk.style.cssText='margin-top:10px;min-height:44px;font-size:15px'; bk.onclick=()=>livePick(); $('pkBack').appendChild(bk); }
-  const taken=new Set((await LIVE.T.taken()).filter(d=>d.g===grp.g&&d.c===grp.c&&!(LIVE.me&&LIVE.me.g===grp.g&&LIVE.me.c===grp.c&&d.n===LIVE.me.n)).map(d=>d.n));
+  if(gs.length>1){ const bk=document.createElement('button'); bk.textContent='← 반 다시 고르기'; bk.style.cssText='margin-top:10px;min-height:44px;font-size:15px'; bk.onclick=()=>livePick(null,two); $('pkBack').appendChild(bk); }
+  if(two){ const x=document.createElement('button'); x.textContent='2인 그만하기 (혼자 뛰기)'; x.style.cssText='margin-top:10px;min-height:44px;font-size:15px'; x.onclick=()=>{ box.classList.remove('on'); setTwo(false); }; $('pkBack').appendChild(x); }
+  const cur=two?LIVE.me2:LIVE.me;
+  const taken=new Set((await LIVE.T.taken()).filter(d=>d.g===grp.g&&d.c===grp.c&&!(cur&&cur.g===grp.g&&cur.c===grp.c&&d.n===cur.n)).map(d=>d.n));
   $('pkGrid').innerHTML='';
   for(let n=1;n<=grp.max;n++){ if(grp.skip&&grp.skip.includes(n)) continue; const b=document.createElement('button'); b.textContent=n; b.style.cssText='font-size:24px;font-weight:800;min-height:64px;padding:0'+(taken.has(n)?';color:var(--muted);background:var(--soft)':'');
     if(taken.has(n)) b.title='이미 누가 이 번호로 들어와 있어요';
+    if(two&&LIVE.me&&LIVE.me.g===grp.g&&LIVE.me.c===grp.c&&LIVE.me.n===n){ b.disabled=true; b.title='왼쪽(나)'; }
     b.onclick=()=>{ if(taken.has(n)&&!confirm(n+'번은 이미 누가 들어와 있어요. 그래도 '+n+'번으로 할까요?')) return;
+      if(two){ if(LIVE.me2&&(LIVE.me2.g!==grp.g||LIVE.me2.c!==grp.c||LIVE.me2.n!==n)){ LIVE.T.send2(dev2(),{g:LIVE.me2.g,c:LIVE.me2.c,n:LIVE.me2.n,cnt:0,run:false,st:'off'}).catch(()=>{}); }
+        LIVE.me2={g:grp.g,c:grp.c,n}; LIVE.sent2=null; box.classList.remove('on'); liveConnectedPill(); livePush(true); liveSave(); return; }
+      if(TWO.on&&LIVE.me2&&LIVE.me2.g===grp.g&&LIVE.me2.c===grp.c&&LIVE.me2.n===n) return alert('오른쪽 친구 번호예요. 다른 번호를 골라요.');
       LIVE.me={g:grp.g,c:grp.c,n}; LIVE.picked=true; box.classList.remove('on'); liveConnectedPill(); livePush(true); guideShow(); };
     $('pkGrid').appendChild(b); }
-  $('pkNote').textContent=taken.size?'내 번호를 눌러요 (흐린 번호는 이미 누가 들어와 있어요)':'내 번호를 눌러요';
+  $('pkNote').textContent=(two?'화면 오른쪽에 설 친구 번호를 눌러요':'내 번호를 눌러요')+(taken.size?' (흐린 번호는 이미 누가 들어와 있어요)':'');
   box.classList.add('on');
 }
 async function liveInit(){
@@ -1322,7 +1376,7 @@ async function liveInit(){
   else { const m=/^(\d{1,2})-(\d{1,2})-(\d{1,2})$/.exec(Q.get('me')||''); if(m) me={g:+m[1],c:+m[2],n:+m[3]}; }
   const sv=liveLoad(), same=sv&&(!me||(me.g===sv.me.g&&me.c===sv.me.c&&me.n===sv.me.n));
   if(same){   // 같은 방·같은 학생으로 다시 들어옴 → 같은 기기번호로 이어서 (선생님 화면에 칸이 둘로 안 생김)
-    me=sv.me; LIVE.picked=!!sv.picked; LIVE.dev=sv.dev; LIVE.ctlRun=sv.run||'';
+    me=sv.me; LIVE.picked=!!sv.picked; LIVE.dev=sv.dev; LIVE.ctlRun=sv.run||''; LIVE.me2=sv.me2||null;
     det.count=lastCount=sv.cnt||0; det.best=sv.best||0; $('count').innerHTML=det.count+'<small>회</small>';
     if(sv.run) LIVE.resume=sv;
   } else LIVE.dev=Array.from(crypto.getRandomValues(new Uint8Array(6)),b=>b.toString(36).padStart(2,'0')).join('').slice(0,12);
@@ -1353,7 +1407,7 @@ async function liveInit(){
     LIVE.beat=setInterval(()=>livePush(),1000);
     wakeOn();
     document.addEventListener('visibilitychange',()=>{ LIVE.hidden=document.visibilityState!=='visible'; livePush(true); if(!LIVE.hidden) wakeOn(); });
-    document.addEventListener('click',e=>{ if(e.target.closest&&e.target.closest('#livePill u')) livePick(); });
+    document.addEventListener('click',e=>{ const u=e.target.closest&&e.target.closest('#livePill u'); if(u) livePick(null,!!u.dataset.two); });
     $('guideX').onclick=()=>{ LIVE.guideOff=true; guideShow(); };
     if(LIVE.resume||det.count) LIVE.didRun=true;   // 회차 도중·뒤에 다시 들어온 경우엔 숫자 화면
     guideShow();
