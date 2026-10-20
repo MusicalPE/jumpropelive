@@ -605,7 +605,8 @@ async function pairInit(w){
 function openSaveModal2(){
   const sa=TWO.a.state(), sb=TWO.b.state(), sec=Math.round((performance.now()-t0)/1000), A=LINK.who, B=LINK.who2;
   LINK.saved=null; LINK.saved2=null;
-  $('smCount').innerHTML=`<span style="display:flex;gap:28px;justify-content:center;font-size:.62em"><span>${sa.count}<small style="font-size:.4em;color:var(--muted)"> 회<br>${A.이름}</small></span><span>${sb.count}<small style="font-size:.4em;color:var(--muted)"> 회<br>${B.이름}</small></span></span>`;
+  const col=(n,w)=>`<span style="display:flex;flex-direction:column;align-items:center;gap:6px"><span>${n}<small style="font-size:.4em;color:var(--muted)"> 회</small></span><span style="font-family:var(--ui);font-size:20px;font-weight:700;letter-spacing:0;line-height:1.2;color:var(--muted)">${w}</span></span>`;
+  $('smCount').innerHTML=`<span style="display:flex;gap:40px;justify-content:center;align-items:flex-start;font-size:.62em">${col(sa.count,A.이름)}${col(sb.count,B.이름)}</span>`;
   $('smTitle').textContent='두 사람 기록을 저장할까요?'; $('smErr').textContent='';
   $('smNote').textContent=fmtSec(sec)+(sa.count<1||sb.count<1?' · 0회인 친구는 기록하지 않아요':'');
   $('smBtns').innerHTML='<button class="primary" id="smSave" style="font-size:18px;padding:12px 24px">둘 다 기록하기</button><button id="smAgain">다시 뛰기</button>';
