@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 판정기 v1.2.7 · 카메라로 진짜 뛰는지 보기</title>
+<title>줄넘기 판정기 v1.2.8 · 카메라로 진짜 뛰는지 보기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -60,6 +60,19 @@
   .main .lab i{width:8px;height:8px;border-radius:50%;background:var(--accent)}
   .count{font-weight:800;font-size:clamp(110px,28vh,320px);line-height:.9;letter-spacing:-.06em;color:var(--ink);transition:color .15s}
   .count small{font-size:.2em;color:var(--muted);font-weight:700;margin-left:.2em;letter-spacing:0}
+  /* 2인 모드: 왼쪽·오른쪽 두 사람을 따로 셈 */
+  .duo{display:grid;grid-template-columns:1fr 1fr;gap:14px;width:100%}
+  .duo[hidden],.modeSw[hidden],.count[hidden]{display:none}
+  .duoP{border-radius:20px;padding:12px 16px 14px;background:#FFF1EC;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
+  .duoP.b{background:#E6F7F4}
+  .duoP .who{font-size:15px;font-weight:800;color:#B83A16}.duoP.b .who{color:#13796E}
+  .duoP b{font-weight:800;font-size:clamp(72px,19vh,220px);line-height:.95;letter-spacing:-.05em;color:var(--ink);transition:color .15s}
+  .duoP b.air{color:#FF6B5B}.duoP.b b.air{color:#2BB3A3}
+  .duoP em{font-style:normal;font-size:14px;font-weight:700;color:var(--muted);text-align:center}
+  body.two .meterBox,body.two .compare,body.two .stats .stat:not(:first-child){display:none}
+  .modeSw{display:flex;border:1.5px solid var(--line,#E5E7EB);border-radius:999px;overflow:hidden}
+  .modeSw button{border:0;border-radius:0;background:transparent;padding:8px 14px;font-weight:800;min-height:0;box-shadow:none}
+  .modeSw button.on{background:var(--ink,#1F2430);color:#fff}
   .flash{animation:flash .28s}
   @keyframes flash{0%{transform:scale(1.08)}100%{transform:scale(1)}}
 
@@ -293,7 +306,7 @@
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
     <div class="titles">
-      <h1>줄넘기 판정기<span class="ver">v1.2.7</span></h1>
+      <h1>줄넘기 판정기<span class="ver">v1.2.8</span></h1>
       <span class="sub">머리부터 발까지 보이게 서서, 몸이 뜨고 팔이 돌 때만 1회로 세요</span>
     </div>
     <div class="who" id="who"></div>
@@ -307,6 +320,10 @@
     <section class="card main">
       <div class="lab"><i></i>지금까지 뛴 횟수</div>
       <div class="count" id="count">0<small>회</small></div>
+      <div class="duo" id="duo" hidden>
+        <div class="duoP a"><span class="who">왼쪽 친구</span><b id="cntA">0</b><em id="stA">준비</em></div>
+        <div class="duoP b"><span class="who">오른쪽 친구</span><b id="cntB">0</b><em id="stB">준비</em></div>
+      </div>
       <div class="status idle" id="status">시작을 누르고 카메라 앞에 서요</div>
       <div class="meterBox">
         <div class="meter"><i id="meter"></i><b id="meterLine"></b></div>
@@ -353,6 +370,7 @@
     <div class="madeby"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6a9 9 0 0 1 12.8 12.8M18.4 5.6a9 9 0 0 1-12.8 12.8"/></svg>Made by <b>음악적체육인</b></div>
     <div class="log" id="log"></div>
     <div class="fspacer"></div>
+    <div class="modeSw" id="modeSw" title="2인: 한 화면에서 두 사람을 왼쪽·오른쪽으로 따로 세요"><button data-m="1" class="on">1인</button><button data-m="2">2인</button></div>
     <button class="primary" id="btnStart">시작</button>
     <button id="btnReset">처음부터</button>
     <label>민감도 <input type="range" id="sens" min="6" max="16" value="10"> <span id="sensV">보통</span></label>
@@ -525,7 +543,7 @@ const $=id=>document.getElementById(id);
 const video=$('video'), cv=$('overlay'), cx=cv.getContext('2d');
 let landmarker=null, stream=null, facing='user', running=false, t0=0, raf=0, lastVideoT=-1, frames=0, fpsT=0;
 /* ---------- 앱 연동: 체육교사 보조 프로그램의 줄넘기 화면에서 열리면 ?app=앱주소&t=학생표&kind=종류 가 붙어 와요 ---------- */
-const VER='1.2.7';
+const VER='1.2.8';
 const Q=new URLSearchParams(location.search);
 const LINK={ app:Q.get('app')||'', t:Q.get('t')||'', kind:Q.get('kind')||'', sens:+(Q.get('sens')||0)||0, target:(Q.get('target')==='fit'?'fit':'rope'), who:null, saved:null,
   // mode=post : 오프라인판(파일로 여는 프로그램)이 연 창. 서버 대신 window.opener.postMessage 로 결과를 돌려준다.
@@ -597,6 +615,38 @@ async function sendResult(count,sec,st){
   }catch(e){ $('smErr').textContent='기록하지 못했어요: '+e.message+' — 인터넷을 확인하고 다시 눌러 보세요. 계속 안 되면 이 숫자를 앱에 직접 넣어 주세요.'; b.disabled=false; b.textContent='다시 보내기'; }
 }
 const det=new JumpDetector({minAmp:0.10});
+// 2인 모드: 한 화면의 두 사람을 화면 왼쪽·오른쪽으로 나눠 따로 셈 (혼자 쓸 때만 — 앱 기록·점프 Live 연결은 다음 단계)
+const TWO={ on:false, a:new JumpDetector({minAmp:0.10}), b:new JumpDetector({minAmp:0.10}), la:0, lb:0, airA:false, airB:false };
+const TWO_OK=Math.min(screen.width,screen.height)>=600;   // 2인 모드는 태블릿·노트북처럼 화면이 넓은 기기에서만 (휴대폰은 1인)
+function twoBlocked(){ return LINK.linked||LIVE.on||ROPE.on; }
+function twoReset(){ [TWO.a,TWO.b].forEach(d=>{ d.minAmp=det.minAmp; d.reset(); }); TWO.la=TWO.lb=0; $('cntA').textContent='0'; $('cntB').textContent='0'; }
+function setTwo(on){
+  if(on&&!TWO_OK){ alert('2인 모드는 태블릿처럼 화면이 넓은 기기에서 써요. 휴대폰은 1인 모드로 뛰어요.'); on=false; }
+  else if(on&&twoBlocked()){ alert('2인 모드는 판정기를 혼자 쓸 때만 돼요. (앱 기록·점프 Live 연결은 곧 준비할게요)'); on=false; }
+  if(running) return;
+  TWO.on=on; try{ localStorage.setItem('jr_two',on?'1':''); }catch(e){}
+  document.body.classList.toggle('two',on); $('count').hidden=on; $('duo').hidden=!on;
+  Array.prototype.forEach.call(document.querySelectorAll('#modeSw button'),b=>b.classList.toggle('on',(b.dataset.m==='2')===on));
+  twoReset();
+  if(landmarker&&landmarker.setOptions) landmarker.setOptions({numPoses:on?2:1}).catch?.(()=>{});
+  $('status').textContent=on?'두 사람이 가운데 선을 사이에 두고 왼쪽·오른쪽에 서요':'시작을 누르고 카메라 앞에 서요'; $('status').className='status idle';
+}
+// 두 사람 나누기: 엉덩이 가운데의 화면 위치(셀카 화면은 좌우 반전)로 왼쪽·오른쪽
+function twoSplit(list){
+  const sx=l=>{ const x=((l[23].x+l[24].x)/2+(l[11].x+l[12].x)/2)/2; return facing==='user'?1-x:x; };
+  const ps=(list||[]).slice(0,2).map(l=>({l,x:sx(l)})).sort((p,q)=>p.x-q.x);
+  if(ps.length>=2) return [ps[0].l,ps[1].l];
+  if(ps.length===1) return ps[0].x<0.5?[ps[0].l,null]:[null,ps[0].l];
+  return [null,null];
+}
+function twoWord(st,seen){ if(!seen||!st.visible) return '화면에 들어와요'; if(st.tooClose) return '조금 뒤로'; if(!st.full) return '발까지 보이게'; if(st.hand) return '팔만 돌려요!'; if(st.air) return '뛰는 중!'; return st.count?'멈춤':'준비'; }
+function twoPaint(sa,sb,A,B,t){
+  [['A',sa,'la','cntA','stA',A],['B',sb,'lb','cntB','stB',B]].forEach(([k,st,lk,ce,se,seen])=>{
+    if(st.count!==TWO[lk]){ const prev=TWO[lk]; TWO[lk]=st.count; $(ce).textContent=st.count; beep(k==='A'?880:988,0.06,0.12);
+      if(st.count>0&&Math.floor(st.count/10)>Math.floor(prev/10)) celebrate(Math.floor(st.count/10)*10); }
+    $(ce).classList.toggle('air',!!st.air); $(se).textContent=twoWord(st,!!seen); });
+  const m=Math.floor(t/60), sec=Math.floor(t%60); $('time').textContent=m+':'+String(sec).padStart(2,'0');
+}
 let ac=null;
 function audioWarm(){ try{ ac=ac||new (window.AudioContext||window.webkitAudioContext)(); if(ac.state==='suspended') ac.resume(); const b=ac.createBuffer(1,1,22050), s=ac.createBufferSource(); s.buffer=b; s.connect(ac.destination); s.start(0); }catch(e){} }
 function beep(f,d,vol){ if(!$('snd').checked) return; try{ ac=ac||new (window.AudioContext||window.webkitAudioContext)(); const o=ac.createOscillator(), g=ac.createGain(); o.type='triangle'; o.frequency.value=f; g.gain.setValueAtTime(vol||0.2,ac.currentTime); g.gain.exponentialRampToValueAtTime(0.0001,ac.currentTime+d); o.connect(g).connect(ac.destination); o.start(); o.stop(ac.currentTime+d); }catch(e){} }
@@ -634,8 +684,8 @@ async function loadModel(){
   const mod=await import(CDN+'/vision_bundle.mjs');
   const vision=await mod.FilesetResolver.forVisionTasks(CDN+'/wasm');
   let lm;
-  try{ lm=await mod.PoseLandmarker.createFromOptions(vision,{ baseOptions:{ modelAssetPath:'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task', delegate:'GPU' }, runningMode:'VIDEO', numPoses:1 }); }
-  catch(e){ lm=await mod.PoseLandmarker.createFromOptions(vision,{ baseOptions:{ modelAssetPath:'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task', delegate:'CPU' }, runningMode:'VIDEO', numPoses:1 }); }
+  try{ lm=await mod.PoseLandmarker.createFromOptions(vision,{ baseOptions:{ modelAssetPath:'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task', delegate:'GPU' }, runningMode:'VIDEO', numPoses:(TWO.on?2:1) }); }
+  catch(e){ lm=await mod.PoseLandmarker.createFromOptions(vision,{ baseOptions:{ modelAssetPath:'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task', delegate:'CPU' }, runningMode:'VIDEO', numPoses:(TWO.on?2:1) }); }
   landmarker=lm; window.__pose=mod;
 }
 /* ---------- 카메라 ---------- */
@@ -702,13 +752,13 @@ async function camPrecheck(){
 camPrecheck();
 /* ---------- 뼈대 그리기 ---------- */
 const BONES=[[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28]];
-function draw(lm, st){
+function draw(lm, st, keep, col){
   if(cv.width!==video.videoWidth||cv.height!==video.videoHeight){ cv.width=video.videoWidth||640; cv.height=video.videoHeight||480; }
-  cx.clearRect(0,0,cv.width,cv.height);
+  if(!keep) cx.clearRect(0,0,cv.width,cv.height);
   if(!lm) return;
   const P=i=>[lm[i].x*cv.width, lm[i].y*cv.height];
   cx.lineWidth=Math.max(4,cv.width/130); cx.lineCap='round';
-  cx.strokeStyle=st.air?'#FF6B5B':st.hand?'#F2A33A':'rgba(255,255,255,.9)';
+  cx.strokeStyle=st.air?(col&&col[1]||'#FF6B5B'):st.hand?'#F2A33A':(col&&col[0]||'rgba(255,255,255,.9)');
   BONES.forEach(([a,b])=>{ if((lm[a].visibility??1)<0.35||(lm[b].visibility??1)<0.35) return; cx.beginPath(); cx.moveTo(...P(a)); cx.lineTo(...P(b)); cx.stroke(); });
   cx.fillStyle='#fff';
   [11,12,15,16,23,24,27,28].forEach(i=>{ if((lm[i].visibility??1)<0.35) return; const [x,y]=P(i); cx.beginPath(); cx.arc(x,y,Math.max(5,cv.width/100),0,Math.PI*2); cx.fill(); });
@@ -722,8 +772,20 @@ function loop(){
   const now=performance.now();
   if(video.currentTime===lastVideoT) return; lastVideoT=video.currentTime;
   const res=landmarker.detectForVideo(video, now);
-  const lm=res.landmarks&&res.landmarks[0];
   const t=(now-t0)/1000;
+  if(TWO.on){
+    if(twoBlocked()){ setTwo(false); return; }
+    const [A,B]=twoSplit(res.landmarks);
+    let sa, sb;
+    if(running){ sa=A?TWO.a.push(t,A):TWO.a.state(); if(!A) TWO.a.visible=false; sb=B?TWO.b.push(t,B):TWO.b.state(); if(!B) TWO.b.visible=false; }
+    else { sa=TWO.a.state(); sb=TWO.b.state(); }
+    draw(A,sa,false,['#FFB4A9','#FF6B5B']); draw(B,sb,true,['#9ADFD6','#2BB3A3']);
+    cx.save(); cx.setLineDash([14,12]); cx.strokeStyle='rgba(255,255,255,.7)'; cx.lineWidth=Math.max(3,cv.width/200); cx.beginPath(); cx.moveTo(cv.width/2,0); cx.lineTo(cv.width/2,cv.height); cx.stroke(); cx.restore();
+    frames++; if(now-fpsT>1000){ $('fps').textContent=frames+' fps'+(frames<12?' · 느려요, 1인 권장':''); frames=0; fpsT=now; }
+    if(running) twoPaint(sa,sb,A,B,t); else { $('stA').textContent=twoWord(sa,!!A); $('stB').textContent=twoWord(sb,!!B); }
+    return;
+  }
+  const lm=res.landmarks&&res.landmarks[0];
   let st;
   if(running){ st=lm?det.push(t,lm):det.state(); if(!lm) det.visible=false; }
   else st=det.state();
@@ -1305,10 +1367,13 @@ $('btnCam').onclick=async()=>{
   try{ await loadModel(); $('btnCam').textContent='카메라 켜는 중…'; await openCam(); $('cover').classList.add('hide'); t0=performance.now(); loop(); if(LIVE.on) linkInit().then(liveInit); else linkInit(); }
   catch(e){ console.error(e); if(camHelp(e)){ $('btnCam').disabled=false; $('btnCam').textContent='다시 시도'; return; } $('coverErr').textContent='시작하지 못했어요: '+(e.message||e)+(location.protocol==='file:'?' — 파일로 열었을 때 카메라가 막히면 크롬에서 열거나, 인터넷에 올린 주소로 열어 보세요.':''); $('btnCam').disabled=false; $('btnCam').textContent='다시 시도'; }
 };
-$('btnStart').onclick=()=>{ if(liveLocked()&&!running) return; running=!running; if(running){ t0=performance.now(); det.reset(); lastCount=0; $('count').innerHTML='0<small>회</small>'; beep(660,0.1,0.2); } else { beep(440,0.15,0.2); $('status').textContent='멈춤 — 시작을 누르면 처음부터 다시 세요'; $('status').className='status idle'; if(LINK.linked) openSaveModal(); }
+$('btnStart').onclick=()=>{ if(liveLocked()&&!running) return; running=!running; if(running){ t0=performance.now(); det.reset(); lastCount=0; $('count').innerHTML='0<small>회</small>'; if(TWO.on) twoReset(); beep(660,0.1,0.2); } else { beep(440,0.15,0.2); $('status').textContent='멈춤 — 시작을 누르면 처음부터 다시 세요'; $('status').className='status idle'; if(LINK.linked) openSaveModal(); }
   $('btnStart').textContent=running?(LINK.linked?'끝내고 기록하기':'멈춤'):'시작'; $('btnStart').classList.toggle('warn',running); $('btnStart').classList.toggle('primary',!running); };
-$('btnReset').onclick=()=>{ if(liveLocked()) return; det.reset(); lastCount=0; t0=performance.now(); $('count').innerHTML='0<small>회</small>'; $('devCount').value=''; diff(); $('status').textContent=running?'준비됐어요 — 뛰어 봐요!':'시작을 누르고 카메라 앞에 서요'; };
-$('sens').oninput=()=>{ const v=+$('sens').value; det.minAmp=v/100; $('sensV').textContent=v<=7?'예민 (살짝 떠도 셈)':v<=12?'보통':'둔감 (높이 떠야 셈)'; };
+$('btnReset').onclick=()=>{ if(liveLocked()) return; det.reset(); lastCount=0; if(TWO.on) twoReset(); t0=performance.now(); $('count').innerHTML='0<small>회</small>'; $('devCount').value=''; diff(); $('status').textContent=running?'준비됐어요 — 뛰어 봐요!':'시작을 누르고 카메라 앞에 서요'; };
+if(!TWO_OK) $('modeSw').hidden=true;   // 휴대폰에는 1인·2인 고르기를 안 보임
+try{ if(TWO_OK&&localStorage.getItem('jr_two')==='1') setTimeout(()=>{ if(!twoBlocked()&&!running) setTwo(true); },1500); }catch(e){}   // 지난번에 고른 모드로
+$('modeSw').onclick=e=>{ const b=e.target.closest('[data-m]'); if(!b) return; if(running) return alert('멈춘 뒤에 바꿔요'); setTwo(b.dataset.m==='2'); };
+$('sens').oninput=()=>{ const v=+$('sens').value; det.minAmp=v/100; TWO.a.minAmp=TWO.b.minAmp=v/100; $('sensV').textContent=v<=7?'예민 (살짝 떠도 셈)':v<=12?'보통':'둔감 (높이 떠야 셈)'; };
 $('btnFlip').onclick=async()=>{ facing=facing==='user'?'environment':'user'; try{ await openCam(); }catch(e){ log('카메라 전환 실패: '+e.message); } };
 $('btnBig').onclick=()=>{ $('pip').classList.toggle('big'); $('btnBig').textContent=$('pip').classList.contains('big')?'내 모습 작게':'내 모습 크게'; };
 $('pip').onclick=()=>$('btnBig').onclick();
