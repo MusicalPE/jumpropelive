@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v1.1.6</title>
+<title>점프 라이브 v1.1.7</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -286,7 +286,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v1.1.6</span></h1>
+    <h1>점프 라이브<span class="ver">v1.1.7</span></h1>
     <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button><button id="btnDev" title="돌려 쓰는 기기(노트북·태블릿) 찾기" hidden>기기</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
@@ -1389,6 +1389,7 @@ function bakTeamGoals(T){ return T.map(m=>BK.auto?Math.max(10,(m.filter(here).le
 async function bakGo(){
   if(bkSeqOn()) return bakSeqGo();
   let extra={bak:{goal:bakGoal()}};
+  if(!bkTeamOn()&&BK.auto){ extra.bak.per=bkPer(); extra.bak.n=(S.rows||[]).filter(here).length||(S.rows||[]).length; }   // 학교 대결(박 터트리기)용: 들어온 인원 × 1인당
   if(bkTeamOn()){ if(!tmLoad()){ TM.n=TM.n||2; tmShuffle(); } const T=tmTeams(); extra.bak.teams={n:TM.n,map:Object.assign({},TM.map),goals:bakTeamGoals(T)}; }
   if(await modeGo('bak',BK.dur,extra)){ BK.phase='run'; BK.stage=0; BK.tstage={}; BK.res=null; BK.burst=''; bakRender(); } }
 function bakTeamsRender(st,running){
@@ -1442,7 +1443,7 @@ function bakRender(){
 function bakFinish(){ if(S.lastRun.bak.seq) return bakSeqFinish();
   const rows=runRows(), sum=rows.reduce((a,r)=>a+r.cnt,0), goal=S.lastRun.bak.goal;
   if(S.lastRun.bak.teams){ BK.res={win:BK.burst?(BK.win||[]):[]}; BK.phase='done'; if(!BK.res.win.length) beep(392,.4,.2); bakRender(); BK.burst=''; BK.win=null; return; }
-  BK.res={ok:sum>=goal,sum}; BK.phase='done'; if(!BK.res.ok) beep(392,.4,.2); bakRender(); BK.burst=''; }
+  BK.res={ok:sum>=goal,sum,ms:BK.burst?BK.burstAt-S.lastRun.at:null}; BK.phase='done'; if(!BK.res.ok) beep(392,.4,.2); bakRender(); BK.burst=''; }
 
 /* ---------- 팀전: 2~4팀으로 나눠 합계(또는 1인당 평균)로 겨루기. 팀은 반마다 이 기기에 기억 ---------- */
 const TEAM_C=[['빨강','#FF6B5B','#FFF0EE'],['파랑','#3B82F6','#EAF2FF'],['초록','#2BB3A3','#E7F7F5'],['노랑','#F2A33A','#FFF5E6'],['보라','#6E5BEF','#F0EEFF'],['하늘','#13A6E8','#E6F6FD']];
@@ -1832,7 +1833,14 @@ function showResult(over){
    앱 관리자 메뉴 → 학교 대결에서 받은 'N분 한 판' 대결이 있고, 이 판이 같은 시간(목표 횟수·도전·릴레이 아님)이면 보내기 단추 */
 const DUEL={ key:null, col:null };
 // 앱의 학교 대결에서 '우리 학교 뛰기'로 열면 ?duel=코드&dur=초 — 시간을 대결 종목에 맞춰 두고 위에 알림
-const DUELQ={ code:String(Q.get('duel')||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6), dur:+Q.get('dur')||0 };
+const DUELQ={ code:String(Q.get('duel')||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6), dur:+Q.get('dur')||0, bak:+Q.get('bak')||0 };
+if(DUELQ.code&&[30,50,100].includes(DUELQ.bak)){   // 박 터트리기 대결: 반 전체 · 들어온 인원 × 1인당 · 3분
+  const pe=$('bkPer'); if(pe){ pe.value=String(DUELQ.bak); store.set('jl_bkper',pe.value); }
+  BK.way='all'; BK.auto=true; BK.dur=180;
+  [['bkWay','w','all'],['bkAuto','a','1'],['bkDur','d','180']].forEach(([id,k,v])=>Array.prototype.forEach.call($(id).children,x=>{ if(x.dataset) x.classList.toggle('on',x.dataset[k]===v); }));
+  const b=document.createElement('div'); b.className='duel-pill'; b.innerHTML=`⚔ 학교 대결 <b>${DUELQ.code}</b> · 박 터트리기 1인당 ${DUELQ.bak}회 <small>방을 연 뒤 '박 터트리기'를 열면 반 전체 · 인원 × ${DUELQ.bak} · 3분으로 맞춰져 있어요</small>`;
+  document.body.appendChild(b);
+}
 if(DUELQ.code&&[60,120,180].includes(DUELQ.dur)){
   const sd=$('selDur'); if(sd){ sd.value=String(DUELQ.dur); sd.dispatchEvent(new Event('change')); }
   const b=document.createElement('div'); b.className='duel-pill'; b.innerHTML=`⚔ 학교 대결 <b>${DUELQ.code}</b> · ${durTxt(DUELQ.dur)} 한 판 <small>시간을 ${durTxt(DUELQ.dur)}으로 맞춰 뒀어요 · 끝나면 결과 창에서 대결 결과로 보내요</small>`;
@@ -1852,18 +1860,22 @@ async function duelPost(fn,payload){
 }
 async function duelOffer(rows){
   const run=S.lastRun||{}, el=$('duelRow');
-  if(!APPM||run.goal||run.chal||run.relay||run.mode||[60,120,180].indexOf(run.dur)<0) return;
+  const bk=run.mode==='bak'&&run.bak&&!run.bak.teams&&!run.bak.seq&&run.bak.per&&run.bak.n&&run.dur===180&&BK.res&&'ok' in BK.res;
+  if(!APPM||run.goal||run.chal||run.relay||(run.mode&&!bk)||(!bk&&[60,120,180].indexOf(run.dur)<0)) return;
   const played=rows.filter(r=>r.cnt>0); if(!played.length) return;
   let mine; try{ await duelCtx(); mine=await duelPost('duelMine',{key:DUEL.key}); }catch(e){ return; }
-  const open=(mine.list||[]).filter(d=>d.kind==='run'&&d.dur===run.dur&&(d.status==='playing'||(d.status==='waiting'&&d.side==='host'))&&!(d[d.side]&&d[d.side].res));   // 만든 학교는 상대가 받기 전에도 먼저 뛰어 기록을 걸 수 있음
+  const open=(mine.list||[]).filter(d=>(bk?d.kind==='bak'&&d.dur===run.bak.per:d.kind==='run'&&d.dur===run.dur)&&(d.status==='playing'||(d.status==='waiting'&&d.side==='host'))&&!(d[d.side]&&d[d.side].res));   // 만든 학교는 상대가 받기 전에도 먼저 뛰어 기록을 걸 수 있음
   if(!open.length) return;
   const total=played.reduce((a,r)=>a+r.cnt,0), avg=Math.round(total/played.length*10)/10;
-  el.innerHTML=`<b>⚔ 학교 대결</b><span class="small">이 판(${durTxt(run.dur)}) · ${played.length}명 · 1인당 ${avg}회</span>`+open.map(d=>{ const op=d.side==='host'?d.guest:d.host; return `<button data-duel="${esc(d.code)}">${op?esc(op.label)+'와 대결 결과로 보내기':'도전장 기록으로 먼저 걸기'} <small>${esc(d.code)}</small></button>`; }).join('')+'<span class="small" id="duelMsg"></span>';
+  const bkSec=bk&&BK.res.ok&&BK.res.ms?Math.round(BK.res.ms/100)/10:null;
+  const res=bk?{ok:!!bkSec,ms:BK.res.ms||0,sum:BK.res.sum,goal:run.bak.goal,players:run.bak.n,per:run.bak.per,limit:run.dur,mode:LITE?'lite':'live'}:{total,players:played.length,dur:run.dur,mode:LITE?'lite':'live'};
+  const sumTxt=bk?(bkSec?`박을 ${bkSec}초에 깼어요 (${run.bak.n}명 × ${run.bak.per}회)`:`3분 안에 못 깼어요 · ${Math.min(100,Math.round(BK.res.sum/run.bak.goal*1000)/10)}% 채움`):`${played.length}명 · 합계 ${total}회 · 1인당 ${avg}회`;
+  el.innerHTML=`<b>⚔ 학교 대결</b><span class="small">이 판 · ${sumTxt}</span>`+open.map(d=>{ const op=d.side==='host'?d.guest:d.host; return `<button data-duel="${esc(d.code)}">${op?esc(op.label)+'와 대결 결과로 보내기':'도전장 기록으로 먼저 걸기'} <small>${esc(d.code)}</small></button>`; }).join('')+'<span class="small" id="duelMsg"></span>';
   el.hidden=false;
   el.querySelectorAll('[data-duel]').forEach(b=>b.onclick=async()=>{
-    if(!confirm(`이 판 결과(${played.length}명 · 합계 ${total}회 · 1인당 ${avg}회)를 대결 결과로 보낼까요?\n한 번 보내면 바꿀 수 없어요.`)) return;
+    if(!confirm(`이 판 결과(${sumTxt})를 대결 결과로 보낼까요?\n한 번 보내면 바꿀 수 없어요.`)) return;
     b.disabled=true; $('duelMsg').textContent='보내는 중…';
-    try{ const d=await duelPost('duelSubmit',{key:DUEL.key,code:b.dataset.duel,res:{total,players:played.length,dur:run.dur,mode:LITE?'lite':'live'}});
+    try{ const d=await duelPost('duelSubmit',{key:DUEL.key,code:b.dataset.duel,res});
       $('duelMsg').textContent=d.status==='done'?(d.winner==='tie'?'✓ 보냈어요 — 비겼어요!':`✓ 보냈어요 — ${d.winner==='host'?d.host.label:d.guest.label} 승! (현황판 학교 대결에서 확인)`):'✓ 보냈어요 — 상대 학교 결과를 기다리는 중';
       b.textContent='✓ 보냄'; }
     catch(e){ $('duelMsg').textContent='보내지 못했어요: '+e.message; b.disabled=false; }
