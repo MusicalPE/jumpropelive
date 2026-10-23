@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v1.1.5</title>
+<title>점프 라이브 v1.1.6</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -124,6 +124,8 @@
   /* 결과 */
   .modal{position:fixed;inset:0;background:rgba(31,36,48,.45);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;padding:20px;z-index:25}
   .modal.on{display:flex}
+  .duel-pill{position:fixed;left:50%;top:10px;transform:translateX(-50%);z-index:60;background:#FFF4E5;border:1.5px solid #F6C445;color:#7A4A00;border-radius:999px;padding:8px 18px;font-weight:700;box-shadow:0 6px 18px rgba(0,0,0,.12);display:flex;gap:10px;align-items:center;white-space:nowrap;max-width:96vw;overflow:hidden}
+  .duel-pill small{font-weight:600;opacity:.8}
   .duel-row{background:#FFF4E5;border:1px solid #F6C445;border-radius:12px;padding:10px 12px;flex-wrap:wrap;gap:8px;align-items:center}
   .modal .box{background:var(--card);border-radius:28px;padding:28px;width:min(760px,100%);max-height:92vh;display:flex;flex-direction:column;gap:14px}
   .modal h3{margin:0;font-size:30px;letter-spacing:-.03em}
@@ -284,7 +286,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v1.1.5</span></h1>
+    <h1>점프 라이브<span class="ver">v1.1.6</span></h1>
     <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button><button id="btnDev" title="돌려 쓰는 기기(노트북·태블릿) 찾기" hidden>기기</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
@@ -1829,6 +1831,13 @@ function showResult(over){
 /* ---------- 학교 대결(도전장): 이 판을 대결 결과로 보내기 ----------
    앱 관리자 메뉴 → 학교 대결에서 받은 'N분 한 판' 대결이 있고, 이 판이 같은 시간(목표 횟수·도전·릴레이 아님)이면 보내기 단추 */
 const DUEL={ key:null, col:null };
+// 앱의 학교 대결에서 '우리 학교 뛰기'로 열면 ?duel=코드&dur=초 — 시간을 대결 종목에 맞춰 두고 위에 알림
+const DUELQ={ code:String(Q.get('duel')||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6), dur:+Q.get('dur')||0 };
+if(DUELQ.code&&[60,120,180].includes(DUELQ.dur)){
+  const sd=$('selDur'); if(sd){ sd.value=String(DUELQ.dur); sd.dispatchEvent(new Event('change')); }
+  const b=document.createElement('div'); b.className='duel-pill'; b.innerHTML=`⚔ 학교 대결 <b>${DUELQ.code}</b> · ${durTxt(DUELQ.dur)} 한 판 <small>시간을 ${durTxt(DUELQ.dur)}으로 맞춰 뒀어요 · 끝나면 결과 창에서 대결 결과로 보내요</small>`;
+  document.body.appendChild(b);
+}
 async function duelCtx(){
   if(DUEL.key&&DUEL.col) return DUEL;
   const tok=JR.admin||sessGet(); if(!tok) throw new Error('관리자 로그인이 필요해요');
