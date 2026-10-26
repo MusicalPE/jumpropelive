@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v1.1.7</title>
+<title>점프 라이브 v1.1.8</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -126,6 +126,8 @@
   .modal.on{display:flex}
   .duel-pill{position:fixed;left:50%;top:10px;transform:translateX(-50%);z-index:60;background:#FFF4E5;border:1.5px solid #F6C445;color:#7A4A00;border-radius:999px;padding:8px 18px;font-weight:700;box-shadow:0 6px 18px rgba(0,0,0,.12);display:flex;gap:10px;align-items:center;white-space:nowrap;max-width:96vw;overflow:hidden}
   .duel-pill small{font-weight:600;opacity:.8}
+  .duel-row.nag{border-color:var(--red);box-shadow:0 0 0 3px rgba(239,68,68,.25);animation:duelNag .6s ease 2}
+  @keyframes duelNag{50%{transform:scale(1.02)}}
   .duel-row{background:#FFF4E5;border:1px solid #F6C445;border-radius:12px;padding:10px 12px;flex-wrap:wrap;gap:8px;align-items:center}
   .modal .box{background:var(--card);border-radius:28px;padding:28px;width:min(760px,100%);max-height:92vh;display:flex;flex-direction:column;gap:14px}
   .modal h3{margin:0;font-size:30px;letter-spacing:-.03em}
@@ -286,7 +288,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v1.1.7</span></h1>
+    <h1>점프 라이브<span class="ver">v1.1.8</span></h1>
     <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button><button id="btnDev" title="돌려 쓰는 기기(노트북·태블릿) 찾기" hidden>기기</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
@@ -1831,7 +1833,7 @@ function showResult(over){
 }
 /* ---------- 학교 대결(도전장): 이 판을 대결 결과로 보내기 ----------
    앱 관리자 메뉴 → 학교 대결에서 받은 'N분 한 판' 대결이 있고, 이 판이 같은 시간(목표 횟수·도전·릴레이 아님)이면 보내기 단추 */
-const DUEL={ key:null, col:null };
+const DUEL={ key:null, col:null, pend:'', warned:'' };   // pend: 이 판에 아직 안 보낸 '대결 중' 대결이 있으면 그 판 번호
 // 앱의 학교 대결에서 '우리 학교 뛰기'로 열면 ?duel=코드&dur=초 — 시간을 대결 종목에 맞춰 두고 위에 알림
 const DUELQ={ code:String(Q.get('duel')||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6), dur:+Q.get('dur')||0, bak:+Q.get('bak')||0 };
 if(DUELQ.code&&[30,50,100].includes(DUELQ.bak)){   // 박 터트리기 대결: 반 전체 · 들어온 인원 × 1인당 · 3분
@@ -1866,6 +1868,7 @@ async function duelOffer(rows){
   let mine; try{ await duelCtx(); mine=await duelPost('duelMine',{key:DUEL.key}); }catch(e){ return; }
   const open=(mine.list||[]).filter(d=>(bk?d.kind==='bak'&&d.dur===run.bak.per:d.kind==='run'&&d.dur===run.dur)&&(d.status==='playing'||(d.status==='waiting'&&d.side==='host'))&&!(d[d.side]&&d[d.side].res));   // 만든 학교는 상대가 받기 전에도 먼저 뛰어 기록을 걸 수 있음
   if(!open.length) return;
+  if(open.some(d=>d.status==='playing')) DUEL.pend=run.id;   // 상대가 받은 대결이 있으면 닫을 때 한 번 물어봄 (먼저 걸기만 있는 연습 판은 묻지 않음)
   const total=played.reduce((a,r)=>a+r.cnt,0), avg=Math.round(total/played.length*10)/10;
   const bkSec=bk&&BK.res.ok&&BK.res.ms?Math.round(BK.res.ms/100)/10:null;
   const res=bk?{ok:!!bkSec,ms:BK.res.ms||0,sum:BK.res.sum,goal:run.bak.goal,players:run.bak.n,per:run.bak.per,limit:run.dur,mode:LITE?'lite':'live'}:{total,players:played.length,dur:run.dur,mode:LITE?'lite':'live'};
@@ -1877,7 +1880,7 @@ async function duelOffer(rows){
     b.disabled=true; $('duelMsg').textContent='보내는 중…';
     try{ const d=await duelPost('duelSubmit',{key:DUEL.key,code:b.dataset.duel,res});
       $('duelMsg').textContent=d.status==='done'?(d.winner==='tie'?'✓ 보냈어요 — 비겼어요!':`✓ 보냈어요 — ${d.winner==='host'?d.host.label:d.guest.label} 승! (현황판 학교 대결에서 확인)`):'✓ 보냈어요 — 상대 학교 결과를 기다리는 중';
-      b.textContent='✓ 보냄'; }
+      b.textContent='✓ 보냄'; DUEL.pend=''; el.classList.remove('nag'); }
     catch(e){ $('duelMsg').textContent='보내지 못했어요: '+e.message; b.disabled=false; }
   });
 }
@@ -1948,6 +1951,8 @@ $('btnCopy').onclick=async()=>{ try{ await navigator.clipboard.writeText(student
 $('btnResult').onclick=()=>showResult(); $('btnResCopy').onclick=copyResult;
 // 저장(앱에서 연 경우 시트 저장, 아니면 결과 복사)을 안 하고 닫으면 한 번 알려 줌 — 한 번 더 누르면 그냥 닫힘
 $('btnResClose').onclick=()=>{ const id=S.lastRun&&S.lastRun.id;
+  if(id&&DUEL.pend===id&&DUEL.warned!==id&&!$('duelRow').hidden){ DUEL.warned=id; $('duelRow').classList.add('nag'); $('duelRow').scrollIntoView({block:'nearest'});
+    $('resMsg').innerHTML='<b style="color:var(--red)">⚔ 학교 대결 결과를 아직 안 보냈어요 — 위 노란 칸의 "대결 결과로 보내기"를 눌러요. 안 보내고 닫으려면 닫기를 한 번 더 눌러요</b>'; return; }
   if(id&&!runKept(id)&&S.closeWarned!==id){ S.closeWarned=id; $('resMsg').innerHTML='<b style="color:var(--red)">아직 시트에 들어가지 않았어요 — 이대로 닫아도 되면 한 번 더 눌러요</b>'; $('btnResClose').textContent='저장 안 하고 닫기'; return; }
   $('resModal').classList.remove('on'); };
 window.addEventListener('beforeunload',e=>{ const id=S.lastRun&&S.lastRun.id; if(id&&!runKept(id)&&S.closeWarned!==id){ e.preventDefault(); e.returnValue=''; } });
