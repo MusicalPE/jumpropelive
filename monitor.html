@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v1.1.9</title>
+<title>점프 라이브 v1.2.0</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -288,7 +288,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v1.1.9</span></h1>
+    <h1>점프 라이브<span class="ver">v1.2.0</span></h1>
     <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button><button id="btnDev" title="돌려 쓰는 기기(노트북·태블릿) 찾기" hidden>기기</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
@@ -1449,13 +1449,21 @@ function bakFinish(){ if(S.lastRun.bak.seq) return bakSeqFinish();
 
 /* ---------- 팀전: 2~4팀으로 나눠 합계(또는 1인당 평균)로 겨루기. 팀은 반마다 이 기기에 기억 ---------- */
 const TEAM_C=[['빨강','#FF6B5B','#FFF0EE'],['파랑','#3B82F6','#EAF2FF'],['초록','#2BB3A3','#E7F7F5'],['노랑','#F2A33A','#FFF5E6'],['보라','#6E5BEF','#F0EEFF'],['하늘','#13A6E8','#E6F6FD']];
-const TM={ on:false, n:2, map:{}, by:'sum', dur:60, phase:'setup', tickT:0, res:null, way:'all', ropes:0, sq:null };
+const TEAM_DEF=TEAM_C.map(x=>x[0]);
+// 반 대항: 팀 이름을 반 이름으로 (빨강 팀 → 1반 팀). cls 가 없으면 색 이름
+function tmNames(){ TEAM_C.forEach((x,i)=>{ x[0]=(TM.cls&&TM.cls[i])||TEAM_DEF[i]; }); }
+const TM={ cls:null, on:false, n:2, map:{}, by:'sum', dur:60, phase:'setup', tickT:0, res:null, way:'all', ropes:0, sq:null };
 const tmKey=()=>'jl_team|'+S.groups.map(x=>gkey(x.g,x.c)).join(',');
-function tmLoad(){ try{ const v=JSON.parse(store.get(tmKey())||'null'); if(v&&v.map){ TM.map=v.map; TM.n=Math.min(TEAM_C.length,v.n||2); return true; } }catch(e){} return false; }
-function tmSave(){ store.set(tmKey(),JSON.stringify({n:TM.n,map:TM.map})); }
+function tmLoad(){ try{ const v=JSON.parse(store.get(tmKey())||'null'); if(v&&v.map){ TM.map=v.map; TM.n=Math.min(TEAM_C.length,v.n||2); TM.cls=Array.isArray(v.cls)&&v.cls.length===TM.n?v.cls:null; tmNames(); return true; } }catch(e){} return false; }
+function tmSave(){ store.set(tmKey(),JSON.stringify({n:TM.n,map:TM.map,cls:TM.cls})); }
+// 반 대항: 방에 들어온 반마다 한 팀 (2~6반)
+function tmByClass(){ const G=S.groups||[]; if(G.length<2||G.length>TEAM_C.length) return false;
+  const multiG=new Set(G.map(x=>x.g)).size>1;
+  TM.n=G.length; TM.cls=G.map(x=>multiG?`${x.g}-${x.c}반`:`${x.c}반`); TM.map={};
+  (S.rows||[]).forEach(r=>{ const i=G.findIndex(x=>x.g===r.g&&x.c===r.c); TM.map[r.k]=i>=0?i:0; }); tmNames(); tmSave(); return true; }
 function tmShuffle(){ const rows=(S.rows||[]).slice(), on=rows.filter(here), off=rows.filter(r=>!here(r));
   const mix=a=>{ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; };
-  TM.map={}; [...mix(on),...mix(off)].forEach((r,i)=>{ TM.map[r.k]=i%TM.n; }); tmSave(); }
+  TM.cls=null; tmNames(); TM.map={}; [...mix(on),...mix(off)].forEach((r,i)=>{ TM.map[r.k]=i%TM.n; }); tmSave(); }
 function tmTeams(){ const T=Array.from({length:TM.n},()=>[]); (S.rows||[]).forEach(r=>{ let t=TM.map[r.k]; if(!(t>=0&&t<TM.n)){ t=T.reduce((m,x,i)=>x.length<T[m].length?i:m,0); TM.map[r.k]=t; } T[t].push(r); }); return T; }
 function teamOpen(){ if(S.ctl.ph==='go') return alert('지금 뛰는 중이에요. 끝난 뒤에 열어 주세요.'); modeCloseAll(); TM.on=true; TM.phase='setup'; TM.res=null; tmSeqRestore(); TM.sq=null; $('team').hidden=false;
   if(!TM.ropes) TM.ropes=Object.keys(HUB.ropes).filter(n=>+n>0).length||9; $('tmCls').textContent=clsLabel(S.groups);
@@ -1521,11 +1529,11 @@ function teamFinish(){ if(S.lastRun.team&&S.lastRun.team.seq&&TM.sq) return team
 function teamDlgOpen(){ if(S.ctl.ph==='go') return alert('지금 뛰는 중이에요. 끝난 뒤에 나눠 주세요.'); if(BK.sq&&BK.phase!=='idle'&&BK.phase!=='sqdone'||TR.phase==='run'||TR.phase==='between') return alert('놀이가 끝난 뒤에 팀을 다시 나눠요.');
   if(!tmLoad()){ TM.n=TM.n||2; tmShuffle(); } $('tmDlg').classList.add('on'); teamDlgRender(); }
 function teamDlgClose(){ $('tmDlg').classList.remove('on'); tmSave(); if(BK.on){ BK.phase='idle'; BK.sq=null; $('bkStage').dataset.k=''; bakRender(); } if(TR.on){ if(TR.phase==='setup'||TR.phase==='done'){ TR.phase='setup'; TR.extra=[]; TR.res=[]; trPlan(); } $('trCols').dataset.k=''; trelRender(); } }
-function teamDlgRender(){ const T=tmTeams(), ctl=`<b style="font-size:22px">팀 나누기</b><div class="chips">팀 수 ${[2,3,4,5,6].map(n=>`<button class="chip${n===TM.n?' on':''}" data-n="${n}">${n}팀</button>`).join('')}</div><button class="primary" data-t="mix" style="min-height:40px">랜덤으로 나누기</button><span class="small" style="color:var(--muted);font-weight:700">이름을 누르면 다음 팀으로 옮겨요 (직접 정하기)</span><div class="spacer"></div><button class="primary" data-t="done" style="min-height:44px;font-size:18px">다 됐어요</button>`;
+function teamDlgRender(){ const T=tmTeams(), ctl=`<b style="font-size:22px">팀 나누기</b><div class="chips">팀 수 ${[2,3,4,5,6].map(n=>`<button class="chip${n===TM.n?' on':''}" data-n="${n}">${n}팀</button>`).join('')}</div><button class="primary" data-t="mix" style="min-height:40px">랜덤으로 나누기</button>${(S.groups||[]).length>=2&&(S.groups||[]).length<=TEAM_C.length?`<button class="primary" data-t="cls" style="min-height:40px;background:var(--ink,#1F2430)">반 대항 (반끼리)</button>`:''}<span class="small" style="color:var(--muted);font-weight:700">이름을 누르면 다음 팀으로 옮겨요 (직접 정하기)</span><div class="spacer"></div><button class="primary" data-t="done" style="min-height:44px;font-size:18px">다 됐어요</button>`;
   if($('tdCtl').dataset.k!==ctl){ $('tdCtl').innerHTML=ctl; $('tdCtl').dataset.k=ctl; }
   $('tdCols').style.gridTemplateColumns=`repeat(${TM.n},minmax(0,1fr))`;
   $('tdCols').innerHTML=T.map((m,i)=>{ const [nm,c,bg]=TEAM_C[i]; return `<div class="tm setup" style="border-color:${c}"><h3><i style="background:${c}"></i>${nm} 팀 <small>${m.length}명</small></h3><div class="mem">${m.map(r=>`<span data-k="${r.k}" style="border-color:${c};background:${bg}">${esc(r.name||r.n+'번')}</span>`).join('')}</div></div>`; }).join(''); }
-$('tdCtl').onclick=e=>{ const b=e.target.closest('button'); if(!b) return; if(b.dataset.n){ TM.n=+b.dataset.n; tmShuffle(); } else if(b.dataset.t==='mix') tmShuffle(); else if(b.dataset.t==='done') return teamDlgClose(); teamDlgRender(); };
+$('tdCtl').onclick=e=>{ const b=e.target.closest('button'); if(!b) return; if(b.dataset.n){ TM.n=+b.dataset.n; tmShuffle(); } else if(b.dataset.t==='mix') tmShuffle(); else if(b.dataset.t==='cls') tmByClass(); else if(b.dataset.t==='done') return teamDlgClose(); teamDlgRender(); };
 $('tdCols').onclick=e=>{ const sp=e.target.closest('[data-k]'); if(!sp) return; TM.map[sp.dataset.k]=((TM.map[sp.dataset.k]||0)+1)%TM.n; tmSave(); teamDlgRender(); };
 $('btnBak').onclick=bakOpen; $('bkBack').onclick=bakClose; $('bkGo').onclick=bakGo; $('bkEnd').onclick=()=>end();
 $('bkDur').onclick=e=>{ const b=e.target.closest('[data-d]'); if(!b) return; BK.dur=+b.dataset.d; Array.prototype.forEach.call($('bkDur').children,x=>x.classList.toggle('on',x===b)); };
