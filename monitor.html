@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v1.3.0</title>
+<title>점프 라이브 v1.3.1</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -309,7 +309,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v1.3.0</span></h1>
+    <h1>점프 라이브<span class="ver">v1.3.1</span></h1>
     <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button><button id="btnDev" title="돌려 쓰는 기기(노트북·태블릿) 찾기" hidden>기기</button><button id="btnLm" title="다른 학교와 같은 시각에 함께 뛰기 (실시간 대결 · 함께 박 깨기)" hidden>학교와 함께</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
@@ -495,6 +495,7 @@
 <div class="lm-dlg" id="lmDlg" hidden><div class="lm-box">
   <h3>학교와 함께 뛰기 (실시간)</h3>
   <p class="small" style="margin:0">다른 학교 선생님과 같은 시각에 시작해요. 뛰는 동안 몇 초마다 두 학교 합계를 주고받아요. 결과는 두 학교 화면에만 보이고 전국 현황판에는 올라가지 않아요.</p>
+  <div id="lmPromised" class="lm-sec" hidden></div>
   <div class="lm-tabs"><button data-t="make" class="on">방 만들기</button><button data-t="join">코드로 들어가기</button></div>
   <div id="lmMake" class="lm-sec" style="gap:12px">
     <div class="lm-sec"><b>무엇을 할까요</b><div class="lm-chips" id="lmKind"><button data-v="vs" class="on">실시간 대결 (1인당 평균)</button><button data-v="coop">두 학교 함께 박 깨기</button></div></div>
@@ -2085,7 +2086,14 @@ async function lmEnter(fn,extra){
 }
 if(APPM){
   $('btnLm').hidden=false;
-  $('btnLm').onclick=()=>{ if(LM.code&&LM.st){ return alert('이미 방 '+LM.code+'에 들어와 있어요. 아래 막대에서 나간 뒤 새로 만들어요.'); } $('lmErr').textContent=''; lmDlgSync(); $('lmDlg').hidden=false; };
+  $('btnLm').onclick=()=>{ if(LM.code&&LM.st){ return alert('이미 방 '+LM.code+'에 들어와 있어요. 아래 막대에서 나간 뒤 새로 만들어요.'); } $('lmErr').textContent=''; lmDlgSync(); $('lmDlg').hidden=false; lmPromised(); };
+  // 도전장 게시판(수집기 19판)에서 약속한 실시간 대결: 눌러서 바로 그 두 학교 방으로
+  async function lmPromised(){ const box=$('lmPromised'); box.hidden=true;
+    try{ await duelCtx(); const r=await duelPost('postList',{key:DUEL.key}); const L=(r.mine||[]).filter(p=>(p.kind==='lvs'||p.kind==='lcoop')&&p.status==='taken'&&p.promise&&p.promise.slice(0,10)>=r.today);
+      if(!L.length) return; const nm=p=>p.side==='host'?p.guest:p.host, wt=s=>{ const m=/^(\d{4})-(\d{2})-(\d{2})\|(\d+)$/.exec(s)||[]; const h=+m[4]; return +m[2]+'/'+(+m[3])+' '+(h>12?h-12:h)+'시'; };
+      box.innerHTML='<b>도전장 게시판에서 약속한 대결</b>'+L.map(p=>`<button class="primary" data-lmpost="${esc(p.id)}" style="text-align:left">${esc(nm(p)?nm(p).label:'')} · ${p.kind==='lcoop'?'함께 박 깨기 · 1인당 '+p.per+'회':'실시간 대결 · '+durTxt(p.dur)+' 한 판'} · ${esc(wt(p.promise))} — 이 대결로 들어가기</button>`).join('');
+      box.hidden=false; box.onclick=e=>{ const b=e.target.closest('[data-lmpost]'); if(b) lmEnter('lmForPost',{id:b.dataset.lmpost}); }; }catch(e){} }
+  { const lp=Q.get('lmpost'); if(lp&&!(LM.code&&LM.st&&LM.st.post===lp)) setTimeout(()=>lmEnter('lmForPost',{id:lp}).then(()=>{ if($('lmErr').textContent){ $('lmDlg').hidden=false; } }),1500); }
   $('lmDlgX').onclick=()=>{ $('lmDlg').hidden=true; };
   document.querySelector('.lm-tabs').onclick=e=>{ const b=e.target.closest('[data-t]'); if(b){ LM.tab=b.dataset.t; lmDlgSync(); } };
   [['lmKind','kind'],['lmDur','dur'],['lmRv','rv'],['lmPer','per']].forEach(([id,k])=>{ $(id).onclick=e=>{ const b=e.target.closest('[data-v]'); if(!b) return; LM[k]=k==='dur'||k==='per'?+b.dataset.v:b.dataset.v; lmDlgSync(); }; });
