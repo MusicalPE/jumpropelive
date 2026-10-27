@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v1.2.0</title>
+<title>점프 라이브 v1.3.0</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -282,14 +282,35 @@
   .tm.setup .mem span{cursor:pointer;font-size:17px}
   .tm .win{position:absolute;top:14px;right:16px;background:var(--ink);color:#fff;font-weight:800;border-radius:99px;padding:4px 12px}
   .tm.champ{box-shadow:0 0 0 6px rgba(242,163,58,.35),var(--shadow)}
+  /* 실시간 학교 함께 뛰기 (1.3.0) */
+  .lm-dlg{position:fixed;inset:0;background:rgba(31,36,48,.45);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:20px;z-index:70}
+  .lm-box{background:var(--card);border-radius:20px;box-shadow:var(--shadow);width:min(560px,96vw);max-height:92vh;overflow:auto;padding:22px 24px;display:flex;flex-direction:column;gap:14px}
+  .lm-box h3{margin:0;font-size:22px} .lm-box .small{color:var(--muted);font-size:14px;line-height:1.5}
+  .lm-tabs{display:flex;gap:6px} .lm-tabs button,.lm-chips button{border:1px solid var(--line);background:var(--soft);border-radius:999px;padding:8px 14px;font-weight:700;cursor:pointer;color:var(--ink2)}
+  .lm-tabs button.on,.lm-chips button.on{background:var(--ink);border-color:var(--ink);color:#fff}
+  .lm-chips{display:flex;flex-wrap:wrap;gap:6px} .lm-sec{display:flex;flex-direction:column;gap:8px} .lm-sec>b{font-size:14px;color:var(--ink2)}
+  .lm-code{font-size:40px;font-weight:900;letter-spacing:.18em;text-align:center;background:var(--amber-soft);border:1.5px dashed var(--amber);border-radius:14px;padding:10px}
+  .lm-err{color:var(--red);font-size:14px;min-height:1em}
+  .lm-bar{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:20;background:var(--card);border:1.5px solid var(--amber);border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.16);padding:10px 14px;display:flex;flex-direction:column;gap:8px;width:min(920px,96vw)}
+  .lm-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-weight:700} .lm-top .k{background:var(--amber-soft);color:#7A4A00;border-radius:999px;padding:3px 10px;font-size:14px}
+  .lm-top .sp{flex:1} .lm-top button{border:1px solid var(--line);background:var(--soft);border-radius:10px;padding:6px 12px;font-weight:700;cursor:pointer}
+  .lm-top button.go{background:var(--accent);border-color:var(--accent);color:#fff} .lm-top button:disabled{opacity:.45;cursor:default}
+  .lm-vs{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center}
+  .lm-s{background:var(--soft);border-radius:14px;padding:8px 14px;display:flex;flex-direction:column} .lm-s.me{background:var(--accent-soft)} .lm-vs .lm-s:last-child{text-align:right}
+  .lm-s span{font-size:14px;color:var(--ink2);font-weight:700} .lm-s b{font-size:34px;line-height:1.1} .lm-s small{color:var(--muted);font-size:13px}
+  .lm-vs i{font-style:normal;font-weight:900;color:var(--accent)}
+  .lm-coop{display:flex;flex-direction:column;gap:6px} .lm-prog{height:22px;border-radius:999px;background:var(--soft);overflow:hidden;display:flex}
+  .lm-prog i{display:block;height:100%} .lm-prog i.a{background:var(--accent)} .lm-prog i.b{background:var(--mint)}
+  .lm-coop .row2{display:flex;justify-content:space-between;font-weight:700;font-size:15px;gap:10px;flex-wrap:wrap}
+  .lm-msg{font-weight:800;color:var(--accent-ink);text-align:center}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v1.2.0</span></h1>
-    <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button><button id="btnDev" title="돌려 쓰는 기기(노트북·태블릿) 찾기" hidden>기기</button></div>
+    <h1>점프 라이브<span class="ver">v1.3.0</span></h1>
+    <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button><button id="btnDev" title="돌려 쓰는 기기(노트북·태블릿) 찾기" hidden>기기</button><button id="btnLm" title="다른 학교와 같은 시각에 함께 뛰기 (실시간 대결 · 함께 박 깨기)" hidden>학교와 함께</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <button id="btnClose" class="hdr-close" hidden title="방을 닫고 학생 연결 끊기">방 닫기</button>
@@ -471,6 +492,22 @@
 </div>
 <div class="big" id="big"></div>
 <div class="lite-ban" id="liteBan" hidden></div>
+<div class="lm-dlg" id="lmDlg" hidden><div class="lm-box">
+  <h3>학교와 함께 뛰기 (실시간)</h3>
+  <p class="small" style="margin:0">다른 학교 선생님과 같은 시각에 시작해요. 뛰는 동안 몇 초마다 두 학교 합계를 주고받아요. 결과는 두 학교 화면에만 보이고 전국 현황판에는 올라가지 않아요.</p>
+  <div class="lm-tabs"><button data-t="make" class="on">방 만들기</button><button data-t="join">코드로 들어가기</button></div>
+  <div id="lmMake" class="lm-sec" style="gap:12px">
+    <div class="lm-sec"><b>무엇을 할까요</b><div class="lm-chips" id="lmKind"><button data-v="vs" class="on">실시간 대결 (1인당 평균)</button><button data-v="coop">두 학교 함께 박 깨기</button></div></div>
+    <div class="lm-sec" id="lmDurS"><b>시간</b><div class="lm-chips" id="lmDur"><button data-v="60" class="on">1분</button><button data-v="120">2분</button><button data-v="180">3분</button></div></div>
+    <div class="lm-sec" id="lmRvS"><b>뛰는 동안 상대 학교 숫자</b><div class="lm-chips" id="lmRv"><button data-v="live" class="on">바로바로</button><button data-v="i10">10초마다 잠깐</button><button data-v="i20">20초마다 잠깐</button><button data-v="end">끝나고 공개</button></div></div>
+    <div class="lm-sec" id="lmPerS" hidden><b>한 사람 몫 (박 = 두 학교 뛰는 인원 × 몫, 3분 안에)</b><div class="lm-chips" id="lmPer"><button data-v="30">30회</button><button data-v="50" class="on">50회</button><button data-v="100">100회</button></div></div>
+    <button class="primary" id="lmMakeGo">방 만들기</button>
+  </div>
+  <div id="lmJoin" class="lm-sec" hidden><b>상대 선생님께 받은 코드 6자리</b><input id="lmCodeIn" maxlength="6" placeholder="예: K7P2QX" style="font-size:26px;letter-spacing:.2em;text-transform:uppercase;padding:10px 14px;border-radius:12px;border:1px solid var(--line)"><button class="primary" id="lmJoinGo">들어가기</button></div>
+  <div class="lm-err" id="lmErr"></div>
+  <div class="row" style="justify-content:flex-end"><button id="lmDlgX">닫기</button></div>
+</div></div>
+<div class="lm-bar" id="lmBar" hidden><div class="lm-top" id="lmTop"></div><div id="lmBody"></div></div>
 <div class="lite-col" id="liteCol" hidden><b>결과 모으는 중…</b><span id="liteColN"></span><small>학생 기기의 마지막 횟수를 기다려요 (길어야 15초)</small></div>
 <div class="hub" id="hub" hidden>
   <div class="mh">줄넘기 허브 <span class="hst" id="hubSt">연결 안 됨</span><button class="x" id="hubX">닫기</button></div>
@@ -1934,6 +1971,129 @@ $('btnResSave').onclick=async()=>{
   saveResult();
 };
 $('btnPw').onclick=appPw; $('inPw').onkeydown=e=>{ if(e.key==='Enter') appPw(); };
+
+/* ---------- 실시간 학교 함께 뛰기 (1.3.0) ----------
+   방을 연 학교가 코드를 알려 주고 상대 학교가 들어오면, 연 학교 선생님의 '같이 시작'으로 두 화면이 같은 시각(20초 뒤)에 시작.
+   뛰는 동안 2초마다 우리 학교 합계·뛰는 인원을 수집기(18판)에 올리고 상대 숫자를 받아 와 아래 막대에 보여 줌.
+   vs: 1인당 평균으로 겨룸 (상대 숫자는 연 학교가 고른 대로: 바로바로·N초마다 잠깐·끝나고 공개)
+   coop: 두 학교 뛰는 인원 × 한 사람 몫짜리 박 하나를 함께 깸 (3분 안에, 깨지면 두 화면 모두 바로 끝)
+   기록은 평소처럼 각 학교 시트에 저장되고, 결과는 두 학교 화면에만 (현황판에는 안 올라감) */
+const LM={ code:store.get('jrl_lm')||'', st:null, off:0, kind:'vs', dur:60, rv:'live', per:50, tab:'make', busy:false, sched:'', local:'', finSent:'', finAt:0, shown:'', err:'' };
+function lmChip(id,v){ Array.prototype.forEach.call($(id).children,b=>b.classList.toggle('on',b.dataset.v===String(v))); }
+function lmDlgSync(){ $('lmMake').hidden=LM.tab!=='make'; $('lmJoin').hidden=LM.tab!=='join'; lmChip('lmKind',LM.kind); lmChip('lmDur',LM.dur); lmChip('lmRv',LM.rv); lmChip('lmPer',LM.per);
+  $('lmDurS').hidden=$('lmRvS').hidden=LM.kind!=='vs'; $('lmPerS').hidden=LM.kind!=='coop'; Array.prototype.forEach.call(document.querySelectorAll('.lm-tabs button'),b=>b.classList.toggle('on',b.dataset.t===LM.tab)); }
+function lmNow(){ return Date.now()+LM.off; }   // 수집기 시각
+async function lmCall(fn,extra){ await duelCtx(); const t0=Date.now(); const r=await duelPost(fn,Object.assign({key:DUEL.key},extra||{})); if(r&&r.now){ LM.off=r.now-(t0+Date.now())/2; } return r; }
+function lmMine(st){ st=st||LM.st; return st?(st.side==='host'?st.host:st.guest):null; }
+function lmOther(st){ st=st||LM.st; return st?(st.side==='host'?st.guest:st.host):null; }
+function lmRunning(){ return S.ctl.ph==='go'&&S.lastRun&&S.lastRun.lm&&S.lastRun.lm===(LM.st&&LM.st.id); }
+function lmOurs(){ const rows=S.lastRun&&S.lastRun.lm?resultRows():[]; const sum=rows.reduce((a,r)=>a+(r.cnt||0),0); const players=rows.filter(r=>r.cnt>0).length||rows.length; return {sum,players}; }
+function lmShowOther(){ const st=LM.st; if(!st) return false; if(st.kind==='coop'||st.rv==='live') return true;
+  const mine=lmMine(), oth=lmOther(); if(mine&&mine.fin&&oth&&oth.fin) return true;
+  if(st.rv==='end') return false; const k=+st.rv.slice(1)*1000, el=lmNow()-st.start; return el>=k&&(el%k)<3000&&el<st.dur*1000-1500; }
+function lmRender(){
+  const st=LM.st, bar=$('lmBar'); bar.hidden=!LM.code||!st; document.body.style.paddingBottom=bar.hidden?'':(bar.offsetHeight+24)+'px'; if(bar.hidden) return;
+  const mine=lmMine(), oth=lmOther(), host=st.side==='host', el=st.start?lmNow()-st.start:-1, live=st.start&&el>-20000&&el<st.dur*1000+20000;
+  const kindTxt=st.kind==='coop'?`두 학교 함께 박 깨기 · 한 사람 ${st.per}회 · 3분`:`실시간 대결 · ${durTxt(st.dur)} 한 판 · 상대 숫자 ${({live:'바로바로',i10:'10초마다 잠깐',i20:'20초마다 잠깐',end:'끝나고 공개'})[st.rv]}`;
+  const names=`<b>${esc(mine?mine.label:'')}</b> × ${oth?'<b>'+esc(oth.label)+'</b>':'<span style="color:var(--muted)">상대 학교 기다리는 중</span>'}`;
+  let btn='';
+  if(host) btn=`<button class="go" id="lmStart" ${(!oth||lmRunning()||(live&&el<st.dur*1000)||!S.room||LM.busy)?'disabled':''}>같이 시작</button>`;
+  $('lmTop').innerHTML=`<span class="k">${st.kind==='coop'?'함께 박 깨기':'실시간 대결'} · ${esc(st.code)}</span><span>${names}</span><span class="sp"></span>`+
+    (el<0&&st.start&&el>-20000?`<span>${Math.ceil(-el/1000)}초 뒤 같이 시작</span>`:'')+btn+`<button id="lmLeave">${host?'방 닫기':'나가기'}</button>`;
+  $('lmTop').title=kindTxt;
+  let body='';
+  if(!S.room) body=`<div class="lm-msg">${host?'반 방을 먼저 열어 주세요 — 방이 열리면 같이 시작할 수 있어요':'반 방을 먼저 열어 두세요 — 상대 선생님이 시작하면 같이 시작해요'}</div>`;
+  else if(!st.start&&!oth) body=`<div style="display:flex;align-items:center;gap:16px;justify-content:center;flex-wrap:wrap"><div class="lm-code">${esc(st.code)}</div><div class="small">상대 학교 선생님께 이 코드를 알려 주세요<br>${esc(kindTxt)}</div></div>`;
+  else if(!st.start) body=`<div class="small" style="text-align:center">${host?'준비되면 같이 시작을 눌러요 (20초 뒤 두 학교가 함께 시작)':'상대 선생님이 시작하면 같이 시작해요'} · ${esc(kindTxt)}</div>`;
+  else if(st.kind==='coop'){
+    const a=mine||{sum:0,players:0}, b=oth||{sum:0,players:0}, goal=Math.max(10,(a.players+b.players)*st.per), tot=a.sum+b.sum, pa=Math.min(100,a.sum/goal*100), pb=Math.min(100-pa,b.sum/goal*100);
+    const done=tot>=goal&&(a.players+b.players)>0;
+    body=`<div class="lm-coop"><div class="lm-prog"><i class="a" style="width:${pa}%"></i><i class="b" style="width:${pb}%"></i></div>
+      <div class="row2"><span style="color:var(--accent-ink)">${esc(a.label||'우리 학교')} ${a.sum}회</span><span>${done?'박을 깼어요!':'두 학교 합쳐서'} ${tot} / ${goal}회</span><span style="color:var(--mint)">${esc(b.label||'상대 학교')} ${b.sum}회</span></div>
+      ${LM.msg?`<div class="lm-msg">${LM.msg}</div>`:''}</div>`;
+  } else {
+    const show=lmShowOther(), f=x=>x&&x.players?Math.round(x.sum/x.players*10)/10:0;
+    const box=(x,me,vis)=>`<div class="lm-s${me?' me':''}"><span>${esc(x?x.label:'')}</span><b>${vis?f(x):'?'}</b><small>${vis&&x?`${x.players}명 · 합계 ${x.sum}회`:'1인당'}</small></div>`;
+    body=`<div class="lm-vs">${box(mine,true,show||st.rv!=='end'||(mine&&mine.fin))}<i>VS</i>${box(oth,false,show)}</div>${LM.msg?`<div class="lm-msg">${LM.msg}</div>`:''}`;
+  }
+  if(LM.err) body+=`<div class="small" style="text-align:center;color:var(--red)">연결이 잠깐 끊겼어요 — 다시 잇는 중 (${esc(LM.err)})</div>`;
+  $('lmBody').innerHTML=body;
+  const sb=$('lmStart'); if(sb) sb.onclick=lmStartClick; $('lmLeave').onclick=lmLeave;
+}
+async function lmStartClick(){
+  if(!S.room) return alert('반 방을 먼저 열어 주세요');
+  LM.busy=true; lmRender();
+  try{ LM.st=await lmCall('lmStart',{code:LM.code}); LM.msg=''; }catch(e){ alert('시작하지 못했어요: '+e.message); }
+  LM.busy=false; lmRender(); lmPlan();
+}
+// 시작 시각이 정해지면 우리 반 방에도 같은 시각에 시작 신호
+function lmPlan(){
+  const st=LM.st; if(!st||!st.id||LM.sched===st.id) return;
+  const left=st.start-lmNow(); if(left<5500||left>25000) return;   // 늦게 받으면 같이 시작 못 함 (학생 기기 카운트다운 5초)
+  if(!S.room){ LM.msg='반 방이 닫혀 있어 이번 판은 같이 시작하지 못했어요'; return; }
+  LM.sched=st.id; LM.msg='';
+  setTimeout(()=>lmGo(st),Math.max(0,left-5000));   // 5초 전에 우리 반 학생 기기에 '5초 뒤 시작' 신호
+}
+async function lmGo(st){
+  if(!S.room||!LM.st||LM.st.id!==st.id) return;
+  if(S.ctl.ph==='go'){ try{ await B.setControl(S.room,{ph:'end',id:S.ctl.id}); }catch(e){} }
+  modeCloseAll&&modeCloseAll();
+  audioWarm();
+  const dur=st.kind==='coop'?180:st.dur, id='r'+Date.now().toString(36)+'lm';
+  const at=B.now()+Math.max(0,st.start-lmNow());
+  const c={ph:'go',id,at,dur}; if(LITE){ c.rv=st.kind==='coop'?'live':$('selRv').value; }
+  try{ await B.setControl(S.room,c); S.ctl=c; S.lastRun={id,dur,goal:0,at,rv:c.rv,lm:st.id}; S.done={}; S.autoEnd=''; S.endShown=''; S.prevCnt={}; $('qr').hidden=true; $('btnResult').disabled=true; musicCountdown(); hubOnGo(id); LM.local=id; }
+  catch(e){ LM.msg='시작 신호를 보내지 못했어요: '+e.message; }
+  lmRender();
+}
+async function lmTick(){
+  if(!LM.code||LM.busy) return;
+  try{
+    const st=LM.st;
+    if(st&&st.id&&S.lastRun&&S.lastRun.lm===st.id){
+      const mine=lmMine(); const o=lmOurs();
+      const ended=S.ctl.ph!=='go'&&!S.collecting;
+      if(S.ctl.ph==='go'){ LM.st=await lmCall('lmPush',{code:LM.code,id:st.id,sum:o.sum,players:o.players,broke:LM.coopMs||0}); }
+      else if(ended&&!(mine&&mine.fin)){ if(!LM.finAt) LM.finAt=Date.now(); if(Date.now()-LM.finAt>2500){ LM.st=await lmCall('lmPush',{code:LM.code,id:st.id,sum:o.sum,players:o.players,fin:true,broke:LM.coopMs||0}); LM.finAt=0; } }
+      else LM.st=await lmCall('lmState',{code:LM.code});
+    } else LM.st=await lmCall('lmState',{code:LM.code});
+    LM.err='';
+  }catch(e){ if(/없거나 끝난 방/.test(e.message)){ LM.code=''; store.set('jrl_lm',''); LM.st=null; $('lmBar').hidden=true; return; } LM.err=e.message; }
+  lmPlan(); lmCoopCheck(); lmResult(); lmRender();
+}
+// 함께 박 깨기: 두 학교 합계가 목표에 닿으면 두 화면 모두 바로 끝
+function lmCoopCheck(){ const st=LM.st; if(!st||st.kind!=='coop'||!lmRunning()) return;
+  const a=lmMine()||{sum:0,players:0}, b=lmOther()||{sum:0,players:0}, goal=Math.max(10,(a.players+b.players)*st.per), o=lmOurs();
+  if(st.broke||(a.players+b.players>0&&o.sum+b.sum>=goal&&lmNow()-st.start>3000)){ LM.coopMs=st.broke||(lmNow()-st.start); end(true); } }
+function lmResult(){ const st=LM.st; if(!st||!st.id||LM.shown===st.id) return; const a=lmMine(), b=lmOther(); if(!a||!b||!a.fin) return;
+  const wait=!b.fin&&Date.now()-(a.t||Date.now())<20000; if(wait){ LM.msg='상대 학교 마지막 숫자를 기다리는 중…'; return; }
+  LM.shown=st.id;
+  if(st.kind==='coop'){ const goal=Math.max(10,(a.players+b.players)*st.per), tot=a.sum+b.sum;
+    const ms=st.broke||LM.coopMs; LM.msg=(tot>=goal||st.broke)?`두 학교가 함께 박을 깼어요!${ms?' '+Math.round(ms/100)/10+'초':''} — 한 명 한 명이 모여 두 학교 기록이 됐어요`:`3분 동안 ${Math.min(100,Math.round(tot/goal*1000)/10)}% 채웠어요 — 다음엔 꼭 함께 깨 봐요!`;
+    LM.coopMs=0; big((tot>=goal||st.broke)?'함께 성공!':'수고했어요!'); }
+  else { const f=x=>x.players?x.sum/x.players:0, A=f(a), B2=f(b);
+    LM.msg=(A>B2?'우리 학교 승리!':A<B2?`${esc(b.label)} 승리!`:'비겼어요!')+' 서로 응원하며 뛴 모두에게 박수!'; }
+  beep(1046,.15,.25); setTimeout(()=>beep(1318,.3,.25),160);
+}
+async function lmLeave(){ const host=LM.st&&LM.st.side==='host'; if(!confirm(host?'방을 닫을까요? 상대 학교도 더 이상 같이 뛸 수 없어요.':'이 방에서 나갈까요?')) return;
+  try{ await lmCall('lmLeave',{code:LM.code}); }catch(e){} LM.code=''; LM.st=null; store.set('jrl_lm',''); $('lmBar').hidden=true; }
+async function lmEnter(fn,extra){
+  $('lmErr').textContent=''; LM.busy=true;
+  try{ const st=await lmCall(fn,extra); LM.st=st; LM.code=st.code; store.set('jrl_lm',st.code); LM.msg=''; LM.shown=''; $('lmDlg').hidden=true; lmRender(); }
+  catch(e){ $('lmErr').textContent=e.message; }
+  LM.busy=false;
+}
+if(APPM){
+  $('btnLm').hidden=false;
+  $('btnLm').onclick=()=>{ if(LM.code&&LM.st){ return alert('이미 방 '+LM.code+'에 들어와 있어요. 아래 막대에서 나간 뒤 새로 만들어요.'); } $('lmErr').textContent=''; lmDlgSync(); $('lmDlg').hidden=false; };
+  $('lmDlgX').onclick=()=>{ $('lmDlg').hidden=true; };
+  document.querySelector('.lm-tabs').onclick=e=>{ const b=e.target.closest('[data-t]'); if(b){ LM.tab=b.dataset.t; lmDlgSync(); } };
+  [['lmKind','kind'],['lmDur','dur'],['lmRv','rv'],['lmPer','per']].forEach(([id,k])=>{ $(id).onclick=e=>{ const b=e.target.closest('[data-v]'); if(!b) return; LM[k]=k==='dur'||k==='per'?+b.dataset.v:b.dataset.v; lmDlgSync(); }; });
+  $('lmMakeGo').onclick=()=>lmEnter('lmOpen',{kind:LM.kind,dur:LM.dur,rv:LM.rv,per:LM.per});
+  $('lmJoinGo').onclick=()=>lmEnter('lmJoin',{code:$('lmCodeIn').value});
+  $('lmCodeIn').onkeydown=e=>{ if(e.key==='Enter') $('lmJoinGo').click(); };
+  setInterval(lmTick,2000); setInterval(()=>{ if(LM.code&&LM.st) lmRender(); },500);
+}
 
 /* ---------- 시작 ---------- */
 $('btnIn').onclick=async()=>{ $('loginErr').textContent=''; try{ await B.signIn(); }catch(e){ $('loginErr').textContent='로그인하지 못했어요: '+(e.code==='auth/unauthorized-domain'?'Firebase 승인된 도메인에 이 주소가 없어요':(e.code==='auth/operation-not-allowed'||e.code==='auth/configuration-not-found')?'Firebase에서 로그인 기능(Authentication → Google)이 아직 켜져 있지 않아요':e.code==='auth/popup-blocked'?'팝업이 막혔어요 — 주소창 오른쪽에서 팝업을 허용해 주세요':(e.message||e)); } };
