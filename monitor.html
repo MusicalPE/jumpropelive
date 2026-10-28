@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v1.3.1</title>
+<title>점프 라이브 v1.3.2</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -309,7 +309,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v1.3.1</span></h1>
+    <h1>점프 라이브<span class="ver">v1.3.2</span></h1>
     <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button><button id="btnDev" title="돌려 쓰는 기기(노트북·태블릿) 찾기" hidden>기기</button><button id="btnLm" title="다른 학교와 같은 시각에 함께 뛰기 (실시간 대결 · 함께 박 깨기)" hidden>학교와 함께</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
@@ -1984,7 +1984,50 @@ function lmChip(id,v){ Array.prototype.forEach.call($(id).children,b=>b.classLis
 function lmDlgSync(){ $('lmMake').hidden=LM.tab!=='make'; $('lmJoin').hidden=LM.tab!=='join'; lmChip('lmKind',LM.kind); lmChip('lmDur',LM.dur); lmChip('lmRv',LM.rv); lmChip('lmPer',LM.per);
   $('lmDurS').hidden=$('lmRvS').hidden=LM.kind!=='vs'; $('lmPerS').hidden=LM.kind!=='coop'; Array.prototype.forEach.call(document.querySelectorAll('.lm-tabs button'),b=>b.classList.toggle('on',b.dataset.t===LM.tab)); }
 function lmNow(){ return Date.now()+LM.off; }   // 수집기 시각
-async function lmCall(fn,extra){ await duelCtx(); const t0=Date.now(); const r=await duelPost(fn,Object.assign({key:DUEL.key},extra||{})); if(r&&r.now){ LM.off=r.now-(t0+Date.now())/2; } return r; }
+/* 함께 뛰기 파이어베이스 (jumpers-together, 수집기 20판~): 방이 열리면 두 화면이 lm/{방}을 듣고, 뛰는 동안 자기 칸(a·b)에 합계를 바로 씀
+   학생 이름은 오가지 않음. 파이어베이스를 못 쓰면 예전처럼 수집기에 2초마다 묻기 */
+const TG_CONFIG={ apiKey:'AIzaSyBE6Une_gpgKiuJML67kzkQLwywdLG8ckk', authDomain:'jumpers-together.firebaseapp.com',
+  databaseURL:'https://jumpers-together-default-rtdb.asia-southeast1.firebasedatabase.app', projectId:'jumpers-together',
+  storageBucket:'jumpers-together.firebasestorage.app', messagingSenderId:'461671227038', appId:'1:461671227038:web:e45ebc0ae9db4bc260e58f' };
+let TGp=null, TGfail=0, TGapp=null;
+function tgInit(){
+  if(TGp) return TGp; if(Date.now()-TGfail<60000) return Promise.resolve(null);
+  TGp=Promise.race([(async()=>{
+    const A=await import(FB_SDK+'/firebase-app.js'), D=await import(FB_SDK+'/firebase-database.js'), U=await import(FB_SDK+'/firebase-auth.js');
+    const app=TGapp||(TGapp=A.initializeApp(TG_CONFIG,'together')), auth=U.getAuth(app);
+    if(auth.authStateReady) await auth.authStateReady(); if(!auth.currentUser) await U.signInAnonymously(auth);
+    return { D, db:D.getDatabase(app), uid:auth.currentUser.uid };
+  })(), new Promise((_,rj)=>setTimeout(()=>rj(new Error('시간 초과')),8000))])
+  .catch(e=>{ TGp=null; TGfail=Date.now(); console.warn('함께 뛰기 파이어베이스를 쓰지 못해 예전 방식으로', e&&e.message); return null; });
+  return TGp;
+}
+async function lmCall(fn,extra){ await duelCtx(); const tg=await tgInit(); const ex=Object.assign({key:DUEL.key},extra||{}); if(tg) ex.uid=tg.uid;
+  const t0=Date.now(); const r=await duelPost(fn,ex); if(r&&r.now){ LM.off=r.now-(t0+Date.now())/2; } return r; }
+// 방 주소(st.fb)를 듣기 시작 — 바뀌면 다시
+async function lmListen(){
+  const fb=(LM.st&&LM.st.fb)||''; if(fb===LM.fbKey) return;
+  if(LM.unsub){ LM.unsub(); LM.unsub=null; } LM.fbKey=fb; LM.fbOn=false; LM.fbv=null; if(!fb) return;
+  const tg=await tgInit(); if(!tg||LM.fbKey!==fb) return;
+  LM.unsub=tg.D.onValue(tg.D.ref(tg.db,'lm/'+fb),snap=>{
+    if(LM.fbKey!==fb) return; const v=snap.val();
+    if(!v||!v.info){ if(LM.fbOn) lmGone(); return; }
+    LM.fbOn=true; LM.fbv=v; LM.err=''; lmMerge(); lmPlan(); lmCoopCheck(); lmResult(); lmRender();
+  },e=>{ console.warn('함께 뛰기 듣기 실패', e&&e.message); LM.fbOn=false; });
+}
+// 파이어베이스에서 들은 방 정보·두 학교 합계를 LM.st 에 합침 (호스트=a, 손님=b)
+function lmMerge(){
+  const v=LM.fbv, st=LM.st; if(!v||!st||!v.info) return; const i=v.info; if((+i.round||0)<(+st.round||0)) return;   // 수집기 답이 더 새 판이면 기다림
+  const sd=(lab,d)=>lab?{label:lab.label,named:!!lab.named,sum:d&&+d.sum||0,players:d&&+d.players||0,fin:!!(d&&d.fin),t:d&&+d.t||0}:null;
+  const br=[v.a,v.b].map(d=>d&&+d.broke||0).filter(x=>x>0);
+  LM.st=Object.assign({},st,{kind:i.kind,dur:+i.dur,per:+i.per||0,rv:i.rv,start:+i.start||0,id:i.id||'',round:+i.round||0,left:i.left||'',host:sd(i.host,v.a),guest:sd(i.guest,v.b),broke:br.length?Math.min.apply(null,br):0});
+}
+async function lmFbPut(o,fin){
+  const st=LM.st, tg=await tgInit(); if(!tg||!st) throw new Error('연결 없음');
+  const k=st.side==='host'?'a':'b', key=o.sum+'|'+o.players+'|'+(fin?1:0)+'|'+(LM.coopMs||0);
+  if(!fin&&LM.lastPut===key&&Date.now()-LM.lastPutAt<5000) return; LM.lastPut=key; LM.lastPutAt=Date.now();
+  await tg.D.set(tg.D.ref(tg.db,'lm/'+LM.fbKey+'/'+k),{sum:o.sum,players:o.players,fin:!!fin,broke:LM.coopMs||0,t:lmNow()});
+}
+function lmGone(){ if(LM.unsub){ LM.unsub(); LM.unsub=null; } LM.fbKey=''; LM.fbOn=false; LM.fbv=null; LM.code=''; store.set('jrl_lm',''); LM.st=null; $('lmBar').hidden=true; document.body.style.paddingBottom=''; }
 function lmMine(st){ st=st||LM.st; return st?(st.side==='host'?st.host:st.guest):null; }
 function lmOther(st){ st=st||LM.st; return st?(st.side==='host'?st.guest:st.host):null; }
 function lmRunning(){ return S.ctl.ph==='go'&&S.lastRun&&S.lastRun.lm&&S.lastRun.lm===(LM.st&&LM.st.id); }
@@ -2024,7 +2067,7 @@ function lmRender(){
 async function lmStartClick(){
   if(!S.room) return alert('반 방을 먼저 열어 주세요');
   LM.busy=true; lmRender();
-  try{ LM.st=await lmCall('lmStart',{code:LM.code}); LM.msg=''; }catch(e){ alert('시작하지 못했어요: '+e.message); }
+  try{ LM.st=await lmCall('lmStart',{code:LM.code}); LM.msg=''; lmListen(); }catch(e){ alert('시작하지 못했어요: '+e.message); }
   LM.busy=false; lmRender(); lmPlan();
 }
 // 시작 시각이 정해지면 우리 반 방에도 같은 시각에 시작 신호
@@ -2049,6 +2092,20 @@ async function lmGo(st){
 }
 async function lmTick(){
   if(!LM.code||LM.busy) return;
+  LM.tk=(LM.tk||0)+1;
+  if(LM.fbOn){   // 파이어베이스: 1초마다 우리 칸에 쓰기만 (상대 숫자는 듣고 있음)
+    try{
+      const st=LM.st;
+      if(st&&st.id&&S.lastRun&&S.lastRun.lm===st.id){
+        const mine=lmMine(), o=lmOurs(), ended=S.ctl.ph!=='go'&&!S.collecting;
+        if(S.ctl.ph==='go') await lmFbPut(o,false);
+        else if(ended&&!(mine&&mine.fin)){ if(!LM.finAt) LM.finAt=Date.now(); if(Date.now()-LM.finAt>2500){ await lmFbPut(o,true); LM.finAt=0; } }
+      }
+      LM.err='';
+    }catch(e){ console.warn('함께 뛰기 쓰기 실패 — 예전 방식으로', e&&e.message); if(LM.unsub){ LM.unsub(); LM.unsub=null; } LM.fbOn=false; LM.fbKey='-'; }
+    lmPlan(); lmCoopCheck(); lmResult(); lmRender(); return;
+  }
+  if(LM.tk%2) return;   // 예전 방식은 2초마다
   try{
     const st=LM.st;
     if(st&&st.id&&S.lastRun&&S.lastRun.lm===st.id){
@@ -2058,8 +2115,8 @@ async function lmTick(){
       else if(ended&&!(mine&&mine.fin)){ if(!LM.finAt) LM.finAt=Date.now(); if(Date.now()-LM.finAt>2500){ LM.st=await lmCall('lmPush',{code:LM.code,id:st.id,sum:o.sum,players:o.players,fin:true,broke:LM.coopMs||0}); LM.finAt=0; } }
       else LM.st=await lmCall('lmState',{code:LM.code});
     } else LM.st=await lmCall('lmState',{code:LM.code});
-    LM.err='';
-  }catch(e){ if(/없거나 끝난 방/.test(e.message)){ LM.code=''; store.set('jrl_lm',''); LM.st=null; $('lmBar').hidden=true; return; } LM.err=e.message; }
+    LM.err=''; if(LM.fbKey!=='-') lmListen();
+  }catch(e){ if(/없거나 끝난 방/.test(e.message)){ lmGone(); return; } LM.err=e.message; }
   lmPlan(); lmCoopCheck(); lmResult(); lmRender();
 }
 // 함께 박 깨기: 두 학교 합계가 목표에 닿으면 두 화면 모두 바로 끝
@@ -2077,10 +2134,10 @@ function lmResult(){ const st=LM.st; if(!st||!st.id||LM.shown===st.id) return; c
   beep(1046,.15,.25); setTimeout(()=>beep(1318,.3,.25),160);
 }
 async function lmLeave(){ const host=LM.st&&LM.st.side==='host'; if(!confirm(host?'방을 닫을까요? 상대 학교도 더 이상 같이 뛸 수 없어요.':'이 방에서 나갈까요?')) return;
-  try{ await lmCall('lmLeave',{code:LM.code}); }catch(e){} LM.code=''; LM.st=null; store.set('jrl_lm',''); $('lmBar').hidden=true; }
+  try{ await lmCall('lmLeave',{code:LM.code}); }catch(e){} lmGone(); }
 async function lmEnter(fn,extra){
   $('lmErr').textContent=''; LM.busy=true;
-  try{ const st=await lmCall(fn,extra); LM.st=st; LM.code=st.code; store.set('jrl_lm',st.code); LM.msg=''; LM.shown=''; $('lmDlg').hidden=true; lmRender(); }
+  try{ const st=await lmCall(fn,extra); LM.st=st; LM.code=st.code; store.set('jrl_lm',st.code); LM.msg=''; LM.shown=''; $('lmDlg').hidden=true; if(LM.fbKey==='-') LM.fbKey=''; lmListen(); lmRender(); }
   catch(e){ $('lmErr').textContent=e.message; }
   LM.busy=false;
 }
@@ -2100,7 +2157,7 @@ if(APPM){
   $('lmMakeGo').onclick=()=>lmEnter('lmOpen',{kind:LM.kind,dur:LM.dur,rv:LM.rv,per:LM.per});
   $('lmJoinGo').onclick=()=>lmEnter('lmJoin',{code:$('lmCodeIn').value});
   $('lmCodeIn').onkeydown=e=>{ if(e.key==='Enter') $('lmJoinGo').click(); };
-  setInterval(lmTick,2000); setInterval(()=>{ if(LM.code&&LM.st) lmRender(); },500);
+  setInterval(lmTick,1000); setInterval(()=>{ if(LM.code&&LM.st) lmRender(); },500);
 }
 
 /* ---------- 시작 ---------- */
