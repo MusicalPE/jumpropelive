@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v1.3.2</title>
+<title>점프 라이브 v1.3.3</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -173,7 +173,7 @@
   #ytBox iframe{width:100%;height:100%;display:block;border:0}
   .music.mini #ytBox,.music.mini .mbody{display:none}
   /* 줄넘기 허브 (JUMPITNOW 전자 줄넘기) */
-  .hub{position:fixed;right:16px;bottom:16px;z-index:22;background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 10px 30px rgba(31,36,48,.18);padding:12px;width:min(460px,calc(100vw - 32px));max-height:min(78vh,720px);display:flex;flex-direction:column;gap:10px}
+  .hub{position:fixed;right:16px;bottom:16px;z-index:22;background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 10px 30px rgba(31,36,48,.18);padding:12px;width:min(540px,calc(100vw - 32px));max-height:min(78vh,720px);display:flex;flex-direction:column;gap:10px}
   .hub[hidden]{display:none}
   .hub .mh{display:flex;align-items:center;gap:8px;font-weight:800}
   .hub .mh .x{margin-left:auto;min-height:32px;padding:2px 10px;font-size:13px}
@@ -309,7 +309,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v1.3.2</span></h1>
+    <h1>점프 라이브<span class="ver">v1.3.3</span></h1>
     <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button><button id="btnDev" title="돌려 쓰는 기기(노트북·태블릿) 찾기" hidden>기기</button><button id="btnLm" title="다른 학교와 같은 시각에 함께 뛰기 (실시간 대결 · 함께 박 깨기)" hidden>학교와 함께</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
@@ -1116,13 +1116,29 @@ function hubDevs(){
 function hubPush(){ trackRate(hubDevs()); hubRender(); renderSoon(); }
 function hubRender(){
   if($('hub').hidden) return;
+  // 학생 이름을 고르는 중(목록이 열려 있음)에는 다시 그리지 않음 — 고르고 나면 그때 한 번에
+  const ae=document.activeElement; if(ae&&ae.tagName==='SELECT'&&$('hubBody').contains(ae)){ HUB.pend=true; return; }
+  HUB.pend=false;
   const opts=S.groups.flatMap(x=>seats(x).map(n=>{ return [skey(x.g,x.c,n),`${multi()?x.g+'-'+x.c+' ':''}${n}번 ${x.names[n]||''}`]; }));
-  const rs=Object.values(HUB.ropes).sort((a,b)=>a.n-b.n), now=Date.now();
-  $('hubBody').innerHTML=rs.map(r=>{ const st=hubStudent(r.n), cur=st?skey(st.g,st.c,st.n):'', on=r.seen&&now-r.seen<20000;
-    return `<tr data-n="${r.n}"><td class="no">${r.n}</td><td><select data-map>${S.groups.length?'':'<option value="">방을 먼저 열어요</option>'}${opts.map(([v,l])=>`<option value="${v}"${v===cur?' selected':''}>${esc(l)}</option>`).join('')}</select></td>
-      <td><span class="dot ${on?'on':''}"></span>${on?'연결':'끊김'}</td><td>${r.batt==null?'—':r.batt+'%'}</td><td>${r.ctl?r.cnt:'—'}${r.doneDs?' ✓':''}</td>
-      <td><button data-act="show" title="줄넘기 화면에 번호 띄우기">번호</button> <button data-act="vib" title="진동과 벨로 이 줄넘기 찾기">찾기</button> <button data-act="num" title="이 줄넘기 번호 바꾸기">바꾸기</button></td></tr>`; }).join('')
+  const all=Object.values(HUB.ropes).sort((a,b)=>a.n-b.n), now=Date.now();
+  // 안 쓰는 줄넘기('안 씀')는 아래 한 줄로 접어 둠 — 같은 학생에 줄넘기 둘이 이어지면 빨갛게
+  const cur=r=>{ const st=hubStudent(r.n); return st?skey(st.g,st.c,st.n):''; }, cnt={};
+  all.forEach(r=>{ const k=cur(r); if(k) cnt[k]=(cnt[k]||0)+1; });
+  const rs=all.filter(r=>HUB.showOff||cur(r)), off=all.filter(r=>!cur(r));
+  const row=r=>{ const k=cur(r), on=r.seen&&now-r.seen<20000, dup=k&&cnt[k]>1;
+    return `<tr data-n="${r.n}"${dup?' style="background:#FDE8E4"':''}><td class="no">${r.n}</td><td><select data-map><option value="-"${k?'':' selected'}>안 씀</option>${S.groups.length?'':'<option value="" disabled>방을 먼저 열어요</option>'}${opts.map(([v,l])=>`<option value="${v}"${v===k?' selected':''}>${esc(l)}</option>`).join('')}</select>${dup?'<div style="color:var(--red);font-size:12px">다른 줄넘기와 같은 학생이에요</div>':''}</td>
+      <td><span class="dot ${on?'on':''}"></span>${on?'연결':'끊김'}</td><td>${r.batt==null?'—':r.batt+'%'}</td><td>${k&&r.ctl?r.cnt:'—'}${r.doneDs?' ✓':''}</td>
+      <td><button data-act="show" title="줄넘기 화면에 번호 띄우기">번호</button> <button data-act="vib" title="진동과 벨로 이 줄넘기 찾기">찾기</button> <button data-act="num" title="이 줄넘기 번호 바꾸기">바꾸기</button>${k?' <button data-act="off" title="이 줄넘기는 안 써요 — 목록 아래로 접고 기록도 받지 않아요">빼기</button>':''}</td></tr>`; };
+  $('hubBody').innerHTML=(rs.map(row).join('')
+    + (off.length?`<tr><td colspan="6" style="color:var(--muted);white-space:normal">안 쓰는 줄넘기 ${off.length}개 (${off.map(r=>r.n).join(', ')}번) — 기록을 받지 않아요 <button data-act="showoff">${HUB.showOff?'접기':'펼치기'}</button></td></tr>`:''))
     || '<tr><td colspan="6" style="color:var(--muted)">아직 줄넘기가 없어요 — 줄넘기를 켜거나 "줄넘기 찾기"를 눌러요</td></tr>';
+}
+// 줄넘기 n 을 학생 v 에 (v='-' 안 씀). 같은 학생에 이어져 있던 다른 줄넘기는 '안 씀'으로 — 한 학생에 줄넘기 하나
+function hubAssign(n,v){
+  n=String(n); const moved=[];
+  if(v&&v!=='-') Object.values(HUB.ropes).forEach(r=>{ if(String(r.n)===n) return; const st=hubStudent(r.n); if(st&&skey(st.g,st.c,st.n)===v){ HUB.map[r.n]='-'; moved.push(r.n); } });
+  HUB.map[n]=v||'-'; store.set('jl_hubmap',JSON.stringify(HUB.map)); hubPush();
+  hubMsg(v==='-'?`${n}번 줄넘기는 안 써요 — 목록 아래로 접었어요`:moved.length?`${moved.join(', ')}번 줄넘기가 같은 학생이라 '안 씀'으로 바꿨어요`:'');
 }
 async function hubConnect(){
   if(HUB.on){ await hubClose(); return; }
@@ -1198,10 +1214,14 @@ function hubInit(){
     ropes.forEach((n,i)=>{ HUB.map[n]=studs[i]||'-'; }); store.set('jl_hubmap',JSON.stringify(HUB.map)); hubPush();
     hubMsg(`줄넘기 ${ropes[0]}~${ropes[ropes.length-1]}번 (${ropes.length}개)을 1번 학생부터 차례로 이었어요`+(ropes.length>studs.length?' · 남는 줄넘기는 쓰지 않아요':'')); };
   $('hubAuto').onclick=()=>{ if(confirm('켜져 있는 줄넘기 번호를 처음부터 다시 매길까요? (지금 번호가 바뀔 수 있어요)')){ HUB.ropes={}; hubRender(); hubSend('assignall'); } };
+  $('hubBody').addEventListener('focusout',()=>setTimeout(()=>{ if(HUB.pend) hubRender(); },0));
   $('hubBody').onchange=e=>{ const sel=e.target.closest('[data-map]'); if(!sel) return; const n=sel.closest('tr').dataset.n;
-    HUB.map[n]=sel.value; store.set('jl_hubmap',JSON.stringify(HUB.map)); hubPush(); };
-  $('hubBody').onclick=async e=>{ const b=e.target.closest('[data-act]'); if(!b) return; const n=b.closest('tr').dataset.n;
-    if(b.dataset.act==='show') hubSend('showId '+n);
+    sel.blur(); hubAssign(n,sel.value); };
+  $('hubBody').onclick=async e=>{ const b=e.target.closest('[data-act]'); if(!b) return;
+    if(b.dataset.act==='showoff'){ HUB.showOff=!HUB.showOff; hubRender(); return; }
+    const n=b.closest('tr').dataset.n;
+    if(b.dataset.act==='off') hubAssign(n,'-');
+    else if(b.dataset.act==='show') hubSend('showId '+n);
     else if(b.dataset.act==='vib'){ hubSend('vibrate '+n); setTimeout(()=>hubSend('buzzer '+n),250); }
     else if(b.dataset.act==='num'){ const v=prompt(n+'번 줄넘기를 몇 번으로 바꿀까요?',''); const m=+v; if(!(m>0&&m<=99)) return;
       if(HUB.ropes[m]&&m!==+n&&!confirm(m+'번 줄넘기가 이미 있어요. 그래도 바꿀까요?')) return;
