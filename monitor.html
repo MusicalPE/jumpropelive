@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v1.3.5</title>
+<title>점프 라이브 v1.3.6</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -309,7 +309,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v1.3.5</span></h1>
+    <h1>점프 라이브<span class="ver">v1.3.6</span></h1>
     <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button><button id="btnDev" title="돌려 쓰는 기기(노트북·태블릿) 찾기" hidden>기기</button><button id="btnLm" title="다른 학교와 같은 시각에 함께 뛰기 (실시간 대결 · 함께 박 깨기)" hidden>학교와 함께</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
@@ -1095,8 +1095,14 @@ function trkStep(o,c,t){
     if(!o.dip){ if(o.warm){ o.rates.push(r); if(o.rates.length>8) o.rates.shift(); } o.warm=true; } }
   o.c=c; o.t=t; if(!o.dip) o.best=Math.max(o.best,c-o.seg);
 }
+// 우리가 전원을 끈 줄넘기가 다시 켜져 신호가 오면: 원래 학생에게 다시 이음 (끈 뒤 8초 안에 오는 신호는 꺼지는 중이라 무시)
+function hubBack(n,now){ const r=HUB.ropes[+n]; if(!r||!r.offAt||now-r.offAt<8000) return; r.offAt=0;
+  if(r.prev&&HUB.map[r.n]==='-'){ hubAssign(r.n,r.prev); hubMsg(r.n+'번 줄넘기가 다시 켜져서 원래 학생에게 이었어요'); }
+  else if(HUB.map[r.n]==='-'){ delete HUB.map[r.n]; store.set('jl_hubmap',JSON.stringify(HUB.map)); hubPush(); hubMsg(r.n+'번 줄넘기가 다시 켜졌어요'); }
+  setTimeout(()=>hubSend('getBattery '+r.n),600); }
 function hubLine(ln){
   const a=ln.trim().split(','); if(!a[0]) return; const now=Date.now();
+  if(/^(RXB|DATA|BATT|ROLE)$/.test(a[0])&&a[1]) hubBack(a[1],now);
   if(a[0]==='GW'&&a[1]==='READY'){ hubSt('연결됨','ok'); hubMsg('허브 준비 끝 — 줄넘기를 켜면 목록에 나와요'); setTimeout(()=>hubSend('getRole all'),400); setTimeout(()=>hubSend('getBattery all'),1400); setTimeout(()=>{ if($('hubRest').checked&&S.ctl.ph!=='go') hubSend('stop all'); },2600); return; }
   if(a[0]==='RXB'){ const r=hubRope(a[1]); if(!r) return; r.addr=a[2]||r.addr; r.seen=now; hubRender(); return; }
   if(a[0]==='DATA'){ const r=hubRope(a[1]); if(!r) return; const c=+a[3]||0;
@@ -1231,7 +1237,9 @@ function hubInit(){
   $('hubBody').onclick=async e=>{ const b=e.target.closest('[data-act]'); if(!b) return;
     if(b.dataset.act==='showoff'){ HUB.showOff=!HUB.showOff; hubRender(); return; }
     const n=b.closest('tr').dataset.n;
-    if(b.dataset.act==='off') hubAssign(n,'-');
+    if(b.dataset.act==='off'){ const r=HUB.ropes[n], st=hubStudent(n), was=st?skey(st.g,st.c,st.n):'';
+      const pw=HUB.on&&confirm(n+'번 줄넘기를 목록에서 뺄게요.\n\n전원도 끌까요?\n· 확인: 전원도 끄기 (배터리 아끼기 — 다시 쓰려면 줄넘기 버튼을 눌러 켜요. 켜지면 원래 학생에게 저절로 다시 이어져요)\n· 취소: 켠 채로 목록에서만 빼기');
+      hubAssign(n,'-'); if(pw&&r){ r.offAt=Date.now(); r.prev=was; await hubSend('powerOff '+n); hubMsg(n+'번 줄넘기 전원을 껐어요 — 다시 켜면 '+(was?'원래 학생에게 ':'')+'저절로 이어져요'); } }
     else if(b.dataset.act==='wake'){ const r=HUB.ropes[n]; if(r&&!(r.ctl&&r.cnt)){ r.kickT=0; hubKick(r,0,'1',Date.now(),true); hubMsg(n+'번 줄넘기에 시작 신호를 다시 보냈어요'); } else hubMsg(n+'번 줄넘기는 이미 세고 있어요'); }
     else if(b.dataset.act==='show') hubSend('showId '+n);
     else if(b.dataset.act==='vib'){ hubSend('vibrate '+n); setTimeout(()=>hubSend('buzzer '+n),250); }
