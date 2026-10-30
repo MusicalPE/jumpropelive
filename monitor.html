@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v1.3.6</title>
+<title>점프 라이브 v1.3.7</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -137,6 +137,11 @@
   .res th{color:var(--muted);font-weight:600;position:sticky;top:0;background:var(--card)}
   .res td.c{font-weight:800;font-size:20px}
   .res tr.top td{background:var(--accent-soft)}
+  .pb-ban{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:linear-gradient(90deg,#FFF0EE,#FFF5E6);border:1px solid #FFD3CC;border-radius:14px;padding:10px 16px}
+  .pb-ban b{font-size:20px;color:var(--accent-ink)} .pb-ban span{font-size:15px;color:var(--ink2)}
+  .pb-tag{display:inline-block;background:var(--accent);color:#fff;border-radius:99px;font-size:13px;font-weight:800;padding:2px 9px;margin-left:6px;vertical-align:2px}
+  .pb-up{color:var(--mint);font-weight:800} .pb-dn{color:var(--muted)} .pb-new{color:var(--amber);font-weight:800}
+  .pb-cheer{font-size:17px;font-weight:700;color:var(--ink2);text-align:center;margin:0}
 
   /* 점프 Live (Lite) */
   .tile .n .lhbar{display:inline-block;width:58%;height:.62em;border-radius:12px;background:repeating-linear-gradient(135deg,#EEF0F3 0 10px,#F7F8FA 10px 20px);vertical-align:middle}
@@ -309,7 +314,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v1.3.6</span></h1>
+    <h1>점프 라이브<span class="ver">v1.3.7</span></h1>
     <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button><button id="btnDev" title="돌려 쓰는 기기(노트북·태블릿) 찾기" hidden>기기</button><button id="btnLm" title="다른 학교와 같은 시각에 함께 뛰기 (실시간 대결 · 함께 박 깨기)" hidden>학교와 함께</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
@@ -410,7 +415,9 @@
 <div class="modal" id="resModal"><div class="box">
   <h3 id="resTitle">결과</h3>
   <p class="small" id="resNote" style="margin:0;color:var(--muted)"></p>
-  <div class="res"><table><thead><tr><th>순위</th><th>번호</th><th>이름</th><th>횟수</th><th>최고 연속</th></tr></thead><tbody id="resBody"></tbody></table></div>
+  <div class="pb-ban" id="resPB" hidden></div>
+  <div class="res"><table><thead id="resHead"><tr><th>순위</th><th>번호</th><th>이름</th><th>횟수</th><th>최고 연속</th></tr></thead><tbody id="resBody"></tbody></table></div>
+  <p class="pb-cheer" id="resCheer" hidden>어제의 나보다 한 개 더! 열심히 뛴 모두 최고!</p>
   <div class="row" id="resSaveRow" hidden><b id="resSave"></b><input type="password" id="resPw" placeholder="관리자 비밀번호" hidden style="font-size:16px;padding:8px 12px;border-radius:12px;border:1px solid var(--line);background:var(--soft)"><button id="btnResSave" hidden>다시 저장</button></div>
   <div class="row duel-row" id="duelRow" hidden></div>
   <div class="row"><button class="primary" id="btnResCopy">결과 복사 (시트에 붙여 넣기)</button><button id="btnResClose">닫기</button><span class="small" id="resMsg"></span></div>
@@ -675,7 +682,7 @@ async function adminLogin(pw){ const r=await rpc('verifyAdminPassword',[pw]); if
 async function appLoad(){
   $('appBox').hidden=false; $('rosterBox').hidden=true; $('maxLab').hidden=true; $('typeLab').hidden=false;
   $('appInfo').textContent=SCH+' 시트에서 불러오는 중…'; $('btnOpen').disabled=true;
-  try{ const [p,types]=await Promise.all([rpc('ping'),rpc('getJumpTypes')]); JR.live=!!(p&&p.live); JR.lite=!!(p&&p.lite); JR.types=types||[];
+  try{ const [p,types]=await Promise.all([rpc('ping'),rpc('getJumpTypes')]); JR.live=!!(p&&p.live); JR.lite=!!(p&&p.lite); JR.shell=+(p&&p.shell)||0; JR.types=types||[];
     if(LITE&&!JR.lite){ $('appInfo').innerHTML='<span class="err">이 '+SCH+' 껍데기는 6판이 아니라 점프 Live (Lite)를 쓸 수 없어요 — 관리자 설정의 안내대로 껍데기를 6판으로 바꿔 주세요</span>'; return; }
     const sel=$('selType'), last=store.get('jrl_type'); sel.innerHTML=''; JR.types.forEach(t=>sel.add(new Option(t,t))); if(last&&JR.types.includes(last)) sel.value=last; }
   catch(e){ $('appInfo').textContent=SCH+' 시트에 연결하지 못했어요: '+e.message; return; }
@@ -1256,7 +1263,7 @@ async function go(){
   { const id=S.lastRun&&S.lastRun.id; if(id&&!runKept(id)&&S.closeWarned!==id&&!confirm('지난 회차 결과가 아직 시트에 들어가지 않았어요. 새로 시작하면 지난 결과는 다시 볼 수 없어요. 그래도 시작할까요?')) return; }
   const v=$('selDur').value, goal=goalOf(v), dur=durOf(v), id='r'+Date.now().toString(36)+(goal?'g'+goal:'');   // 목표 횟수는 회차 번호 끝에 (학생 기기가 읽음)
   const c={ph:'go',id,at:B.now()+5000,dur}; if(LITE){ c.rv=$('selRv').value; store.set('jrl_rv',c.rv); }
-  try{ await B.setControl(S.room,c); S.ctl=c; S.lastRun={id,dur,goal,at:c.at,rv:c.rv}; S.done={}; S.autoEnd=''; S.endShown=''; S.prevCnt={}; $('qr').hidden=true; $('btnResult').disabled=true; musicCountdown(); hubOnGo(id); }
+  try{ await B.setControl(S.room,c); S.ctl=c; S.lastRun={id,dur,goal,at:c.at,rv:c.rv}; S.done={}; S.autoEnd=''; S.endShown=''; S.prevCnt={}; $('qr').hidden=true; $('btnResult').disabled=true; musicCountdown(); hubOnGo(id); pbStart(S.lastRun); }
   catch(e){ alert('시작 신호를 보내지 못했어요: '+e.message); }
 }
 // 끝: 뛰는 중이면 바로 안 끊고 5·4·3·2·1 뒤에 끝 (회차 시간을 '지금+5초'로 줄여 학생 기기에도 같이 보냄)
@@ -1905,11 +1912,42 @@ function resultRows(){
 function showSeqResult(sq){ if(!sq||!sq.res) return; const rows=[];
   sq.teams.forEach((t,i)=>{ const c=sq.res[i]&&sq.res[i].cnt; if(!c) return; t.forEach(k=>{ const r=(S.rows||[]).find(x=>x.k===k); if(r&&c[k]>0) rows.push(Object.assign({},r,{cnt:c[k]})); }); });
   rows.sort((a,b)=>(b.cnt-a.cnt)||(a.g-b.g)||(a.c-b.c)||(a.n-b.n)); showResult({rows,ids:(sq.ids||[]).filter(Boolean)}); }
+/* ---------- 나와의 대결: 같은 길이로 뛴 판의 '내 최고'와 비교 (앱에서 열었을 때) ----------
+   껍데기 7판: 판을 시작할 때 시트에서 학생별 최고(getLiveBestsAdmin)를 받아 둠 · 6판 이하: 이 컴퓨터에 기억
+   시간으로 뛴 '다 같이' 판만 (목표 횟수·도전·릴레이·팀·박·조별 차례는 빼고) */
+const PB={ run:'', dur:0, map:null, src:'', done:'' };
+function pbOk(run){ return APPM&&run&&run.dur>0&&!run.goal&&!run.chal&&!run.relay&&!run.mode&&!run.team&&!run.bak&&!run.rot&&!run.trel; }
+function pbKey(dur){ return 'jl_pb|'+SHELL+'|'+dur; }
+async function pbStart(run){
+  PB.run=''; PB.map=null; if(!pbOk(run)) return;
+  const id=run.id, dur=run.dur, tok=JR.admin||sessGet();
+  if(JR.shell>=7&&tok){ try{ const m=await rpc('getLiveBestsAdmin',[tok,dur]); if(S.lastRun&&S.lastRun.id===id){ Object.assign(PB,{run:id,dur,map:m||{},src:'sheet'}); } return; }catch(e){} }
+  let m={}; try{ m=JSON.parse(store.get(pbKey(dur))||'{}')||{}; }catch(e){}
+  Object.assign(PB,{run:id,dur,map:m,src:'local'});
+}
+function pbRows(rows){
+  if(!S.lastRun||PB.run!==S.lastRun.id||!PB.map) return null;
+  return rows.map(r=>{ const prev=r.id?(+PB.map[r.id]||0):0; return { prev, up:prev>0&&r.cnt>prev, first:!prev&&r.cnt>0, has:!!r.id }; });
+}
+function pbSaveLocal(rows){
+  if(PB.src!=='local'||PB.done===PB.run) return; PB.done=PB.run;
+  let m={}; try{ m=JSON.parse(store.get(pbKey(PB.dur))||'{}')||{}; }catch(e){}
+  rows.forEach(r=>{ if(r.id&&r.cnt>(+m[r.id]||0)) m[r.id]=r.cnt; }); store.set(pbKey(PB.dur),JSON.stringify(m));
+}
 function showResult(over){
   const rows=over?over.rows:resultRows(), dur=S.lastRun.dur;
+  const pb=over?null:pbRows(rows), dl=durTxt(dur);
+  $('resHead').innerHTML=`<tr><th>순위</th><th>번호</th><th>이름</th><th>${pb?'이번 횟수':'횟수'}</th>${pb?`<th>내 ${dl} 최고</th><th>지난 최고와 비교</th>`:''}<th>최고 연속</th></tr>`;
   let rank=0, prev=-1;
-  $('resBody').innerHTML=rows.map((r,i)=>{ const ds=doneDs(r), key=r.cnt+'|'+ds; if(key!==prev){ rank=i+1; prev=key; } return `<tr class="${rank<=3?'top':''}"><td>${rank}</td><td>${multi()?r.g+'-'+r.c+' · ':''}${r.n}</td><td>${esc(r.name)}</td><td class="c">${r.cnt}${ds?` <small style="font-weight:600;color:var(--muted)">${(ds/10).toFixed(1)}초에 도착</small>`:''}</td><td>${r.best||'—'}</td></tr>`; }).join('')
-    || '<tr><td colspan="5" style="color:var(--muted)">이번 회차에 뛴 학생이 없어요</td></tr>';
+  $('resBody').innerHTML=rows.map((r,i)=>{ const ds=doneDs(r), key=r.cnt+'|'+ds; if(key!==prev){ rank=i+1; prev=key; } const p=pb&&pb[i];
+    const cmp=!p||!p.has?'<td>—</td><td>—</td>':p.up?`<td>${r.cnt}</td><td class="pb-up">+${r.cnt-p.prev} (전 ${p.prev})</td>`:p.first?`<td>${r.cnt}</td><td class="pb-new">첫 기록</td>`:`<td>${p.prev}</td><td class="pb-dn">${r.cnt===p.prev?'같아요':'−'+(p.prev-r.cnt)}</td>`;
+    return `<tr class="${rank<=3?'top':''}"><td>${rank}</td><td>${multi()?r.g+'-'+r.c+' · ':''}${r.n}</td><td>${esc(r.name)}</td><td class="c">${r.cnt}${p&&p.up?'<span class="pb-tag">개인 최고!</span>':''}${ds?` <small style="font-weight:600;color:var(--muted)">${(ds/10).toFixed(1)}초에 도착</small>`:''}</td>${pb?cmp:''}<td>${r.best||'—'}</td></tr>`; }).join('')
+    || `<tr><td colspan="${pb?7:5}" style="color:var(--muted)">이번 회차에 뛴 학생이 없어요</td></tr>`;
+  const ups=pb?rows.filter((r,i)=>pb[i].up):[], anyPrev=pb&&pb.some(x=>x.prev>0);
+  $('resPB').hidden=!pb||(!ups.length&&anyPrev); $('resCheer').hidden=!pb;
+  if(pb) $('resPB').innerHTML=ups.length?`<b>축! 개인 최고 기록 갱신 ${ups.length}명!</b><span>${ups.map(r=>esc(r.name)).join(' · ')} — 지난번 나보다 더 많이 넘었어요</span>`
+    :`<b>오늘 기록이 첫 '내 ${dl} 최고'예요</b><span>다음 ${dl} 판부터 지난 나와 비교해 축하해 줄게요</span>`;
+  if(pb) pbSaveLocal(rows);
   const got=new Set(rows.map(r=>r.k)), missing=(S.rows||[]).filter(r=>!got.has(r.k)).map(r=>multi()?`${r.g}-${r.c} ${r.n}`:r.n);
   $('resTitle').textContent=`${clsLabel(S.groups)} · ${S.lastRun.goal?'목표 '+S.lastRun.goal+'회':dur?durTxt(dur):'제한 없음'} 결과`;
   $('resNote').textContent=`${rows.length}명 · 합계 ${rows.reduce((s,r)=>s+r.cnt,0).toLocaleString()}회`+(missing.length?` · 기록 없음: ${missing.join(', ')}번`:'')+(APPM?'':' · 결과 복사로 시트에 옮겨 주세요');
@@ -1997,7 +2035,7 @@ async function saveResult(){
   if(!tok) return resSaveUi('관리자 로그인이 끝났어요 — 비밀번호를 넣고 저장해 주세요',true,true);
   resSaveUi('시트에 저장하는 중…'); $('btnResSave').hidden=true;
   try{
-    const r=await rpc('addLiveRecordsAdmin',[tok,S.type,rows,id]);
+    const r=await rpc('addLiveRecordsAdmin',[tok,S.type,rows,id,pbOk(S.lastRun)?S.lastRun.dur:0]);   // 7판: 판 길이 → '내 N분 최고'
     const m=savedRuns(); m[id]=r.already?rows.length:r.saved; store.set('jrl_saved',JSON.stringify(m)); $('btnResClose').textContent='닫기';
     // 줄넘기 기록 관리 창에 알려 점퍼스(전국 현황판)로 바로 보내게 함 — 카메라 인증 기록으로 집계
     try{ if(window.opener&&!window.opener.closed) window.opener.postMessage({type:'jumplive-saved'},location.origin); }catch(e){}
@@ -2126,7 +2164,7 @@ async function lmGo(st){
   const dur=st.kind==='coop'?180:st.dur, id='r'+Date.now().toString(36)+'lm';
   const at=B.now()+Math.max(0,st.start-lmNow());
   const c={ph:'go',id,at,dur}; if(LITE){ c.rv=st.kind==='coop'?'live':$('selRv').value; }
-  try{ await B.setControl(S.room,c); S.ctl=c; S.lastRun={id,dur,goal:0,at,rv:c.rv,lm:st.id}; S.done={}; S.autoEnd=''; S.endShown=''; S.prevCnt={}; $('qr').hidden=true; $('btnResult').disabled=true; musicCountdown(); hubOnGo(id); LM.local=id; }
+  try{ await B.setControl(S.room,c); S.ctl=c; S.lastRun={id,dur,goal:0,at,rv:c.rv,lm:st.id}; S.done={}; S.autoEnd=''; S.endShown=''; S.prevCnt={}; $('qr').hidden=true; $('btnResult').disabled=true; musicCountdown(); hubOnGo(id); LM.local=id; pbStart(S.lastRun); }
   catch(e){ LM.msg='시작 신호를 보내지 못했어요: '+e.message; }
   lmRender();
 }

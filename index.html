@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 판정기 v1.3.3 · 카메라로 진짜 뛰는지 보기</title>
+<title>줄넘기 판정기 v1.3.4 · 카메라로 진짜 뛰는지 보기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -311,6 +311,9 @@
     .status{font-size:min(2.6vh,3.4vw)}
     .compare{font-size:14px}
   }
+  .pbx{display:flex;flex-direction:column;gap:2px;margin-top:10px;padding:10px 14px;border-radius:12px;background:linear-gradient(90deg,#FFF0EE,#FFF5E6);border:1px solid #FFD3CC;text-align:left}
+  .pbx b{font-size:18px;color:#E2513F} .pbx span{font-size:14px;color:#3B4252}
+  .pbx.st{background:#E7F7F5;border-color:#BDE8E2} .pbx.st b{color:#14857A}
 </style>
 </head>
 <body>
@@ -318,7 +321,7 @@
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
     <div class="titles">
-      <h1>줄넘기 판정기<span class="ver">v1.3.3</span></h1>
+      <h1>줄넘기 판정기<span class="ver">v1.3.4</span></h1>
       <span class="sub">머리부터 발까지 보이게 서서, 몸이 뜨고 팔이 돌 때만 1회로 세요</span>
     </div>
     <div class="who" id="who"></div>
@@ -555,7 +558,7 @@ const $=id=>document.getElementById(id);
 const video=$('video'), cv=$('overlay'), cx=cv.getContext('2d');
 let landmarker=null, stream=null, facing='user', running=false, t0=0, raf=0, lastVideoT=-1, frames=0, fpsT=0;
 /* ---------- 앱 연동: 체육교사 보조 프로그램의 줄넘기 화면에서 열리면 ?app=앱주소&t=학생표&kind=종류 가 붙어 와요 ---------- */
-const VER='1.3.3';
+const VER='1.3.4';
 const Q=new URLSearchParams(location.search);
 const LINK={ app:Q.get('app')||'', t:Q.get('t')||'', kind:Q.get('kind')||'', sens:+(Q.get('sens')||0)||0, target:(Q.get('target')==='fit'?'fit':'rope'), who:null, saved:null,
   // mode=post : 오프라인판(파일로 여는 프로그램)이 연 창. 서버 대신 window.opener.postMessage 로 결과를 돌려준다.
@@ -623,12 +626,18 @@ async function sendResult2(sa,sb,sec){
   if(err.length){ $('smErr').textContent='기록하지 못했어요 — '+err.join(' / ')+' · 인터넷을 확인하고 다시 눌러 보세요 (이미 저장된 친구는 다시 저장하지 않아요)'; b.disabled=false; b.textContent='다시 보내기'; return; }
   const line=(w,d)=>d?`${w.이름} 오늘 ${d.오늘}회 / 목표 ${d.하루목표}회${d.달성?' 달성!':''}`:`${w.이름} 기록 없음`;
   $('smTitle').textContent='둘 다 기록했어요!'; $('smNote').textContent=line(LINK.who,LINK.saved)+' · '+line(LINK.who2,LINK.saved2);
+  { const h=pbHtml(LINK.saved,LINK.who&&LINK.who.이름)+pbHtml(LINK.saved2,LINK.who2&&LINK.who2.이름); if(h){ $('smNote').insertAdjacentHTML('beforeend',h); confetti(60); } }
   $('smBtns').innerHTML='<button class="primary" id="smMore" style="font-size:18px;padding:12px 24px">한 번 더 뛰기</button><button id="smClose">창 닫기</button>';
   $('smMore').onclick=()=>{ $('saveModal').classList.remove('on'); $('btnReset').click(); };
   $('smClose').onclick=()=>{ window.close(); setTimeout(()=>{ $('smNote').textContent+=' — 이 창을 닫고 앱으로 돌아가 새로고침하면 기록이 보여요.'; },300); };
   beep(880,0.1,0.2); setTimeout(()=>beep(1175,0.15,0.2),120);
   if((LINK.saved&&LINK.saved.달성)||(LINK.saved2&&LINK.saved2.달성)) confetti(80);
 }
+// 나와의 대결 (줄넘기 기록 껍데기 7판): 저장 응답에 하루 최고·연속 최고 갱신이 오면 축하 줄
+function pbHtml(d,who){ if(!d) return ''; const nm=who?who+' ':''; let h='';
+  if(d.하루최고) h+=`<div class="pbx"><b>축! ${nm}하루 최고 기록 갱신!</b><span>오늘 합계 ${d.하루최고.오늘}회 — 가장 많이 뛴 날(${d.하루최고.전}회)보다 ${d.하루최고.오늘-d.하루최고.전}회 더</span></div>`;
+  if(d.연속최고) h+=`<div class="pbx st"><b>축! ${nm}연속 넘기 최고 기록 갱신!</b><span>걸리지 않고 ${d.연속최고.연속}회 — 전 최고 ${d.연속최고.전}회보다 ${d.연속최고.연속-d.연속최고.전}회 더</span></div>`;
+  return h; }
 function fmtSec(t){ return Math.floor(t/60)+'분 '+Math.floor(t%60)+'초'; }
 function openSaveModal(){
   if(TWO.on&&LINK.t2&&LINK.who2) return openSaveModal2();
@@ -661,6 +670,7 @@ async function sendResult(count,sec,st){
     $('smNote').textContent=LINK.target==='fit'
       ? `건강체력교실에 ${d.횟수}회 · ${d.포인트}점으로 기록! 오늘 줄넘기 ${d.오늘}회`+(d.줄넘기도?' (줄넘기 기록에도 함께)':'')+(d.달성?' — 기준 달성! 🎉':'')
       : `오늘 합계 ${d.오늘}회 / 목표 ${d.하루목표}회`+(d.달성?' — 오늘 목표 달성! 🎉':'');
+    if(LINK.target!=='fit'){ const h=pbHtml(d); if(h){ $('smNote').insertAdjacentHTML('beforeend',h); if(!d.달성) confetti(60); } }
     $('smBtns').innerHTML='<button class="primary" id="smMore" style="font-size:18px;padding:12px 24px">한 번 더 뛰기</button><button id="smClose">창 닫기</button>';
     $('smMore').onclick=()=>{ $('saveModal').classList.remove('on'); $('btnReset').click(); if(LINK.who){ LINK.who.오늘=d.오늘; const sm=$('who').querySelector('small'); if(sm) sm.textContent=sm.textContent.replace(/오늘 \d+회/,'오늘 '+d.오늘+'회'); } };
     $('smClose').onclick=()=>{ window.close(); setTimeout(()=>{ $('smNote').textContent+=' — 이 창을 닫고 앱으로 돌아가 새로고침하면 기록이 보여요.'; },300); };
