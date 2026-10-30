@@ -118,8 +118,22 @@
   .others span{background:var(--soft);border:1px solid var(--line);border-radius:99px;padding:4px 12px}
 
   /* QR */
-  .qr{position:fixed;inset:0;background:rgba(31,36,48,.55);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:20px;z-index:24}
-  .qrBox{background:var(--card);border-radius:28px;padding:28px 32px;display:flex;gap:28px;align-items:center;flex-wrap:wrap;justify-content:center;max-width:min(1100px,96vw)}
+  .qr{position:fixed;inset:0;background:rgba(31,36,48,.55);backdrop-filter:blur(4px);display:flex;align-items:flex-start;justify-content:center;padding:20px;z-index:24;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .qrBox{position:relative;margin:auto;background:var(--card);border-radius:28px;padding:28px 32px;display:flex;gap:28px;align-items:center;flex-wrap:wrap;justify-content:center;max-width:min(1100px,96vw)}
+  .qrX{position:absolute;top:10px;right:10px;width:44px;height:44px;min-height:44px;padding:0;border-radius:50%;font-size:24px;line-height:1;display:grid;place-items:center;z-index:1}
+  /* 휴대폰: QR을 줄이고 글씨도 줄여서 닫기 버튼까지 한 화면에 — 넘치면 스크롤 */
+  @media (max-width:700px){
+    .qr{padding:10px}
+    .qrBox{padding:54px 16px 16px;gap:14px;border-radius:22px} .qrX{top:8px;right:8px;width:40px;height:40px;min-height:40px}
+    #qrImg{padding:8px}
+    #qrImg img,#qrImg canvas{width:min(38vh,56vw)!important}
+    .qrText{gap:10px}
+    .qrText h3{font-size:24px;padding-right:40px}
+    .qrText p{font-size:15px;line-height:1.55}
+    .qrText p.small{display:none}
+    .qrJoin{padding:10px 12px}
+    .qrText code{font-size:11px;word-break:break-all}
+  }
   #qrImg{background:#fff;padding:14px;border-radius:16px;border:1px solid var(--line)}
   #qrImg img,#qrImg canvas{display:block;width:min(56vh,70vw)!important;height:auto!important;image-rendering:pixelated}
   .qrText{display:flex;flex-direction:column;gap:14px;max-width:420px}
@@ -415,7 +429,7 @@
 </div>
 
 <div class="qr" id="qr" hidden>
-  <div class="qrBox">
+  <div class="qrBox"><button class="qrX" id="btnQrX" title="닫기">×</button>
     <div id="qrImg"></div>
     <div class="qrText">
       <h3 id="qrTitle"></h3>
@@ -2334,7 +2348,7 @@ $('btnSort').onclick=()=>{ S.sort=S.sort==='no'?'cnt':'no'; $('btnSort').textCon
 function hdrFit(){ const h=document.querySelector('header'); if(h) document.documentElement.style.setProperty('--hdr',(h.offsetTop+h.offsetHeight+4)+'px'); }
 window.addEventListener('resize',hdrFit); hdrFit();
 document.querySelectorAll('header .mark, header h1').forEach(el=>{ el.title='메인 화면(다 같이 뛰기)으로'; el.onclick=()=>{ const open=[...document.querySelectorAll('.chal')].find(e=>!e.hidden); if(!open) return; const back=open.querySelector('.ch-top button[id$="Back"]'); if(back) back.click(); }; });
-$('btnQr').onclick=showQr; $('btnQrClose').onclick=()=>$('qr').hidden=true;
+$('btnQr').onclick=showQr; $('btnQrClose').onclick=()=>$('qr').hidden=true; $('btnQrX').onclick=()=>$('qr').hidden=true; $('qr').addEventListener('click',e=>{ if(e.target===$('qr')) $('qr').hidden=true; });   // 휴대폰: 위쪽 × · 바깥 눌러 닫기
 // 놀이 화면마다 위쪽에 QR 버튼 — 늦게 온 친구도 어느 놀이에서든 바로 들어오게
 // 허브도 놀이 화면에서 바로 열고 닫기, 팀을 쓰는 놀이(박 터트리기·팀 릴레이)에는 팀 나누기
 // 놀이 화면 닫기: '다 같이 뛰기로' 글자 대신 X (누르면 메인으로)
