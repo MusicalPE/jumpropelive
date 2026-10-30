@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v1.3.9</title>
+<title>점프 라이브 v1.4.0</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -95,6 +95,20 @@
   .tile.s-off{border-style:dashed;opacity:.6} .tile.s-off .st{color:var(--red)}
   .tile.s-none{opacity:.38;box-shadow:none;border-style:dashed} .tile.s-none .n{color:var(--muted)}
   .tile.rank1{outline:4px solid var(--accent);outline-offset:-2px}
+  /* 1.4.0 줄넘기 점검 판 · 뛰는 중 멈춘 칸 · 큰 글씨 */
+  .tile .xtag{flex:none;margin-left:auto;align-self:center;font-size:12px;font-weight:800;color:#fff;border-radius:99px;padding:2px 9px} .tile .dup+.xtag{margin-left:6px}
+  .tile.x-ok{border-color:var(--mint)!important;background:var(--mint-soft)!important} .tile.x-ok .st{color:#0F8F80!important} .tile.x-ok .xtag{background:var(--mint)}
+  .tile.x-bad{border-color:var(--red)!important;background:var(--red-soft)!important;opacity:1} .tile.x-bad .st{color:var(--red)!important} .tile.x-bad .xtag{background:var(--red)}
+  .tile.x-low{border-color:var(--amber)!important;background:var(--amber-soft)!important} .tile.x-low .st{color:#B86E0C!important} .tile.x-low .xtag{background:var(--amber)}
+  .tile.x-wait .st{color:var(--muted)!important} .tile.x-wait .st::before,.tile.x-ok .st::before,.tile.x-bad .st::before{animation:none}
+  .tile.x-stall{border:3px dashed var(--amber)!important;background:var(--amber-soft)!important} .tile.x-stall .st{color:#B86E0C!important} .tile.x-stall .xtag{background:var(--amber)} .tile.x-stall .st::before{animation:none}
+  .tile.x-zero{border:3px dashed var(--red)!important;background:var(--red-soft)!important} .tile.x-zero .st{color:var(--red)!important} .tile.x-zero .xtag{background:var(--red)} .tile.x-zero .st::before{animation:none}
+  .chkbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 16px;border-radius:18px;background:var(--card);border:2px solid var(--mint);box-shadow:var(--shadow)}
+  .chkbar h3{margin:0;font-size:22px} .chkbar .pl{font-weight:800;border-radius:99px;padding:5px 14px;font-size:15px}
+  .chkbar .pl.g{background:var(--mint-soft);color:#0F766E} .chkbar .pl.r{background:var(--red-soft);color:var(--red)} .chkbar .pl.a{background:var(--amber-soft);color:#B86E0C} .chkbar .pl.m{background:var(--soft);color:var(--muted)}
+  .chkbar small{color:var(--muted);font-size:14px} .chkbar button{min-height:40px;padding:6px 14px;font-size:15px}
+  body.bigtxt .tile .who{font-size:clamp(20px,2.4vw,34px)} body.bigtxt .tile .n{font-size:clamp(60px,var(--nf,8vw),170px)}
+  body.bigtxt .tile .n small,body.bigtxt .tile .rt,body.bigtxt .tile .srcs{display:none} body.bigtxt .tile .st{font-size:18px}
   .tile.bump .n{animation:bump .25s}
   @keyframes bump{0%{transform:scale(1.08)}100%{transform:scale(1)}}
   @keyframes pulse{50%{transform:scale(1.6);opacity:.5}}
@@ -319,8 +333,8 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v1.3.9</span></h1>
-    <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button><button id="btnDev" title="돌려 쓰는 기기(노트북·태블릿) 찾기" hidden>기기</button><button id="btnLm" title="다른 학교와 같은 시각에 함께 뛰기 (실시간 대결 · 함께 박 깨기)" hidden>학교와 함께</button></div>
+    <h1>점프 라이브<span class="ver">v1.4.0</span></h1>
+    <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnChk" title="수업 전·쉬는 시간에 줄넘기·카메라가 잘 세는지 세 번씩 뛰어 확인해요 (기록에 안 들어가요)">줄넘기 점검</button><button id="btnBig" title="교실 뒤에서도 보이게 이름·숫자를 크게">큰 글씨</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button><button id="btnDev" title="돌려 쓰는 기기(노트북·태블릿) 찾기" hidden>기기</button><button id="btnLm" title="다른 학교와 같은 시각에 함께 뛰기 (실시간 대결 · 함께 박 깨기)" hidden>학교와 함께</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
     <button id="btnClose" class="hdr-close" hidden title="방을 닫고 학생 연결 끊기">방 닫기</button>
@@ -394,6 +408,7 @@
       <button id="btnSort">횟수순</button>
       <button id="btnResult" disabled>결과</button>
     </div>
+    <div class="chkbar" id="chkBar" hidden></div>
     <div class="grid" id="grid"></div>
     <div class="card others" id="others" hidden></div>
   </section>
@@ -899,6 +914,62 @@ const isRope=d=>!!d&&(d.hub||/-r$/.test(String(d.v||'')));   // 허브 줄넘기
 function srcIcons(r){ if(!r.cam&&!r.rope) return '';
   const both=r.cam&&r.rope, one=(ic,k,t)=>`<span class="src ${k}${both&&r.src&&r.src!==k?' dim':''}" title="${t}">${ic}</span>`;
   return `<span class="srcs"${both?' title="카메라 기기와 줄넘기 둘 다 들어왔어요 — 높은 횟수 하나만 기록해요"':''}>${r.cam?one(IC_CAM,'cam','카메라 기기로 들어왔어요'):''}${r.rope?one(IC_ROPE,'rope','줄넘기(허브·블루투스)로 들어왔어요'):''}</span>`; }
+/* ---------- 1.4.0: 줄넘기 점검 판 · 뛰는 중 멈춘 칸 표시 · 큰 글씨 ----------
+   점검: 기록에 안 들어가는 연습 판(제한 없음). 3회 이상 = OK, 15초가 지나도 0회 = 확인, 허브 줄넘기가 대답이 없으면 = 신호 없음, 배터리 30% 아래 = 주황
+   멈춘 칸: 반 전체가 뛰는 판에서 숫자가 8초 넘게 그대로(다른 친구는 오르는 중)면 주황 점선, 시작하고 15초가 지나도 0회면 빨강 점선 — 표시만, 소리 없음 */
+const STALL_MS=8000, ZERO_MS=15000;
+S.chg={};   // 학생마다 숫자가 마지막으로 바뀐 때
+function ropeOfKey(k){ if(!HUB.on) return null; let best=null; Object.values(HUB.ropes).forEach(r=>{ if(!(r.n>0)) return; const st=hubStudent(r.n); if(st&&skey(st.g,st.c,st.n)===k&&(!best||(r.seen||0)>(best.seen||0))) best=r; }); return best; }
+function tileXAll(rows,runId,G){
+  const out={}, now=B.now(), c=S.ctl, t=Date.now();
+  rows.forEach(r=>{ const o=S.chg[r.k]; if(!o||o.run!==runId||o.cnt!==r.cnt) S.chg[r.k]={cnt:r.cnt,t,run:runId}; });
+  if(!runId||c.ph!=='go'||now<c.at) return out;
+  const el=now-c.at;
+  if(S.chk&&S.chk.id===runId){
+    rows.forEach(r=>{ const rp=ropeOfKey(r.k), right=rp?`줄 ${rp.n} · ${rp.batt==null?'—':rp.batt+'%'}`:r.cam?'카메라':'';
+      const low=rp&&rp.batt!=null&&rp.batt<30;
+      let x;
+      if(r.st==='none'&&!rp) x={cls:'x-wait',lbl:'안 들어옴'};
+      else if(r.cnt>=3) x=low?{cls:'x-low',tag:'배터리',lbl:'잘 세요 · 충전'}:{cls:'x-ok',lbl:'잘 세요'};
+      else if(rp&&HUB.startAt&&(rp.data||0)<HUB.startAt&&Date.now()-HUB.startAt>6000) x={cls:'x-bad',tag:'확인',lbl:'신호 없음 · 껐다 켜기'};
+      else if(r.cnt===0&&el>ZERO_MS) x={cls:'x-bad',tag:'확인',lbl:rp?'0회 · 허브 가까이':'0회 · 자리 확인'};
+      else x={cls:'x-wait',lbl:r.cnt?'조금 더 뛰어 보세요':'세 번 뛰어 보세요'};
+      x.right=right; x.ck=x.cls; out[r.k]=x; });
+    return out;
+  }
+  const L=S.lastRun||{}; if(L.id!==runId||L.chal||L.relay||L.trel||L.mode==='rot') return out;   // 한 명씩 뛰는 놀이는 빼고
+  const moving=rows.some(r=>r.cnt>0&&t-(S.chg[r.k]||{}).t<3000);
+  rows.forEach(r=>{ if(!r.pick||r.pick.ctl!==runId||!/^(jump|stop|ready|hand)$/.test(r.st)||(G&&S.done[r.k])) return;
+    if(r.cnt===0&&el>ZERO_MS) out[r.k]={cls:'x-zero',tag:'0회',lbl:Math.floor(el/1000)+'초째 0회',right:''};
+    else if(r.cnt>0&&moving){ const w=t-(S.chg[r.k]||{t}).t; if(w>STALL_MS) out[r.k]={cls:'x-stall',tag:'멈춤',lbl:Math.floor(w/1000)+'초째 그대로',right:''}; } });
+  return out;
+}
+function chkBarRender(rows,XS){
+  const b=$('chkBar'); if(!b) return; b.hidden=false;
+  const n=k=>Object.values(XS).filter(x=>x.ck===k).length, joined=rows.filter(r=>r.st!=='none'||ropeOfKey(r.k)).length;
+  const ok=n('x-ok')+n('x-low'), bad=n('x-bad'), wait=rows.length-ok-bad, cd=S.ctl.ph==='go'&&B.now()<S.ctl.at;
+  b.innerHTML=`<h3>줄넘기 점검</h3>${cd?'<small>곧 시작해요 — 제자리에서 세 번 뛸 준비</small>':`<span class="pl g">잘 세요 ${ok} / ${rows.length}</span>${bad?`<span class="pl r">확인 필요 ${bad}</span>`:''}${n('x-low')?`<span class="pl a">충전 ${n('x-low')}</span>`:''}${wait?`<span class="pl m">아직 ${wait}</span>`:''}<small>기록에 안 들어가요 · ${joined}명 연결</small>`}<span class="spacer"></span><button id="chkAgain">다시 점검</button><button id="chkHub">줄넘기 허브</button><button class="dark" id="chkEnd">점검 끝내기</button>`;
+  $('chkAgain').onclick=()=>chkStart(true); $('chkEnd').onclick=()=>chkEnd(); $('chkHub').onclick=()=>{ $('hub').hidden=false; hubRender(); };
+}
+async function chkStart(again){
+  if(S.ctl.ph==='go'&&!(S.chk&&S.chk.id===S.ctl.id)) return alert('뛰는 중에는 점검할 수 없어요. 이 판이 끝난 뒤에 눌러 주세요.');
+  if(again&&S.chk) await chkEnd(true);
+  const id='k'+Date.now().toString(36), c={ph:'go',id,at:B.now()+3000,dur:0}; if(LITE) c.rv='live';
+  const prev=S.lastRun;
+  try{ await B.setControl(S.room,c); }catch(e){ return alert('점검 신호를 보내지 못했어요: '+e.message); }
+  S.chk={id,prev}; S.ctl=c; S.lastRun={id,dur:0,goal:0,at:c.at,rv:c.rv,chk:true}; S.done={}; S.prevCnt={}; S.chg={}; $('qr').hidden=true; $('btnChk').classList.add('on'); hubOnGo(id); render();
+}
+async function chkEnd(quiet){
+  if(!S.chk) return; const k=S.chk; S.chk=null;
+  const ce={ph:'end',id:k.id}; try{ await B.setControl(S.room,ce); }catch(e){}
+  S.ctl=ce; S.lastRun=k.prev||null; S.endShown=k.id; hubOnEnd(); $('btnChk').classList.remove('on'); $('chkBar').hidden=true; $('chkBar').innerHTML='';
+  if(!S.lastRun) S.lastRun={id:'',dur:0,goal:0,at:0};
+  if(!quiet) big('점검 끝!'); render();
+}
+function bigInit(){ const on=store.get('jl_big')==='1'; document.body.classList.toggle('bigtxt',on); $('btnBig').classList.toggle('on',on);
+  $('btnBig').onclick=()=>{ const v=!document.body.classList.contains('bigtxt'); document.body.classList.toggle('bigtxt',v); $('btnBig').classList.toggle('on',v); store.set('jl_big',v?'1':''); render(); };
+  $('btnChk').onclick=()=>{ if(S.chk) chkEnd(); else chkStart(); }; }
+
 function render(){
   $('hdrTools').hidden=$('btnClose').hidden=!S.room; slSync(); { const n=S.room?slotKeys().length:0; $('btnDev').hidden=!n; if(!n) $('devp').hidden=true; else if(!$('devp').hidden) devRender(); }   // 방을 연 뒤에만 맨 위 QR·허브·음악·방 닫기
   const all=liveDevs(), mine={}, others=[], gs=S.groups, M=multi();
@@ -931,12 +1002,14 @@ function render(){
   const top=Math.max(0,...rows.map(r=>r.cnt));
   // 화면에 다 들어오게 타일 크기 조절
   const W=$('grid').clientWidth||innerWidth-40, H=innerHeight-$('grid').getBoundingClientRect().top-24;
-  let best=110; for(let w=260;w>=110;w-=6){ const cols=Math.max(1,Math.floor((W+12)/(w+12))), rws=Math.ceil(total/cols); if(rws*(w*0.78+12)<=Math.max(H,300)){ best=w; break; } }
-  $('grid').style.setProperty('--tw',best+'px'); $('grid').style.setProperty('--th',Math.round(best*0.78)+'px'); $('grid').style.setProperty('--nf',Math.round(best/3.6)+'px');
-  const g=$('grid'); const html=order.map(r=>`<div class="tile s-${r.st}${!HID&&r.cnt&&r.cnt===top&&S.sort==='cnt'?' rank1':''}${G&&S.done[r.k]?' arrived':''}" data-k="${r.k}">
-      <div class="who">${M?`<span class="gc">${r.g}-${r.c}</span>`:''}<span class="no">${r.n}</span><span class="nm">${esc(r.name)}</span>${r.cam>1?`<span class="dup" title="같은 번호로 기기 ${r.cam}대가 들어왔어요">⚠<span class="w"> 기기</span> ${r.cam}대</span>`:''}</div>
+  const BIG=document.body.classList.contains('bigtxt'); let best=BIG?200:110; for(let w=BIG?420:260;w>=(BIG?200:110);w-=6){ const cols=Math.max(1,Math.floor((W+12)/(w+12))), rws=Math.ceil(total/cols); if(rws*(w*0.78+12)<=Math.max(H,300)){ best=w; break; } }
+  $('grid').style.setProperty('--tw',best+'px'); $('grid').style.setProperty('--th',Math.round(best*0.78)+'px'); $('grid').style.setProperty('--nf',Math.round(best/(BIG?2.4:3.6))+'px');
+  const XS=tileXAll(rows,runId,G);
+  const g=$('grid'); const html=order.map(r=>{ const X=XS[r.k]||{}; return `<div class="tile s-${r.st}${!HID&&r.cnt&&r.cnt===top&&S.sort==='cnt'&&!X.cls?' rank1':''}${G&&S.done[r.k]?' arrived':''}${X.cls?' '+X.cls:''}" data-k="${r.k}">
+      <div class="who">${M?`<span class="gc">${r.g}-${r.c}</span>`:''}<span class="no">${r.n}</span><span class="nm">${esc(r.name)}</span>${r.cam>1?`<span class="dup" title="같은 번호로 기기 ${r.cam}대가 들어왔어요">⚠<span class="w"> 기기</span> ${r.cam}대</span>`:''}${(XS[r.k]||{}).tag?`<span class="xtag">${XS[r.k].tag}</span>`:''}</div>
       <div class="n">${r.st==='none'?'—':HID?'<i class="lhbar"></i>':r.cnt+'<small>회</small>'}</div>
-      <div class="foot"><span class="st">${G&&S.done[r.k]?'도착 '+(Math.round(S.done[r.k]/100)/10).toFixed(1)+'초':(LBL[r.st]||r.st)}</span>${r.rate&&!HID?`<span class="rt">분당 ${r.rate}</span>`:''}${srcIcons(r)}</div></div>`).join('');
+      <div class="foot"><span class="st">${X.lbl||(G&&S.done[r.k]?'도착 '+(Math.round(S.done[r.k]/100)/10).toFixed(1)+'초':(LBL[r.st]||r.st))}</span>${X.right!=null?`<span class="rt">${X.right}</span>`:r.rate&&!HID?`<span class="rt">분당 ${r.rate}</span>`:''}${X.right!=null?'':srcIcons(r)}</div></div>`; }).join('');
+  if(S.chk) chkBarRender(rows,XS);
   g.innerHTML=html;
   rows.forEach(r=>{ if(S.prevCnt[r.k]!==undefined&&r.cnt>S.prevCnt[r.k]){ const t=g.querySelector(`[data-k="${r.k}"]`); if(t) t.classList.add('bump'); } S.prevCnt[r.k]=r.cnt; });
   const ot=others.filter(d=>d.st!=='off');
@@ -1203,7 +1276,7 @@ function hubModeCmd(){ const v=$('selDur').value, g=goalOf(v), d=durOf(v);
 function hubModeUi(){ const v=$('selDur').value, g=goalOf(v), d=durOf(v);
   $('hubModeTip').textContent='줄넘기 세기는 화면 위 "목표"를 따라가요 — '+(g?`${g}회가 되면 줄넘기가 스스로 멈춰요`:d?`${durTxt(d)}이 되면 줄넘기가 스스로 멈춰요`:'제한 없음: 끝을 누를 때까지 세요'); }
 function hubOnGo(id){ if(!HUB.on) return; clearTimeout(HUB.freeT); HUB.runId=id; HUB.one=0;   // HUB.one: 한 명만 뛰는 회차(랜덤 도전·릴레이)의 그 친구 줄넘기 — 진동도 그 줄넘기만
-  HUB.mode=S.lastRun&&(S.lastRun.chal||S.lastRun.mode||S.lastRun.relay)?(S.lastRun.dur?{m:'time',cmd:'time all '+S.lastRun.dur}:{m:'free',cmd:'free all'}):hubModeCmd(); HUB.autoEnd=false;
+  HUB.mode=S.lastRun&&(S.lastRun.chal||S.lastRun.mode||S.lastRun.relay||S.lastRun.chk)?(S.lastRun.dur?{m:'time',cmd:'time all '+S.lastRun.dur}:{m:'free',cmd:'free all'}):hubModeCmd(); HUB.autoEnd=false;
   Object.values(HUB.ropes).forEach(r=>{ r.cnt=0; r.ctl=''; r.lastUp=0; r.doneDs=0; r.trk=null; });
   const cmd=HUB.mode.cmd; hubSend('stop all').then(()=>setTimeout(()=>hubSend(cmd),300)); hubPush(); }
 function hubOnStart(){ if(!HUB.on||!HUB.runId) return; HUB.startAt=Date.now(); HUB.accept=true; clearTimeout(HUB.freeT);
@@ -1275,6 +1348,7 @@ async function go(){
 // 끝: 뛰는 중이면 바로 안 끊고 5·4·3·2·1 뒤에 끝 (회차 시간을 '지금+5초'로 줄여 학생 기기에도 같이 보냄)
 // 카운트다운 중에 한 번 더 누르면 바로 끝 · 시작 전(카운트다운 중)이나 목표 횟수 모두 도착이면 바로 끝
 async function end(now){
+  if(S.chk){ return chkEnd(); }   // 점검 판은 결과 없이 끝
   if(S.ctl.ph!=='go') return;
   const c=S.ctl, el=B.now()-c.at;
   if(!now&&el>=0&&S.ending!==c.id){
@@ -2253,7 +2327,7 @@ if(APPM){
 /* ---------- 시작 ---------- */
 $('btnIn').onclick=async()=>{ $('loginErr').textContent=''; try{ await B.signIn(); }catch(e){ $('loginErr').textContent='로그인하지 못했어요: '+(e.code==='auth/unauthorized-domain'?'Firebase 승인된 도메인에 이 주소가 없어요':(e.code==='auth/operation-not-allowed'||e.code==='auth/configuration-not-found')?'Firebase에서 로그인 기능(Authentication → Google)이 아직 켜져 있지 않아요':e.code==='auth/popup-blocked'?'팝업이 막혔어요 — 주소창 오른쪽에서 팝업을 허용해 주세요':(e.message||e)); } };
 $('btnOut').onclick=async()=>{ if(S.room&&!confirm('방이 열려 있어요. 방을 그대로 두고 로그아웃할까요?')) return; await B.signOut(); };
-musicInit(); hubInit();
+musicInit(); hubInit(); bigInit();
 $('btnOpen').onclick=openRoom; $('btnClose').onclick=closeRoom; $('btnGo').onclick=go; $('btnEnd').onclick=()=>end();
 $('btnSort').onclick=()=>{ S.sort=S.sort==='no'?'cnt':'no'; $('btnSort').textContent=S.sort==='no'?'횟수순':'번호순'; render(); };
 // 놀이 화면에서도 맨 위 '점프 라이브' 줄은 보이게 — 그 아래부터 놀이 화면. 로고·제목을 누르면 메인(다 같이 뛰기)으로
