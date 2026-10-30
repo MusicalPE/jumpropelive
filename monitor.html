@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v1.3.4</title>
+<title>점프 라이브 v1.3.5</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -309,7 +309,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v1.3.4</span></h1>
+    <h1>점프 라이브<span class="ver">v1.3.5</span></h1>
     <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button><button id="btnDev" title="돌려 쓰는 기기(노트북·태블릿) 찾기" hidden>기기</button><button id="btnLm" title="다른 학교와 같은 시각에 함께 뛰기 (실시간 대결 · 함께 박 깨기)" hidden>학교와 함께</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
@@ -1064,11 +1064,15 @@ function hubRope(n){ n=+n; if(!(n>0)) return null; return HUB.ropes[n]=HUB.ropes
 // 줄넘기 번호 → 학생 {g,c,n}
 // 시작 신호를 놓친 줄넘기 다시 깨우기: 뛰는 중인데 멈춤 상태로 0회면 그 줄넘기에만 모드·시작을 다시 보냄 (한 회차에 2번까지)
 //  허브의 'all' 신호는 가끔 한두 개 줄넘기가 못 받음 — 랜덤 도전처럼 한 명만 뛸 때 특히 티가 남. 0회일 때만 보내서 센 횟수는 안 지워짐
-function hubKick(r,c,stop,now){
-  if(!HUB.startAt||now-HUB.startAt<1200||c!==0||!stop||stop==='0'||S.ctl.ph!=='go'||!hubStudent(r.n)) return;
-  if(r.kickRun!==HUB.runId){ r.kickRun=HUB.runId; r.kicks=0; } if(r.kicks>=2||now-(r.kickT||0)<1500) return;
+function hubKick(r,c,stop,now,force){
+  if(!HUB.startAt||now-HUB.startAt<1200||S.ctl.ph!=='go'||!hubStudent(r.n)) return;
+  if(!force&&(c!==0||!stop||stop==='0')) return;
+  if(r.kickRun!==HUB.runId){ r.kickRun=HUB.runId; r.kicks=0; } if(r.kicks>=6||now-(r.kickT||0)<2000) return;   // 멀리 있는 줄넘기는 한두 번으론 못 받을 때가 있어 6번까지 (2초 간격)
   r.kicks++; r.kickT=now; const m=HUB.mode&&HUB.mode.cmd?HUB.mode.cmd.replace(' all',' '+r.n):'';
-  (m?hubSend(m):Promise.resolve()).then(()=>setTimeout(()=>hubSend('start '+r.n),250)); }
+  (m?hubSend(m):Promise.resolve()).then(()=>setTimeout(()=>hubSend('start '+r.n),250)); hubRender(); }
+// 시작 뒤 2.5초가 지나도 아무 대답(DATA)이 없는 줄넘기: 'all' 신호를 통째로 못 받은 것 — 그 줄넘기에만 따로 다시 보냄
+function hubKickSilent(){ const now=Date.now(); if(!HUB.startAt||now-HUB.startAt<2500) return;
+  Object.values(HUB.ropes).forEach(r=>{ if(r.seen&&HUB.startAt-r.seen<60000&&(r.data||0)<HUB.startAt) hubKick(r,0,'1',now,true); }); }
 function hubStudent(n){
   const m=HUB.map[n]; if(m==='-') return null;   // 조별 차례에서 이번 조에 안 쓰는 줄넘기
   if(m){ const p=m.split('-').map(Number); if(S.groups.some(x=>x.g===p[0]&&x.c===p[1]&&hasSeat(x,p[2]))) return {g:p[0],c:p[1],n:p[2]}; }
@@ -1131,8 +1135,8 @@ function hubRender(){
   const rs=all.filter(r=>HUB.showOff||cur(r)), off=all.filter(r=>!cur(r));
   const row=r=>{ const k=cur(r), on=r.seen&&now-r.seen<20000, dup=k&&cnt[k]>1;
     return `<tr data-n="${r.n}"${dup?' style="background:#FDE8E4"':''}><td class="no">${r.n}</td><td><select data-map><option value="-"${k?'':' selected'}>안 씀</option>${S.groups.length?'':'<option value="" disabled>방을 먼저 열어요</option>'}${opts.map(([v,l])=>`<option value="${v}"${v===k?' selected':''}>${esc(l)}</option>`).join('')}</select>${dup?'<div style="color:var(--red);font-size:12px">다른 줄넘기와 같은 학생이에요</div>':''}</td>
-      <td><span class="dot ${on?'on':''}"></span>${on?'연결':'끊김'}</td><td${r.batt!=null&&r.batt<30?' style="color:var(--red);font-weight:800" title="충전이 필요해요"':''}>${r.batt==null?'—':r.batt+'%'}</td><td>${k&&r.ctl?r.cnt:'—'}${r.doneDs?' ✓':''}</td>
-      <td><button data-act="show" title="줄넘기 화면에 번호 띄우기">번호</button> <button data-act="vib" title="진동과 벨로 이 줄넘기 찾기">찾기</button> <button data-act="num" title="이 줄넘기 번호 바꾸기">바꾸기</button>${k?' <button data-act="off" title="이 줄넘기는 안 써요 — 목록 아래로 접고 기록도 받지 않아요">빼기</button>':''}</td></tr>`; };
+      <td><span class="dot ${on?'on':''}"></span>${on?'연결':'끊김'}${k&&S.ctl.ph==='go'&&r.kickRun===HUB.runId&&r.kicks&&!(r.ctl&&r.cnt)?'<div style="color:var(--red);font-size:12px">시작 신호를 못 받음 — 허브 가까이로</div>':''}</td><td${r.batt!=null&&r.batt<30?' style="color:var(--red);font-weight:800" title="충전이 필요해요"':''}>${r.batt==null?'—':r.batt+'%'}</td><td>${k&&r.ctl?r.cnt:'—'}${r.doneDs?' ✓':''}</td>
+      <td>${S.ctl.ph==='go'&&k?'<button data-act="wake" title="이 줄넘기에만 시작 신호를 다시 보내요 (센 횟수가 0일 때)">깨우기</button> ':''}<button data-act="show" title="줄넘기 화면에 번호 띄우기">번호</button> <button data-act="vib" title="진동과 벨로 이 줄넘기 찾기">찾기</button> <button data-act="num" title="이 줄넘기 번호 바꾸기">바꾸기</button>${k?' <button data-act="off" title="이 줄넘기는 안 써요 — 목록 아래로 접고 기록도 받지 않아요">빼기</button>':''}</td></tr>`; };
   $('hubBody').innerHTML=(rs.map(row).join('')
     + (off.length?`<tr><td colspan="6" style="color:var(--muted);white-space:normal">안 쓰는 줄넘기 ${off.length}개 (${off.map(r=>r.n).join(', ')}번) — 기록을 받지 않아요 <button data-act="showoff">${HUB.showOff?'접기':'펼치기'}</button></td></tr>`:''))
     || '<tr><td colspan="6" style="color:var(--muted)">아직 줄넘기가 없어요 — 줄넘기를 켜거나 "줄넘기 찾기"를 눌러요</td></tr>';
@@ -1189,7 +1193,7 @@ function hubOnStart(){ if(!HUB.on||!HUB.runId) return; HUB.startAt=Date.now(); H
   hubSend('start all').then(()=>{ if(one) setTimeout(()=>hubSend('start '+one),150); if($('hubBuzz').checked) setTimeout(()=>hubSend(one?'vibrate '+one:'vibrate all'),one?450:250); }); hubStartPoll(); hubPush(); }
 function hubStartPoll(){ hubStopPoll(); HUB.polling=true;
   const tick=async()=>{ if(!HUB.polling||!HUB.on) return; const t=Date.now(); HUB.pollT=t; await hubSend('getData all');
-    setTimeout(()=>{ if(!HUB.polling) return; Object.values(HUB.ropes).forEach(r=>{ if(r.seen&&Date.now()-r.seen<20000&&r.data<t) hubSend('getData '+r.n); }); },650);
+    setTimeout(()=>{ if(!HUB.polling) return; Object.values(HUB.ropes).forEach(r=>{ if(r.seen&&Date.now()-r.seen<20000&&r.data<t) hubSend('getData '+r.n); }); hubKickSilent(); },650);
     HUB.timer=setTimeout(tick,1200); };
   tick(); }
 function hubStopPoll(){ HUB.polling=false; clearTimeout(HUB.timer); }
@@ -1228,6 +1232,7 @@ function hubInit(){
     if(b.dataset.act==='showoff'){ HUB.showOff=!HUB.showOff; hubRender(); return; }
     const n=b.closest('tr').dataset.n;
     if(b.dataset.act==='off') hubAssign(n,'-');
+    else if(b.dataset.act==='wake'){ const r=HUB.ropes[n]; if(r&&!(r.ctl&&r.cnt)){ r.kickT=0; hubKick(r,0,'1',Date.now(),true); hubMsg(n+'번 줄넘기에 시작 신호를 다시 보냈어요'); } else hubMsg(n+'번 줄넘기는 이미 세고 있어요'); }
     else if(b.dataset.act==='show') hubSend('showId '+n);
     else if(b.dataset.act==='vib'){ hubSend('vibrate '+n); setTimeout(()=>hubSend('buzzer '+n),250); }
     else if(b.dataset.act==='num'){ const v=prompt(n+'번 줄넘기를 몇 번으로 바꿀까요?',''); const m=+v; if(!(m>0&&m<=99)) return;
