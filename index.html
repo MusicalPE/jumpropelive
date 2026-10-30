@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 판정기 v1.3.4 · 카메라로 진짜 뛰는지 보기</title>
+<title>줄넘기 판정기 v1.3.5 · 카메라로 진짜 뛰는지 보기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -314,6 +314,21 @@
   .pbx{display:flex;flex-direction:column;gap:2px;margin-top:10px;padding:10px 14px;border-radius:12px;background:linear-gradient(90deg,#FFF0EE,#FFF5E6);border:1px solid #FFD3CC;text-align:left}
   .pbx b{font-size:18px;color:#E2513F} .pbx span{font-size:14px;color:#3B4252}
   .pbx.st{background:#E7F7F5;border-color:#BDE8E2} .pbx.st b{color:#14857A}
+  /* 대결 결과 (각자 기기로 대결 1대1·2대2 · 한 대로 둘이) */
+  .dv{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;margin:4px 0}
+  .dv .sd{border-radius:18px;padding:12px 10px;text-align:center;display:flex;flex-direction:column;gap:2px;background:var(--accent-soft)}
+  .dv .sd.b{background:var(--mint-soft)}
+  .dv .sd .n{font-size:17px;font-weight:700;color:var(--ink)} .dv .sd .c{font-size:44px;font-weight:800;line-height:1.1;color:var(--accent-ink)} .dv .sd.b .c{color:#14857A}
+  .dv .sd small{font-size:13px;color:var(--muted);font-weight:600}
+  .dv .sd.me{box-shadow:inset 0 0 0 2px var(--accent)} .dv .sd.b.me{box-shadow:inset 0 0 0 2px var(--mint)}
+  .dv .w{display:inline-block;font-size:12px;font-weight:800;color:#fff;background:var(--amber);border-radius:99px;padding:2px 9px;margin:0 auto 2px}
+  .dv .vs{font-weight:900;color:var(--muted);font-size:18px}
+  .dvAnn{text-align:center;font-size:22px;font-weight:800;color:var(--accent-ink);margin:6px 0 2px} .dvAnn.b{color:#14857A} .dvAnn.tie{color:var(--ink2)}
+  .dvCheer{text-align:center;font-size:16px;font-weight:700;color:var(--ink2)}
+  .stuChip{border:1px solid var(--line);border-radius:99px;padding:8px 16px;font-weight:700;font-size:16px;background:#fff;min-height:42px}
+  .stuChip.on{background:var(--accent-soft);border-color:#FFD3CC;color:var(--accent-ink)}
+  .stuTeam{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:6px 10px;border-radius:14px;background:var(--accent-soft)}
+  .stuTeam.b{background:var(--mint-soft)} .stuTeam>b{font-size:15px;min-width:44px;color:var(--accent-ink)} .stuTeam.b>b{color:#14857A}
 </style>
 </head>
 <body>
@@ -321,7 +336,7 @@
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
     <div class="titles">
-      <h1>줄넘기 판정기<span class="ver">v1.3.4</span></h1>
+      <h1>줄넘기 판정기<span class="ver">v1.3.5</span></h1>
       <span class="sub">머리부터 발까지 보이게 서서, 몸이 뜨고 팔이 돌 때만 1회로 세요</span>
     </div>
     <div class="who" id="who"></div>
@@ -558,7 +573,7 @@ const $=id=>document.getElementById(id);
 const video=$('video'), cv=$('overlay'), cx=cv.getContext('2d');
 let landmarker=null, stream=null, facing='user', running=false, t0=0, raf=0, lastVideoT=-1, frames=0, fpsT=0;
 /* ---------- 앱 연동: 체육교사 보조 프로그램의 줄넘기 화면에서 열리면 ?app=앱주소&t=학생표&kind=종류 가 붙어 와요 ---------- */
-const VER='1.3.4';
+const VER='1.3.5';
 const Q=new URLSearchParams(location.search);
 const LINK={ app:Q.get('app')||'', t:Q.get('t')||'', kind:Q.get('kind')||'', sens:+(Q.get('sens')||0)||0, target:(Q.get('target')==='fit'?'fit':'rope'), who:null, saved:null,
   // mode=post : 오프라인판(파일로 여는 프로그램)이 연 창. 서버 대신 window.opener.postMessage 로 결과를 돌려준다.
@@ -590,10 +605,11 @@ async function linkInit(){
     const tag=LINK.target==='fit'?(d.대상||'건강체력교실 줄넘기'):(LINK.kind||'줄넘기');
     w.innerHTML=`<b>${d.학년}학년 ${d.반}반 ${d.번호}번 ${d.이름}</b><small>${tag} · 오늘 ${d.오늘}회 / ${LINK.target==='fit'?'기준':'목표'} ${d.하루목표}회${d.포인트안내?' · '+d.포인트안내:''}</small>`;
     $('btnStart').textContent='시작';
-    if(d.방&&LINK.target==='rope'&&!LIVE.on) stuOffer(); }
+    if(d.방&&LINK.target==='rope'&&!LIVE.on){ stuOffer(); if(DUEL) stuModal('1v1'); }
+    else if(DUEL&&LINK.target==='rope') w.innerHTML+='<small style="color:var(--red)"> · 각자 기기로 대결은 학교 껍데기 6판부터 돼요 (선생님께 말씀드려요) — 혼자 뛰기는 돼요</small>'; }
   catch(e){ w.innerHTML=`<span style="color:var(--red)">앱 연결 실패: ${e.message}</span><small>세어 보기만 돼요 (앱에서 다시 열어 주세요)</small>`; LINK.app=''; LINK.linked=false; }
 }
-// 2인 기록: 앱에서 "친구와 둘이"로 열면 표가 두 장(t, t2) — 왼쪽은 나, 오른쪽은 친구. 끝나면 두 사람 기록을 각자 저장
+// 2인 기록: 앱에서 "한 대로 둘이"(예전 이름 '친구와 둘이')로 열면 표가 두 장(t, t2) — 왼쪽은 나, 오른쪽은 친구. 끝나면 두 사람 기록을 각자 저장
 async function pairInit(w){
   w.innerHTML='두 사람을 앱과 연결하는 중…';
   try{ const [a,b]=await Promise.all([appApi('rope_x_who'),appApi('rope_x_who',null,LINK.t2)]); LINK.who=a; LINK.who2=b;
@@ -608,10 +624,12 @@ async function pairInit(w){
 function openSaveModal2(){
   const sa=TWO.a.state(), sb=TWO.b.state(), sec=Math.round((performance.now()-t0)/1000), A=LINK.who, B=LINK.who2;
   LINK.saved=null; LINK.saved2=null;
-  const col=(n,w)=>`<span style="display:flex;flex-direction:column;align-items:center;gap:6px"><span>${n}<small style="font-size:.4em;color:var(--muted)"> 회</small></span><span style="font-family:var(--ui);font-size:20px;font-weight:700;letter-spacing:0;line-height:1.2;color:var(--muted)">${w}</span></span>`;
-  $('smCount').innerHTML=`<span style="display:flex;gap:40px;justify-content:center;align-items:flex-start;font-size:.62em">${col(sa.count,A.이름)}${col(sb.count,B.이름)}</span>`;
-  $('smTitle').textContent='두 사람 기록을 저장할까요?'; $('smErr').textContent='';
-  $('smNote').textContent=fmtSec(sec)+(sa.count<1||sb.count<1?' · 0회인 친구는 기록하지 않아요':'');
+  // 1.3.5: 한 대로 둘이도 누가 이겼는지 (왼쪽 주황 · 오른쪽 초록)
+  const win=sa.count===sb.count?'':sa.count>sb.count?'a':'b';
+  const col=(n,w,k)=>`<span style="display:flex;flex-direction:column;align-items:center;gap:6px">${win===k?'<span style="font-family:var(--ui);font-size:15px;font-weight:800;letter-spacing:0;color:#fff;background:var(--amber);border-radius:99px;padding:2px 12px">승리</span>':'<span style="height:24px"></span>'}<span style="color:${k==='a'?'var(--accent-ink)':'#14857A'}">${n}<small style="font-size:.4em;color:var(--muted)"> 회</small></span><span style="font-family:var(--ui);font-size:20px;font-weight:700;letter-spacing:0;line-height:1.2;color:var(--muted)">${k==='a'?'왼쪽':'오른쪽'} · ${esc(w)}</span></span>`;
+  $('smCount').innerHTML=`<span style="display:flex;gap:28px;justify-content:center;align-items:center;font-size:.62em">${col(sa.count,A.이름,'a')}<span style="font-family:var(--ui);font-size:22px;font-weight:900;color:var(--muted);letter-spacing:0">VS</span>${col(sb.count,B.이름,'b')}</span>`;
+  $('smTitle').textContent=win?`${win==='a'?A.이름:B.이름} 승리! ${Math.abs(sa.count-sb.count)}회 차이`:`비겼어요! 둘 다 ${sa.count}회`; $('smErr').textContent='';
+  $('smNote').textContent='둘 다 기록할까요? · '+fmtSec(sec)+(sa.count<1||sb.count<1?' · 0회인 친구는 기록하지 않아요':'');
   $('smBtns').innerHTML='<button class="primary" id="smSave" style="font-size:18px;padding:12px 24px">둘 다 기록하기</button><button id="smAgain">다시 뛰기</button>';
   $('smSave').onclick=()=>sendResult2(sa,sb,sec); $('smAgain').onclick=()=>{ $('saveModal').classList.remove('on'); $('btnReset').click(); };
   if(sa.count<1&&sb.count<1){ $('smErr').textContent='1회 이상일 때만 기록할 수 있어요. 조금 더 뛰어 봐요!'; $('smSave').disabled=true; }
@@ -688,7 +706,7 @@ function twoWhy(){
   if(ROPE.on) return '블루투스 줄넘기로 셀 때는 1인으로 써요.';
   if(STU.on) return '친구 방(함께 뛰기)에서는 1인으로 써요.';
   if(LIVE.on){ if(!LIVE.ok||!LIVE.me) return '먼저 내 번호를 골라요. 그다음 2인을 누르면 오른쪽 친구 번호를 골라요.'; if(LIVE.me.n>60) return '돌려 쓰는 기기는 1인으로 써요.'; return ''; }
-  if(LINK.linked&&!LINK.t2) return '2인으로 기록하려면 앱에서 "👥 친구와 둘이"로 열어 주세요.';
+  if(LINK.linked&&!LINK.t2) return '2인으로 기록하려면 앱에서 "한 대로 둘이"로 열어 주세요.';
   return '';
 }
 function twoReset(){ [TWO.a,TWO.b].forEach(d=>{ d.minAmp=det.minAmp; d.reset(); }); TWO.la=TWO.lb=0; $('cntA').textContent='0'; $('cntB').textContent='0'; }
@@ -934,35 +952,50 @@ const LIVE={ room:'', on:false, ok:false, dev:'', me:null, T:null, sent:null, la
 { const r=Q.get('room')||''; if(/^[A-Za-z0-9_-]{20,64}$/.test(r)){ LIVE.room=r; LIVE.on=true; } }
 // 점프 Live (Lite): &ls=학교 시트 스크립트 주소 가 있으면 Firebase 대신 그 학교 시트로 주고받음 (3초쯤마다)
 { const v=Q.get('ls')||''; LIVE.shell=/^https:\/\/script\.google(usercontent)?\.com\//.test(v)?v:''; }
-const CLUB=Q.get('club')==='1';   // 클럽판(스포츠클럽·도장)에서 열면 '학교' 대신 '클럽'
+const CLUB=Q.get('club')==='1';
+const DUEL=Q.get('duel')==='1';   // 앱의 '각자 기기로 대결'로 열면 방 만들기·들어가기 창을 띄운 채로 (1.3.5)   // 클럽판(스포츠클럽·도장)에서 열면 '학교' 대신 '클럽'
 
 /* ---------- 학생 방: 친구들과 함께 뛰기 (점프 Live (Lite) · 껍데기 6판) ----------
    앱에서 "카메라로 뛰기"로 연 학생이 방을 만들면 4자리 방 번호가 생기고, 친구들이 그 번호로 들어옴.
    큰 화면 없이 모두 이 판정기로 뛰고(방장이 시작), 끝나면 각자 화면에 함께 뛴 결과. 내 기록은 승인 대기로 */
 const esc=v=>String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-const STU={ on:false, host:false, owner:'', code:'', board:null, poll:0, lastRun:'', endT:0, hostName:'' };
+const STU={ on:false, host:false, owner:'', code:'', board:null, poll:0, lastRun:'', endT:0, hostName:'', mode:'all', tm:null, dur:60, capChk:false };
+/* 각자 기기로 대결 (1.3.5): 방식 all(다 같이) · 1v1 · 2v2. 방식과 팀은 방장이 신호(ctl)에 실어 보내서 껍데기 6·7판에서도 됨.
+   껍데기 8판은 인원 제한을 학교 시트가 직접 막고(꽉 찬 방엔 못 들어옴), 나가면 명단에서 빠짐. 그 전 판은 들어온 순서로 앞의 2명·4명만 선수 */
+const STU_CAP={all:40,'1v1':2,'2v2':4}, STU_NM={all:'다 같이','1v1':'1대1','2v2':'2대2'};
 async function stuRpc(fn,args){
   const r=await fetch(LINK.app,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn,args}),redirect:'follow'});
   if(!r.ok) throw new Error('HTTP '+r.status); const j=await r.json(); if(!j.ok) throw new Error(j.error||(CLUB?'클럽':'학교')+' 시트가 거절했어요'); return j.result; }
 function stuOffer(){
   if($('stuBtn')) return;
   const b=document.createElement('button'); b.id='stuBtn'; b.className='ropeBtn'; b.style.cssText='margin:6px auto 0;display:block;min-height:44px;padding:8px 18px;font-size:16px';
-  b.textContent='친구들과 함께 뛰기'; b.onclick=stuModal; $('who').after(b);
+  b.textContent='각자 기기로 함께 뛰기 · 대결'; b.onclick=()=>stuModal(); $('who').after(b);
 }
-function stuModal(){
+function stuModal(def){
   let m=$('stuModal');
   if(!m){ m=document.createElement('div'); m.id='stuModal'; m.className='modal'; document.body.appendChild(m); }
-  m.innerHTML=`<div class="box" style="max-width:460px"><h3>친구들과 함께 뛰기</h3>
-    <p style="margin:0;color:var(--muted)">방을 만들면 방 번호가 생겨요. 친구들은 자기 기기에서 그 번호로 들어와요. 끝나면 모두의 결과를 함께 보고, 내 기록은 선생님이 승인하면 들어가요.</p>
+  let mode=STU_CAP[def]?def:'all', dur=STU.dur||60;
+  m.innerHTML=`<div class="box" style="max-width:470px"><h3>${mode==='all'?'각자 기기로 함께 뛰기':'각자 기기로 대결'}</h3>
+    <p style="margin:0;color:var(--muted)">방을 만들면 방 번호 4자리가 생겨요. 친구는 자기 기기에서 그 번호로 들어와요. 끝나면 결과를 함께 보고, 기록은 선생님이 승인하면 들어가요.</p>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-weight:700;color:var(--ink2)">방식 <span id="stuMd" style="display:flex;gap:6px;flex-wrap:wrap"></span></div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-weight:700;color:var(--ink2)">시간 <span id="stuTm" style="display:flex;gap:6px;flex-wrap:wrap"></span></div>
     <button class="primary" id="stuMake" style="font-size:18px;padding:12px">방 만들기</button>
     <div style="display:flex;gap:8px;align-items:center;justify-content:center"><input id="stuCode" inputmode="numeric" maxlength="4" placeholder="방 번호 4자리" style="font:inherit;font-size:22px;font-weight:800;width:170px;text-align:center;padding:10px;border-radius:14px;border:2px solid var(--line)"><button id="stuJoin" style="font-size:17px;padding:12px 18px">들어가기</button></div>
+    <p style="margin:0;color:var(--muted);font-size:14px">방식과 시간은 방을 만드는 친구가 골라요. 1대1은 두 명, 2대2는 네 명이 차면 더 못 들어와요.</p>
     <div class="err" id="stuErr"></div><button id="stuX">닫기</button></div>`;
+  const chips=(box,list,cur,set)=>{ $(box).innerHTML=list.map(([v,t])=>`<button class="stuChip${v===cur?' on':''}" data-v="${v}">${t}</button>`).join('');
+    Array.prototype.forEach.call($(box).children,b=>b.onclick=()=>{ set(b.dataset.v); Array.prototype.forEach.call($(box).children,x=>x.classList.toggle('on',x===b)); }); };
+  chips('stuMd',[['all','다 같이'],['1v1','1대1'],['2v2','2대2']],mode,v=>{ mode=v; m.querySelector('h3').textContent=v==='all'?'각자 기기로 함께 뛰기':'각자 기기로 대결'; });
+  chips('stuTm',[['30','30초'],['60','1분'],['120','2분']],String(dur),v=>{ dur=+v; });
   m.classList.add('on');
   $('stuX').onclick=()=>m.classList.remove('on');
   const busy=(on,t)=>{ ['stuMake','stuJoin'].forEach(id=>$(id).disabled=on); $('stuErr').style.color=on?'var(--muted)':''; $('stuErr').textContent=t||''; };
-  $('stuMake').onclick=async()=>{ busy(true,'방을 만드는 중…'); try{ const r=await stuRpc('liteStuOpen',[LINK.t]); STU.host=true; STU.owner=r.owner; await stuEnter(r.room,r.code); m.classList.remove('on'); }catch(e){ busy(false,e.message); } };
+  $('stuMake').onclick=async()=>{ busy(true,'방을 만드는 중…');
+    try{ const r=await stuRpc('liteStuOpen',[LINK.t,{mode}]); STU.host=true; STU.owner=r.owner; STU.mode=mode; STU.dur=dur; STU.tm=null;
+      await stuRpc('liteSetControl',[r.room,r.owner,{ph:'open',mode}]).catch(()=>{});   // 방식을 신호에 실어 둠 → 들어오는 친구 기기가 앎
+      await stuEnter(r.room,r.code); m.classList.remove('on'); }catch(e){ busy(false,e.message); } };
   $('stuJoin').onclick=async()=>{ const v=$('stuCode').value.replace(/\D/g,''); if(v.length!==4) return busy(false,'방 번호 4자리를 넣어요');
-    busy(true,'들어가는 중…'); try{ const r=await stuRpc('liteStuJoin',[LINK.t,v]); await stuEnter(r.room,r.code); m.classList.remove('on'); }catch(e){ busy(false,e.message); } };
+    busy(true,'들어가는 중…'); try{ const r=await stuRpc('liteStuJoin',[LINK.t,v]); STU.mode='all'; STU.tm=null; STU.capChk=false; await stuEnter(r.room,r.code); m.classList.remove('on'); }catch(e){ busy(false,e.message); } };
   $('stuCode').onkeydown=e=>{ if(e.key==='Enter') $('stuJoin').click(); };
 }
 async function stuEnter(room,code){
@@ -973,61 +1006,106 @@ async function stuEnter(room,code){
   await liveInit();
   STU.poll=setInterval(stuPoll,3000); stuPoll();
 }
-async function stuPoll(){ if(!STU.on) return; try{ const r=await stuRpc('liteStuBoard',[LIVE.room]); if(!STU.on) return; if(r.closed){ stuLeave(true); return; } STU.board=r; STU.hostName=r.host||''; STU.gotAt=Date.now(); stuBarRender(); }catch(e){ console.warn('stu board',e); } }
+function stuMyKey(){ const m=LIVE.me; if(m) return m.g+'-'+m.c+'-'+m.n; const w=LINK.who; return w?(+w.학년||0)+'-'+(+w.반||0)+'-'+(+w.번호||0):''; }
+// 선수: 들어온 순서로 앞의 2명(1대1)·4명(2대2). 다 같이는 모두
+function stuPlayers(r){ r=r||STU.board; const k=r?Object.keys(r.ppl||{}):[]; return k.slice(0,STU_CAP[STU.mode]||40); }
+// 2대2 팀: 방장이 섞은 팀(tm)이 지금 선수와 맞으면 그대로, 아니면 들어온 순서대로 번갈아 (주황 a · 초록 b)
+function stuTeams(pl){ const tm=STU.tm, ok=tm&&pl.length&&pl.every(k=>tm[k]==='a'||tm[k]==='b'); const o={};
+  pl.forEach((k,i)=>{ o[k]=ok?tm[k]:(i%2?'b':'a'); }); return o; }
+function stuCtlX(){ const x={mode:STU.mode}; if(STU.mode==='2v2') x.tm=stuTeams(stuPlayers()); return x; }
+async function stuPoll(){ if(!STU.on) return; try{ const r=await stuRpc('liteStuBoard',[LIVE.room]); if(!STU.on) return; if(r.closed){ stuLeave(true); return; }
+  const c=r.ctl; if(c&&STU_CAP[c.mode]) STU.mode=c.mode; else if(!STU.host&&STU_CAP[r.mode]) STU.mode=r.mode;
+  if(c&&c.tm&&typeof c.tm==='object') STU.tm=c.tm;
+  STU.board=r; STU.hostName=r.host||''; STU.gotAt=Date.now();
+  // 껍데기 7판 이하: 꽉 찬 1대1·2대2 방에 늦게 들어오면 스스로 나감 (8판은 학교 시트가 들어오기 전에 막음)
+  if(!STU.host&&!STU.capChk&&STU.mode!=='all'&&c&&c.mode){ STU.capChk=true; const me=stuMyKey();
+    if(me&&me in (r.ppl||{})&&stuPlayers(r).indexOf(me)<0){ alert(`방이 꽉 찼어요 (${STU_NM[STU.mode]}${STU.mode==='1v1'?'은':'는'} ${STU_CAP[STU.mode]}명까지). 다른 방에 들어가거나 방을 만들어요.`); stuLeave(true,'방이 꽉 차서 나왔어요 — 다른 방 번호로 들어가거나 방을 만들어요'); return; } }
+  stuBarRender(); }catch(e){ console.warn('stu board',e); } }
 function stuMine(d){ const m=LIVE.me; return m&&d.k===m.g+'-'+m.c+'-'+m.n; }
 function stuBarRender(){
   const bar=$('stuBar'); if(!bar) return;
-  const r=STU.board, run=LIVE.ctl&&LIVE.ctl.ph==='go'&&(running||LIVE.cdTimer);
-  const ppl=r?Object.entries(r.ppl||{}):[], on=new Set(r?r.devs.filter(d=>d.st!=='off').map(d=>d.k):[]);
-  const chip=(k,n)=>`<span style="padding:4px 14px;font-size:17px;border-radius:99px;background:${on.has(k)?'var(--accent-soft,#FFF0EE)':'var(--soft,#F3F4F6)'};color:${on.has(k)?'var(--accent-ink,#E2513F)':'var(--muted)'};font-weight:700">${esc(n)}</span>`;
-  const names=ppl.map(([k,n])=>chip(k,n)).join('');
+  const r=STU.board, run=LIVE.ctl&&LIVE.ctl.ph==='go'&&(running||LIVE.cdTimer), duel=STU.mode!=='all', cap=STU_CAP[STU.mode];
+  const ppl=r?(r.ppl||{}):{}, on=new Set(r?r.devs.filter(d=>d.st!=='off').map(d=>d.k):[]), pl=duel?stuPlayers(r):Object.keys(ppl), need=duel?Math.max(0,cap-pl.length):0;
+  const chip=k=>`<span style="padding:4px 14px;font-size:17px;border-radius:99px;background:${on.has(k)?'#fff':'var(--soft,#F3F4F6)'};color:${on.has(k)?'var(--ink)':'var(--muted)'};font-weight:700;${duel?'':on.has(k)?'background:var(--accent-soft,#FFF0EE);color:var(--accent-ink,#E2513F)':''}">${esc(ppl[k])}</span>`;
+  let names;
+  if(STU.mode==='2v2'){ const t=stuTeams(pl), row=(s,nm)=>`<div class="stuTeam${s==='b'?' b':''}"><b>${nm}</b>${pl.filter(k=>t[k]===s).map(chip).join('')||'<span style="color:var(--muted)">기다리는 중</span>'}</div>`; names=row('a','주황팀')+row('b','초록팀'); }
+  else if(STU.mode==='1v1') names=pl.length?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${pl[0]?`<span class="stuTeam" style="display:inline-flex">${chip(pl[0])}</span>`:''}<b style="color:var(--muted)">VS</b>${pl[1]?`<span class="stuTeam b" style="display:inline-flex">${chip(pl[1])}</span>`:'<span style="color:var(--muted)">친구를 기다려요</span>'}</div>`:'';
+  else names=pl.map(chip).join('');
   const bs='font-size:15px;padding:6px 14px;min-height:36px';
   let ctl='';
   if(run) ctl=STU.host?`<button id="stuStop" style="${bs};background:#fff;border:2px solid var(--accent,#FF6B5B);color:var(--accent-ink,#E2513F)">중지</button>`:'<span style="color:var(--muted)">끝나면 함께 공개</span>';
-  else if(STU.host) ctl=`<select id="stuDur" style="font:inherit;font-size:15px;padding:5px 6px;border-radius:10px;border:1px solid var(--line)"><option value="30">30초</option><option value="60" selected>1분</option><option value="120">2분</option></select><button class="primary" id="stuGo" style="${bs};padding:6px 18px">${STU.lastRun?'한 번 더':'시작'}</button>`;
+  else if(STU.host) ctl=`${STU.mode==='2v2'&&!need?`<button id="stuMix" style="${bs}">팀 섞기</button>`:''}<select id="stuDur" style="font:inherit;font-size:15px;padding:5px 6px;border-radius:10px;border:1px solid var(--line)"><option value="30">30초</option><option value="60">1분</option><option value="120">2분</option></select><button class="primary" id="stuGo" style="${bs};padding:6px 18px"${need?' disabled':''}>${need?need+'명 더 기다려요':STU.lastRun?'한 번 더':'시작'}</button>`;
   else ctl=`<span style="color:var(--muted)">${esc(STU.hostName||'방장')} 친구가 시작해요</span>`;
-  const keep=$('stuDur')?$('stuDur').value:'', dot=LIVE.conn?'var(--mint,#2BB3A3)':'var(--red,#E5484D)';
-  bar.innerHTML=`<div style="display:flex;align-items:center;gap:8px 10px;white-space:nowrap;flex-wrap:wrap"><span title="${LIVE.conn?'연결됨':'연결하는 중'}" style="width:10px;height:10px;border-radius:50%;background:${dot};flex:none"></span><b style="font-size:18px">방</b><b style="font-size:32px;line-height:1;letter-spacing:.06em;color:var(--accent-ink,#E2513F)">${STU.code}</b><span style="color:var(--muted);font-weight:700">${ppl.length}명</span><span style="flex:1"></span>${ctl}<button id="stuOut" style="font-size:14px;padding:6px 12px;min-height:36px">나가기</button></div><div style="display:flex;flex-wrap:wrap;gap:6px;max-height:84px;overflow:auto">${names||'<span style="color:var(--muted)">친구들이 들어오면 이름이 떠요</span>'}</div>`;
-  if($('stuDur')&&keep) $('stuDur').value=keep;
+  const keep=$('stuDur')?$('stuDur').value:String(STU.dur||60), dot=LIVE.conn?'var(--mint,#2BB3A3)':'var(--red,#E5484D)';
+  const head=duel?`<span style="font-weight:800;color:var(--ink2)">${STU_NM[STU.mode]}</span><span style="color:var(--muted);font-weight:700">${need?pl.length+'/'+cap+'명':cap+'명 다 왔어요'}</span>`:`<span style="color:var(--muted);font-weight:700">${pl.length}명</span>`;
+  bar.innerHTML=`<div style="display:flex;align-items:center;gap:8px 10px;white-space:nowrap;flex-wrap:wrap"><span title="${LIVE.conn?'연결됨':'연결하는 중'}" style="width:10px;height:10px;border-radius:50%;background:${dot};flex:none"></span><b style="font-size:18px">방</b><b style="font-size:32px;line-height:1;letter-spacing:.06em;color:var(--accent-ink,#E2513F)">${STU.code}</b>${head}<span style="flex:1"></span>${ctl}<button id="stuOut" style="font-size:14px;padding:6px 12px;min-height:36px">나가기</button></div><div style="display:flex;${STU.mode==='2v2'?'flex-direction:column;':'flex-wrap:wrap;'}gap:6px;max-height:${STU.mode==='2v2'?'120':'84'}px;overflow:auto">${names||'<span style="color:var(--muted)">친구들이 들어오면 이름이 떠요</span>'}</div>`;
+  if($('stuDur')) $('stuDur').value=keep;
   const x=$('stuStop'); if(x) x.onclick=stuStop;
   $('stuOut').onclick=()=>stuLeave(false);
   const g=$('stuGo'); if(g) g.onclick=stuGo;
+  const mx=$('stuMix'); if(mx) mx.onclick=stuMix;
+}
+// 방장 '팀 섞기' (2대2): 네 명을 무작위로 두 명씩 — 같은 팀이 그대로 나오면 한 번 더 섞음
+async function stuMix(){
+  const pl=stuPlayers(); if(pl.length<4) return; const old=stuTeams(pl); let t;
+  for(let i=0;i<6;i++){ const s=pl.slice().sort(()=>Math.random()-.5); t={}; s.forEach((k,j)=>t[k]=j<2?'a':'b'); const same=pl.every(k=>t[k]===old[k])||pl.every(k=>t[k]!==old[k]); if(!same) break; }
+  STU.tm=t; stuBarRender();
+  const c={ph:'open',mode:STU.mode,tm:t}; try{ await stuRpc('liteSetControl',[LIVE.room,STU.owner,c]); onControl(c); }catch(e){ console.warn('mix',e); }
 }
 async function stuGo(){
   const g=$('stuGo'); g.disabled=true; g.textContent='곧 시작해요';
-  const dur=+$('stuDur').value||60, id='s'+Date.now().toString(36), c={ph:'go',id,at:LIVE.T.now()+6000,dur,rv:'end'};
+  const dur=+$('stuDur').value||60, id='s'+Date.now().toString(36), x=stuCtlX(), c=Object.assign({ph:'go',id,at:LIVE.T.now()+6000,dur,rv:'end'},x); STU.dur=dur;
   try{ await stuRpc('liteSetControl',[LIVE.room,STU.owner,c]); STU.lastRun=id; onControl(c);   // 방장 기기는 바로 시작 준비
-    clearTimeout(STU.endT); STU.endT=setTimeout(()=>stuRpc('liteSetControl',[LIVE.room,STU.owner,{ph:'end',id}]).catch(()=>{}),6000+dur*1000+2000); }
+    clearTimeout(STU.endT); STU.endT=setTimeout(()=>stuRpc('liteSetControl',[LIVE.room,STU.owner,Object.assign({ph:'end',id},x)]).catch(()=>{}),6000+dur*1000+2000); }
   catch(e){ g.disabled=false; g.textContent='시작'; alert('시작하지 못했어요: '+e.message); }
 }
 // 방장 '중지': 시작 전이면 바로 취소, 뛰는 중이면 3~4초 뒤 모두 같은 순간에 끝 (모든 기기가 신호를 받을 시간)
 async function stuStop(){
   const c=LIVE.ctl; if(!c||c.ph!=='go') return; const x=$('stuStop'); if(x){ x.disabled=true; x.textContent='멈추는 중…'; }
-  const now=LIVE.T.now(); clearTimeout(STU.endT);
-  const nc=now<c.at?{ph:'end',id:c.id}:Object.assign({},c,{dur:Math.max(1,Math.ceil((now-c.at)/1000)+4)});
+  const now=LIVE.T.now(), ex=stuCtlX(); clearTimeout(STU.endT);
+  const nc=now<c.at?Object.assign({ph:'end',id:c.id},ex):Object.assign({},c,{dur:Math.max(1,Math.ceil((now-c.at)/1000)+4)});
   try{ await stuRpc('liteSetControl',[LIVE.room,STU.owner,nc]); onControl(nc);
-    if(nc.ph==='go') STU.endT=setTimeout(()=>stuRpc('liteSetControl',[LIVE.room,STU.owner,{ph:'end',id:c.id}]).catch(()=>{}),c.at+nc.dur*1000-LIVE.T.now()+2000); }
+    if(nc.ph==='go') STU.endT=setTimeout(()=>stuRpc('liteSetControl',[LIVE.room,STU.owner,Object.assign({ph:'end',id:c.id},ex)]).catch(()=>{}),c.at+nc.dur*1000-LIVE.T.now()+2000); }
   catch(e){ if(x){ x.disabled=false; x.textContent='중지'; } alert('멈추지 못했어요: '+e.message); }
 }
-// 나가기: 방장이 나가면 방을 닫음 → 친구들도 혼자 세기로 돌아감
-async function stuLeave(closed){
+// 나가기: 방장이 나가면 방을 닫음 → 친구들도 혼자 세기로 돌아감. 친구가 나가면 명단에서 빠짐 (껍데기 8판)
+async function stuLeave(closed,why){
   if(!STU.on) return;
   if(!closed&&!confirm(STU.host?'방을 닫고 나갈까요? 친구들도 방에서 나가게 돼요.':'방에서 나가 혼자 뛸까요?')) return;
   if(STU.host&&!closed) stuRpc('liteCloseRoom',[LIVE.room,STU.owner]).catch(()=>{});
+  else if(!STU.host&&LIVE.room) stuRpc('liteStuLeave',[LINK.t,LIVE.room]).catch(()=>{});   // 7판 이하는 이 기능이 없어 그냥 넘어감
   clearInterval(STU.poll); clearTimeout(STU.endT); clearInterval(LIVE.beat); if(LIVE.cdTimer){ clearInterval(LIVE.cdTimer); LIVE.cdTimer=0; }
   if(LIVE.T&&LIVE.T.stop) LIVE.T.stop();
   running=false; if(ROPE.on) ropeRunEnd();
-  Object.assign(STU,{on:false,host:false,owner:'',code:'',board:null,lastRun:''});
+  Object.assign(STU,{on:false,host:false,owner:'',code:'',board:null,lastRun:'',mode:'all',tm:null,capChk:false});
   Object.assign(LIVE,{on:false,ok:false,room:'',ctl:null,ctlRun:'',T:null,sent:null,me:null,closed:true,didRun:false});
   document.body.classList.remove('stu'); ['stuBar','livePill'].forEach(id=>{ const e=$(id); if(e) e.remove(); });
   $('saveModal').classList.remove('on'); det.reset(); lastCount=0; $('count').innerHTML='0<small>회</small>';
   $('btnStart').classList.remove('warn'); $('btnStart').classList.add('primary'); liveIdle();
-  $('status').textContent=closed?'방이 닫혔어요 — 이제 혼자 뛸 수 있어요':'방에서 나왔어요 — 시작을 누르면 혼자 뛰어요'; $('status').className='status idle';
+  $('status').textContent=why||(closed?'방이 닫혔어요 — 이제 혼자 뛸 수 있어요':'방에서 나왔어요 — 시작을 누르면 혼자 뛰어요'); $('status').className='status idle';
   stuOffer();
+}
+// 대결 결과 판: 1대1은 두 친구, 2대2는 팀 합계 (모든 친구 화면에 똑같이)
+function stuDuelHtml(rows,mk){
+  const ppl=(STU.board&&STU.board.ppl)||{}, by={}; rows.forEach(d=>by[d.k]=d);
+  const pl=stuPlayers(); if(mk&&pl.indexOf(mk)<0&&pl.length<STU_CAP[STU.mode]) pl.push(mk);
+  const cnt=k=>by[k]?by[k].cnt:0, nm=k=>esc((by[k]&&by[k].name)||ppl[k]||'친구');
+  let A,B;
+  if(STU.mode==='1v1'){ if(pl.length<2) return '';
+    A={n:nm(pl[0]),c:cnt(pl[0]),me:pl[0]===mk,sub:''}; B={n:nm(pl[1]),c:cnt(pl[1]),me:pl[1]===mk,sub:''}; }
+  else { const t=stuTeams(pl), ka=pl.filter(k=>t[k]==='a'), kb=pl.filter(k=>t[k]==='b'); if(!ka.length||!kb.length) return '';
+    const sub=ks=>ks.map(k=>nm(k)+' '+cnt(k)).join(' · ');
+    A={n:'주황팀',c:ka.reduce((s,k)=>s+cnt(k),0),me:ka.indexOf(mk)>=0,sub:sub(ka)}; B={n:'초록팀',c:kb.reduce((s,k)=>s+cnt(k),0),me:kb.indexOf(mk)>=0,sub:sub(kb)}; }
+  const w=A.c===B.c?'':A.c>B.c?'a':'b';
+  const sd=(s,k)=>`<div class="sd${k==='b'?' b':''}${s.me?' me':''}">${w===k?'<span class="w">승리</span>':''}<span class="n">${s.n}${s.me&&STU.mode==='1v1'?' (나)':''}</span><span class="c">${s.c}</span>${s.sub?`<small>${s.sub}</small>`:''}</div>`;
+  const ann=w?`<div class="dvAnn${w==='b'?' b':''}">${w==='a'?A.n:B.n} 승리! ${Math.abs(A.c-B.c)}회 차이</div>`:`<div class="dvAnn tie">비겼어요! 둘 다 ${A.c}회</div>`;
+  const cheer=STU.mode==='1v1'?'끝까지 뛴 두 친구 모두 최고! 한 판 더?':'한 명 한 명이 보탠 숫자가 팀 기록이 됐어요. 모두 최고!';
+  return `<div class="dv">${sd(A,'a')}<span class="vs">VS</span>${sd(B,'b')}</div>${ann}<div class="dvCheer">${cheer}</div>`;
 }
 // 끝: 결과 모으기 (모두 끝났거나, 새 소식이 4번 이어서 그대로면 · 길어야 20초) → 함께 보기 → 내 기록 보내기(승인 대기)
 function stuFinish(){
   const id=LIVE.ctlRun, st=det.state(), dur=LIVE.ctl&&LIVE.ctl.dur||0;
+  if(LIVE.ctl&&LIVE.ctl.mode&&STU_CAP[LIVE.ctl.mode]){ STU.mode=LIVE.ctl.mode; if(LIVE.ctl.tm) STU.tm=LIVE.ctl.tm; }   // 이번 판을 시작할 때의 방식·팀으로
   $('smTitle').textContent='결과 모으는 중…'; $('smErr').textContent='';
   $('smCount').innerHTML=st.count+'<small style="font-size:.3em;color:var(--muted)"> 회</small><small style="font-size:.22em;color:var(--muted);margin-left:.5em;letter-spacing:0">내 기록</small>';
   $('smNote').textContent='친구들 기기의 마지막 횟수를 기다려요 (길어야 20초)'; $('smBtns').innerHTML='';
@@ -1039,13 +1117,20 @@ function stuFinish(){
     if(!((devs.length&&fin===devs.length&&el>2500)||(same>=4&&el>2500)||el>20000)) return;
     clearInterval(iv);
     const best={}; devs.forEach(d=>{ if(!best[d.k]||d.cnt>best[d.k].cnt) best[d.k]=d; });
-    const me=LIVE.me, mk=me?me.g+'-'+me.c+'-'+me.n:''; best[mk]={k:mk,name:(LINK.who&&LINK.who.이름)||'나',cnt:st.count};   // 내 숫자는 내 기기 것 그대로
+    const mk=stuMyKey(); best[mk]={k:mk,name:(LINK.who&&LINK.who.이름)||'나',cnt:st.count};   // 내 숫자는 내 기기 것 그대로
     const rows=Object.values(best).sort((a,b)=>b.cnt-a.cnt); let rank=0, prev=-1;
-    const html=rows.map((d,i)=>{ if(d.cnt!==prev){ rank=i+1; prev=d.cnt; } const mine=d.k===mk;
-      return `<tr style="${mine?'background:var(--accent-soft,#FFF0EE);font-weight:800':''}"><td style="padding:6px 10px;color:var(--muted)">${rank}</td><td style="padding:6px 10px;text-align:left">${esc(d.name)}${mine?' (나)':''}</td><td style="padding:6px 10px;text-align:right;font-weight:800">${d.cnt}회</td></tr>`; }).join('');
-    const sum=rows.reduce((a,d)=>a+d.cnt,0);
-    $('smTitle').textContent='모두 수고했어요!'; $('status').textContent='결과를 함께 봤어요';
-    $('smNote').innerHTML=`<div style="max-height:40vh;overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:17px">${html}</table></div><div style="margin-top:8px;color:var(--muted)">${rows.length}명 함께 · 모두 합쳐 <b style="color:var(--accent-ink,#E2513F)">${sum}회</b></div><div id="stuSave" style="margin-top:8px;font-weight:700"></div>`;
+    const duel=STU.mode!=='all'?stuDuelHtml(rows,mk):'';
+    $('status').textContent='결과를 함께 봤어요';
+    if(duel){
+      $('smTitle').textContent=STU_NM[STU.mode]+' 대결 결과'; $('smCount').innerHTML='';
+      $('smNote').innerHTML=`${duel}<div id="stuSave" style="margin-top:8px;font-weight:700"></div>`;
+    } else {
+      const html=rows.map((d,i)=>{ if(d.cnt!==prev){ rank=i+1; prev=d.cnt; } const mine=d.k===mk;
+        return `<tr style="${mine?'background:var(--accent-soft,#FFF0EE);font-weight:800':''}"><td style="padding:6px 10px;color:var(--muted)">${rank}</td><td style="padding:6px 10px;text-align:left">${esc(d.name)}${mine?' (나)':''}</td><td style="padding:6px 10px;text-align:right;font-weight:800">${d.cnt}회</td></tr>`; }).join('');
+      const sum=rows.reduce((a,d)=>a+d.cnt,0);
+      $('smTitle').textContent='모두 수고했어요!';
+      $('smNote').innerHTML=`<div style="max-height:40vh;overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:17px">${html}</table></div><div style="margin-top:8px;color:var(--muted)">${rows.length}명 함께 · 모두 합쳐 <b style="color:var(--accent-ink,#E2513F)">${sum}회</b></div><div id="stuSave" style="margin-top:8px;font-weight:700"></div>`;
+    }
     $('smBtns').innerHTML='<button class="primary" id="smOk" style="font-size:18px;padding:12px 24px">확인</button>'; $('smOk').onclick=()=>$('saveModal').classList.remove('on');
     confetti(60); beep(1046,0.15,0.25); setTimeout(()=>beep(1318,0.3,0.25),160);
     stuSave(id,st,dur);
@@ -1055,8 +1140,8 @@ async function stuSave(id,st,dur){
   const el=$('stuSave'); if(!el) return;
   if(st.count<1){ el.textContent='0회라 기록은 보내지 않았어요'; return; }
   el.style.color='var(--muted)'; el.textContent='내 기록을 보내는 중…';
-  try{ await appApi('rope_x_save',{count:st.count,sec:dur,hand:Math.round(st.handSec||0),norope:st.noRope||0,best:Math.min(st.best||0,st.count),kind:LINK.kind,ver:VER,room:1,run:id});
-    el.style.color='var(--mint,#0E8F85)'; el.textContent=`내 기록 ${st.count}회를 보냈어요 · 선생님이 승인하면 들어가요`; }
+  try{ const d=await appApi('rope_x_save',{count:st.count,sec:dur,hand:Math.round(st.handSec||0),norope:st.noRope||0,best:Math.min(st.best||0,st.count),kind:LINK.kind,ver:VER,room:1,run:id});
+    el.style.color='var(--mint,#0E8F85)'; el.textContent=`내 기록 ${st.count}회를 보냈어요 · 선생님이 승인하면 들어가요`; const h=pbHtml(d); if(h) el.insertAdjacentHTML('afterend',h); }
   catch(e){ el.style.color='var(--red)'; el.innerHTML=`기록을 보내지 못했어요: ${esc(e.message)} <button id="stuRe" style="min-height:34px;padding:4px 12px;font-size:14px">다시 보내기</button>`; $('stuRe').onclick=()=>stuSave(id,st,dur); }
 }
 async function LIVE_TL(room, dev, shell){
@@ -1298,7 +1383,7 @@ function onControl(c){
   // c = {ph:'go', id:회차, at:시작시각(서버 ms), dur:초(0=선생님이 끝낼 때까지)} | {ph:'end', id} | {ph:'open'} | null(방 닫힘)
   LIVE.ctl=c;
   LIVE.closed=!c;
-  if(STU.on) setTimeout(stuBarRender,0);
+  if(STU.on){ if(c&&STU_CAP[c.mode]){ STU.mode=c.mode; if(c.tm&&typeof c.tm==='object') STU.tm=c.tm; } setTimeout(stuBarRender,0); }
   // 랜덤 한 명 도전: who(학년-반-번호)가 있으면 그 친구만 셈. 다른 친구는 응원 화면만
   if(c&&c.ph==='go'&&c.who){
     const mine=(!!LIVE.me&&(LIVE.me.g+'-'+LIVE.me.c+'-'+LIVE.me.n)===String(c.who))||(TWO.on&&!!LIVE.me2&&(LIVE.me2.g+'-'+LIVE.me2.c+'-'+LIVE.me2.n)===String(c.who));
@@ -1365,7 +1450,8 @@ async function livePick(grp,two){
   if(gs.length>1){ const bk=document.createElement('button'); bk.textContent='← 반 다시 고르기'; bk.style.cssText='margin-top:10px;min-height:44px;font-size:15px'; bk.onclick=()=>livePick(null,two); $('pkBack').appendChild(bk); }
   if(two){ const x=document.createElement('button'); x.textContent='2인 그만하기 (혼자 뛰기)'; x.style.cssText='margin-top:10px;min-height:44px;font-size:15px'; x.onclick=()=>{ box.classList.remove('on'); setTwo(false); }; $('pkBack').appendChild(x); }
   const cur=two?LIVE.me2:LIVE.me;
-  const taken=new Set((await LIVE.T.taken()).filter(d=>d.g===grp.g&&d.c===grp.c&&!(cur&&cur.g===grp.g&&cur.c===grp.c&&d.n===cur.n)).map(d=>d.n));
+  const tk=LIVE.T?await LIVE.T.taken():[]; if(!LIVE.on||!LIVE.T) return;   // 그사이 방에서 나왔으면 그만
+  const taken=new Set(tk.filter(d=>d.g===grp.g&&d.c===grp.c&&!(cur&&cur.g===grp.g&&cur.c===grp.c&&d.n===cur.n)).map(d=>d.n));
   $('pkGrid').innerHTML='';
   for(let n=1;n<=grp.max;n++){ if(grp.skip&&grp.skip.includes(n)) continue; const b=document.createElement('button'); b.textContent=n; b.style.cssText='font-size:24px;font-weight:800;min-height:64px;padding:0'+(taken.has(n)?';color:var(--muted);background:var(--soft)':'');
     if(taken.has(n)) b.title='이미 누가 이 번호로 들어와 있어요';

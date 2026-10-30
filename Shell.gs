@@ -10,7 +10,7 @@
  * 배포 설정: 다음 사용자로 실행 = 나, 액세스 권한 = 모든 사용자
  *************************************************************/
 
-const SHELL_VERSION = 7;                      // 껍데기 판 (화면이 확인함)  2: 새 학교는 승인 절차 기본 켜짐, 카메라 기록은 기본 바로 승인  3: 급수(Levels 시트)  4: 전국 현황판 비밀 키를 학생 화면에 내보내지 않음(오늘 기록은 이 껍데기가 직접 보냄)  5: 한 번에 최고 연속(스마트 줄넘기·카메라 판정기) 기록·전국 현황판 보고  6: 점프 Live (Lite) — 학교 시트만으로 수업 방(바깥 서버 없이) · 학생 방(친구들과 함께 뛰기, 기록은 승인 대기)  7: 나와의 대결 — 점프 Live 판 길이(Dur 열)·내 N분 최고, 기록을 넣을 때 하루 최고·연속 최고 갱신 알림
+const SHELL_VERSION = 8;                      // 껍데기 판 (화면이 확인함)  2: 새 학교는 승인 절차 기본 켜짐, 카메라 기록은 기본 바로 승인  3: 급수(Levels 시트)  4: 전국 현황판 비밀 키를 학생 화면에 내보내지 않음(오늘 기록은 이 껍데기가 직접 보냄)  5: 한 번에 최고 연속(스마트 줄넘기·카메라 판정기) 기록·전국 현황판 보고  6: 점프 Live (Lite) — 학교 시트만으로 수업 방(바깥 서버 없이) · 학생 방(친구들과 함께 뛰기, 기록은 승인 대기)  7: 나와의 대결 — 점프 Live 판 길이(Dur 열)·내 N분 최고, 기록을 넣을 때 하루 최고·연속 최고 갱신 알림  8: 각자 기기로 대결 — 학생 방 방식(다 같이·1대1·2대2)과 인원 제한, 나가면 명단에서 빠짐
 const APP_URL = 'https://musicalpe.github.io/jumprope/';
 const BETA_URL = 'https://musicalpe.github.io/jumprope/beta/';
 
@@ -77,7 +77,7 @@ const RPC_ALLOW_ = [
   'setCameraSettings', 'issueCameraToken', 'generateMotivationMessage', 'getGeminiModelList', 'getMotivationSettings',
   'saveGeminiApiKey', 'regenerateMotivationNow', 'getLevelsPublic', 'saveLevelPasses',
   'getExtraSettingsAdmin', 'natReportToday', 'addLiveRecordsAdmin', 'getLiveBestsAdmin',
-  'liteOpenRoom', 'liteSetControl', 'litePull', 'liteCloseRoom', 'liteInfo', 'liteSend', 'liteStuOpen', 'liteStuJoin', 'liteStuBoard'
+  'liteOpenRoom', 'liteSetControl', 'litePull', 'liteCloseRoom', 'liteInfo', 'liteSend', 'liteStuOpen', 'liteStuJoin', 'liteStuBoard', 'liteStuLeave'
 ];
 function doPost(e) {
   let out;
@@ -1698,33 +1698,39 @@ function liteStu_(t) {
   if (!info) throw new Error('학생 정보를 찾을 수 없습니다.');
   return { g: Number(info.grade) || 0, c: Number(info.cls) || 0, n: Number(info.number) || 0, name: String(info.name || '').slice(0, 20) };
 }
+const LITE_MODE_ = { all: 40, '1v1': 2, '2v2': 4 };   // 학생 방 방식 → 들어올 수 있는 사람 수 (8판)
 function liteStuAdd_(room, who) {   // 방 사람 명단 (학년-반-번호 → 이름) — 결과에 이름을 보이게
   const c = CacheService.getScriptCache(), k = liteKey_(room, 'ppl'), lock = LockService.getScriptLock();
   if (!lock.tryLock(5000)) throw new Error('잠시 뒤에 다시 해 주세요.');
   try {
     const p = liteJson_(c.get(k), {}), key = who.g + '-' + who.c + '-' + who.n;
-    if (!(key in p) && Object.keys(p).length >= 40) throw new Error('방이 꽉 찼어요 (40명까지).');
+    const meta = liteJson_(c.get(liteKey_(room, 'meta')), {}), cap = LITE_MODE_[meta.mode] || 40;
+    if (!(key in p) && Object.keys(p).length >= cap) throw new Error(cap < 40 ? '방이 꽉 찼어요 (' + (meta.mode === '1v1' ? '1대1' : '2대2') + '는 ' + cap + '명까지). 다른 방에 들어가거나 방을 만들어요.' : '방이 꽉 찼어요 (40명까지).');
     p[key] = who.name; c.put(k, JSON.stringify(p), LITE_TTL_);
   } finally { lock.releaseLock(); }
 }
-function liteStuOpen(t) {
+function liteStuOpen(t, opt) {
   const who = liteStu_(t), c = CacheService.getScriptCache(), hk = 'JL_host_' + String(t);
-  const prev = liteJson_(c.get(hk), null);
-  if (prev && prev.room && c.get(liteKey_(prev.room, 'meta'))) return { room: prev.room, owner: prev.owner, code: prev.code, t: Date.now() };   // 이미 연 방
+  const mode = opt && LITE_MODE_[opt.mode] ? String(opt.mode) : 'all';
+  const prev = liteJson_(c.get(hk), null), pm = prev && prev.room ? liteJson_(c.get(liteKey_(prev.room, 'meta')), null) : null;
+  if (pm) {   // 이미 연 방 — 방식만 새로 고른 것으로
+    if (pm.mode !== mode) { pm.mode = mode; c.put(liteKey_(prev.room, 'meta'), JSON.stringify(pm), LITE_TTL_); }
+    return { room: prev.room, owner: prev.owner, code: prev.code, mode: mode, t: Date.now() };
+  }
   let code = '';
   for (let i = 0; i < 30 && !code; i++) { const k = String(1000 + Math.floor(Math.random() * 9000)); if (!c.get('JL_code_' + k)) code = k; }
   if (!code) throw new Error('지금은 열린 방이 너무 많아요. 잠시 뒤에 다시 해 주세요.');
   const room = 'S' + Utilities.getUuid().replace(/-/g, ''), owner = Utilities.getUuid().replace(/-/g, '');
   const put = {};
   put[liteKey_(room, 'own')] = owner;
-  put[liteKey_(room, 'meta')] = JSON.stringify({ at: Date.now(), g: who.g, c: who.c, max: 60, stu: 1, code: code, host: who.name });
+  put[liteKey_(room, 'meta')] = JSON.stringify({ at: Date.now(), g: who.g, c: who.c, max: 60, stu: 1, code: code, host: who.name, mode: mode });
   put[liteKey_(room, 'ctl')] = JSON.stringify({ ph: 'open' });
   put[liteKey_(room, 'devs')] = '[]';
   put['JL_code_' + code] = room;
   put[hk] = JSON.stringify({ room: room, owner: owner, code: code });
   c.putAll(put, LITE_TTL_);
   liteStuAdd_(room, who);
-  return { room: room, owner: owner, code: code, t: Date.now() };
+  return { room: room, owner: owner, code: code, mode: mode, t: Date.now() };
 }
 function liteStuJoin(t, code) {
   const who = liteStu_(t), c = CacheService.getScriptCache();
@@ -1746,5 +1752,16 @@ function liteStuBoard(room) {   // 방 사람들 이름과 각자 상태·횟수
     const key = d.g + '-' + d.c + '-' + d.n; if (!(key in ppl)) return;
     list.push({ k: key, name: ppl[key], cnt: d.cnt, best: d.best, run: d.run, ctl: d.ctl, st: now - (d.t || 0) > 30000 ? 'off' : d.st });
   });
-  return { t: now, ppl: ppl, devs: list, ctl: liteJson_(got[liteKey_(room, 'ctl')], null), host: meta.host, code: meta.code };
+  return { t: now, ppl: ppl, devs: list, ctl: liteJson_(got[liteKey_(room, 'ctl')], null), host: meta.host, code: meta.code, mode: meta.mode || 'all', cap: LITE_MODE_[meta.mode] || 40 };
+}
+function liteStuLeave(t, room) {   // 친구가 나가면 명단에서 빼서 1대1·2대2 자리를 비움 (8판). 방장은 liteCloseRoom
+  const who = liteStu_(t); room = liteRoom_(room);
+  const c = CacheService.getScriptCache(), k = liteKey_(room, 'ppl'), lock = LockService.getScriptLock();
+  if (!c.get(liteKey_(room, 'meta'))) return { t: Date.now() };
+  if (!lock.tryLock(5000)) throw new Error('잠시 뒤에 다시 해 주세요.');
+  try {
+    const p = liteJson_(c.get(k), {}), key = who.g + '-' + who.c + '-' + who.n;
+    if (key in p) { delete p[key]; c.put(k, JSON.stringify(p), LITE_TTL_); }
+  } finally { lock.releaseLock(); }
+  return { t: Date.now() };
 }
