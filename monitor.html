@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v1.3.8</title>
+<title>점프 라이브 v1.3.9</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -240,8 +240,9 @@
   .tm-ctl .cheer{font-size:24px;margin:0}
   .ch-res{font-size:38px;font-weight:800;margin-top:12px} .ch-res b{font-size:1.5em}
   .ch-msg{font-size:15px;font-weight:700;color:var(--muted);margin-top:10px;min-height:1.4em} .ch-msg.bad{color:var(--red)}
-  .ch-conf{position:absolute;inset:0;pointer-events:none}
-  .ch-conf i{position:absolute;width:14px;height:22px;border-radius:3px;opacity:0;animation:chf 2.2s ease-out forwards}
+  .ch-conf{position:absolute;inset:0;pointer-events:none;z-index:3;background:url(img/confetti.gif) repeat;background-size:380px;animation:chconf .5s ease-out}
+  @keyframes chconf{from{opacity:0}to{opacity:1}}
+  .ch-conf i{display:none;position:absolute;width:14px;height:22px;border-radius:3px;opacity:0;animation:chf 2.2s ease-out forwards}
   @keyframes chf{0%{opacity:0;transform:translateY(-40px) rotate(0)}15%{opacity:1}100%{opacity:.9;transform:translateY(60px) rotate(220deg)}}
   .ch-side{display:flex;flex-direction:column;gap:14px;min-height:0}
   .ch-box{padding:18px 20px} .ch-box h3{margin:0 0 10px;font-size:18px}
@@ -258,8 +259,9 @@
 
   /* ---- 박 터트리기 · 팀전 (랜덤 도전과 같은 겉모양) ---- */
   .bk-img{width:min(520px,52vh);aspect-ratio:700/620;object-fit:contain;display:block;margin:0 auto}
-  .bk-img.photo{aspect-ratio:auto;width:auto!important;height:min(46vh,460px);max-width:100%;border-radius:22px;box-shadow:0 8px 24px rgba(31,36,48,.18)}
-  .bk-img.photo~.bk-banner{margin-top:14px}
+  .bk-img.photo{aspect-ratio:auto;width:auto!important;height:min(50vh,500px);max-width:100%;filter:drop-shadow(0 10px 18px rgba(31,36,48,.18))}
+  .bk-img.photo~.bk-banner{margin-top:6px}
+  .bk-img.photo{transform-origin:50% 0}
   .bk-tc .bk-img.photo{height:min(28vh,260px);width:auto}
   .bk-img.hit{animation:bkhit .45s ease-out} @keyframes bkhit{0%{transform:scale(1)}25%{transform:scale(1.06) rotate(-3deg)}50%{transform:scale(.97) rotate(2deg)}100%{transform:scale(1)}}
   .bk-cnt{font-size:min(120px,13vh);font-weight:900;line-height:1;letter-spacing:-.05em;margin-top:4px} .bk-cnt small{font-size:.3em;color:var(--muted);margin-left:8px;letter-spacing:0}
@@ -317,7 +319,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v1.3.8</span></h1>
+    <h1>점프 라이브<span class="ver">v1.3.9</span></h1>
     <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button><button id="btnDev" title="돌려 쓰는 기기(노트북·태블릿) 찾기" hidden>기기</button><button id="btnLm" title="다른 학교와 같은 시각에 함께 뛰기 (실시간 대결 · 함께 박 깨기)" hidden>학교와 함께</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
@@ -1466,9 +1468,11 @@ const runRows=()=>(S.rows||[]).filter(r=>S.lastRun&&r.pick&&r.pick.ctl===S.lastR
 
 /* ---------- 박 터트리기: 반 전체 합계가 목표에 닿으면 박이 터짐 (25%마다 금이 감) ---------- */
 const BK={ on:false, dur:60, auto:true, way:'all', phase:'idle', stage:0, tickT:0, res:null, sq:null };
-const BK_LOOK=()=>store.get('jl_bklook')==='draw'?'draw':'photo';   // 박 그림: 사진(기본) · 그림(예전 만화풍)
-const BK_IMG=n=>BK_LOOK()==='draw'?'img/bak'+n+'.webp':'img/bakp'+n+'.webp';
-[0,1,2,3,4].forEach(n=>{ const im=new Image(); im.src='img/bakp'+n+'.webp'; });   // 터질 때 깜빡이지 않게 미리 받아 둠
+const BK_LOOK=()=>store.get('jl_bklook')==='draw'?'draw':'photo';   // 박 그림: 사진(기본, 배경 없는 박 4장) · 그림(예전 만화풍 5장)
+// 단계: 사진은 0~33% · 33~66% · 66~99% · 100%(4) / 그림은 25%씩 0~3 · 100%(4)
+const BK_STG=f=>f>=1?4:Math.floor(f*(BK_LOOK()==='photo'?3:4));
+const BK_IMG=n=>BK_LOOK()==='draw'?'img/bak'+n+'.webp':'img/bakq'+Math.min(3,n)+'.webp';
+[0,1,2,3].forEach(n=>{ const im=new Image(); im.src='img/bakq'+n+'.webp'; }); { const im=new Image(); im.src='img/confetti.gif'; }   // 터질 때 깜빡이지 않게 미리 받아 둠
 [0,1,2,3,4].forEach(n=>{ const im=new Image(); im.src=BK_IMG(n); });   // 미리 받아 둠
 const bkPer=()=>Math.max(10,Math.min(100,+$('bkPer').value||30));   // 한 사람당 횟수 (10~100)
 function bakGoal(){ if(BK.auto){ const n=(S.rows||[]).filter(here).length||(S.rows||[]).length; $('bkGoal').value=Math.max(10,n*bkPer()); } return Math.max(10,Math.round(+$('bkGoal').value)||500); }
@@ -1492,7 +1496,7 @@ function bakTeamsRender(st,running){
   (S.rows||[]).forEach(r=>{ const t=map[r.k]; if(t>=0&&t<n) T[t].push(r); });
   const goals=info?info.goals:bakTeamGoals(T);
   const live=BK.phase!=='idle'&&S.lastRun, sums=T.map(m=>m.reduce((a,r)=>a+(live&&r.pick&&r.pick.ctl===S.lastRun.id?r.cnt:0),0));
-  const fr=sums.map((x,i)=>Math.min(1,x/goals[i])), stg=fr.map(f=>BK.phase==='idle'?0:f>=1?4:Math.floor(f*4));
+  const fr=sums.map((x,i)=>Math.min(1,x/goals[i])), stg=fr.map(f=>BK.phase==='idle'?0:BK_STG(f));
   BK.tstage=BK.tstage||{}; const hits=stg.map((x,i)=>{ const h=x>(BK.tstage[i]||0); if(h){ BK.tstage[i]=x; if(x<4){ beep(220,.15,.25); } } return h; });
   const won=fr.map((f,i)=>f>=1?i:-1).filter(i=>i>=0);
   if(BK.phase==='run'&&running&&won.length&&!BK.burst){ BK.burst=S.lastRun.id; BK.burstAt=B.now(); BK.win=won; beep(1046,.15,.3); setTimeout(()=>beep(1318,.15,.3),150); setTimeout(()=>beep(1568,.4,.3),300); setTimeout(()=>{ if(S.ctl.ph==='go') end(true); },1500); }
@@ -1518,7 +1522,7 @@ function bakRender(){
   ['bkGoal'].forEach(id=>$(id).disabled=running||BK.auto); $('bkPer').disabled=running; Array.prototype.forEach.call(document.querySelectorAll('#bkDur .chip,#bkAuto .chip'),b=>b.disabled=running);
   const goal=BK.phase==='idle'?bakGoal():S.lastRun.bak.goal;
   const rows=BK.phase==='idle'?[]:runRows(), sum=rows.reduce((a,r)=>a+r.cnt,0), f=Math.min(1,sum/goal);
-  const stage=BK.phase==='idle'?0:f>=1?4:Math.floor(f*4);
+  const stage=BK.phase==='idle'?0:BK_STG(f);
   const hit=stage>BK.stage; if(hit){ BK.stage=stage; if(stage<4){ beep(220,.18,.3); setTimeout(()=>beep(160,.2,.3),90); } }
   if(BK.phase==='run'&&f>=1&&running&&!BK.burst){ BK.burst=S.lastRun.id; BK.burstAt=B.now(); beep(1046,.15,.3); setTimeout(()=>beep(1318,.15,.3),150); setTimeout(()=>beep(1568,.4,.3),300); setTimeout(()=>{ if(S.ctl.ph==='go') end(true); },1500); }
   const top=rows.slice().sort((a,b)=>b.cnt-a.cnt).slice(0,8);
@@ -1891,7 +1895,7 @@ function bakSeqRender(st,running){
       return `<tr class="${r&&x===0&&r.ok?'top':''}"><td>${r?x+1:'—'}</td><td style="color:${TEAM_C[i][1]};font-weight:800">${TEAM_C[i][0]} 팀 <small style="color:var(--muted)">${t.length}명</small></td><td class="c">${r?(r.ok?secTxt(r.ms)+' 만에 깸':'못 깼어요'):(sq&&i===sq.i?'지금 차례':'기다리는 중')}</td><td>${r?r.sum+' / '+r.goal:'목표 '+goals[i]}</td></tr>`; }).join('')}</tbody></table></div>`; };
   let body;
   if(!sq||BK.phase==='idle') body=`<div class="ch-eyebrow">팀 차례로 박 깨기 — 한 팀씩, 빨리 깬 팀이 이겨요</div>${resTbl()}<div class="bk-tip">위의 "시작"을 누르면 ${TEAM_C[0][0]} 팀부터 시작해요${HUB.on?' · 줄넘기는 팀이 바뀔 때 허브 목록에서 그 팀 친구에게 이어 주세요':''}</div>`;
-  else if(BK.phase==='run'){ const i=sq.i, mem=teams[i], id=S.lastRun.id, rows=(S.rows||[]).filter(r=>mem.includes(r.k)&&r.pick&&r.pick.ctl===id), sum=rows.reduce((a,r)=>a+r.cnt,0), goal=goals[i], f=Math.min(1,sum/goal), stage=f>=1?4:Math.floor(f*4);
+  else if(BK.phase==='run'){ const i=sq.i, mem=teams[i], id=S.lastRun.id, rows=(S.rows||[]).filter(r=>mem.includes(r.k)&&r.pick&&r.pick.ctl===id), sum=rows.reduce((a,r)=>a+r.cnt,0), goal=goals[i], f=Math.min(1,sum/goal), stage=BK_STG(f);
     const hit=stage>BK.stage; if(hit){ BK.stage=stage; if(stage<4) beep(220,.15,.25); }
     if(f>=1&&running&&!BK.burst){ BK.burst=id; BK.burstAt=B.now(); beep(1046,.15,.3); setTimeout(()=>beep(1568,.4,.3),200); setTimeout(()=>{ if(S.ctl.ph==='go') end(true); },1200); }
     const el=S.ctl.ph==='go'&&B.now()>=S.ctl.at?(BK.burst?BK.burstAt:B.now())-S.ctl.at:0;
