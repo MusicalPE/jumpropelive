@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>점프 라이브 v1.3.7</title>
+<title>점프 라이브 v1.3.8</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -258,6 +258,9 @@
 
   /* ---- 박 터트리기 · 팀전 (랜덤 도전과 같은 겉모양) ---- */
   .bk-img{width:min(520px,52vh);aspect-ratio:700/620;object-fit:contain;display:block;margin:0 auto}
+  .bk-img.photo{aspect-ratio:auto;width:auto!important;height:min(46vh,460px);max-width:100%;border-radius:22px;box-shadow:0 8px 24px rgba(31,36,48,.18)}
+  .bk-img.photo~.bk-banner{margin-top:14px}
+  .bk-tc .bk-img.photo{height:min(28vh,260px);width:auto}
   .bk-img.hit{animation:bkhit .45s ease-out} @keyframes bkhit{0%{transform:scale(1)}25%{transform:scale(1.06) rotate(-3deg)}50%{transform:scale(.97) rotate(2deg)}100%{transform:scale(1)}}
   .bk-cnt{font-size:min(120px,13vh);font-weight:900;line-height:1;letter-spacing:-.05em;margin-top:4px} .bk-cnt small{font-size:.3em;color:var(--muted);margin-left:8px;letter-spacing:0}
   .bk-g{width:min(720px,80%);height:26px;border-radius:99px;background:#EEF0F3;overflow:hidden;margin-top:12px} .bk-g b{display:block;height:100%;background:linear-gradient(90deg,#F2A33A,#FF6B5B);border-radius:99px;transition:width .3s}
@@ -314,7 +317,7 @@
 <div class="wrap">
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-    <h1>점프 라이브<span class="ver">v1.3.7</span></h1>
+    <h1>점프 라이브<span class="ver">v1.3.8</span></h1>
     <div class="hdr-tools" id="hdrTools" hidden><button id="btnQr" title="들어오는 QR 띄우기">QR</button><button id="btnHub" title="전자 줄넘기 허브(USB) 열기·닫기">줄넘기 허브</button><button id="btnMusic" title="배경음악 (놀이 중에도 써요)">음악</button><button id="btnDev" title="돌려 쓰는 기기(노트북·태블릿) 찾기" hidden>기기</button><button id="btnLm" title="다른 학교와 같은 시각에 함께 뛰기 (실시간 대결 · 함께 박 깨기)" hidden>학교와 함께</button></div>
     <span class="demo" id="demoTag" hidden>시험 모드 — 가짜 학생으로 움직여요 (Firebase 안 씀)</span>
     <div class="spacer"></div>
@@ -448,6 +451,7 @@
         <div class="ch-set">방식<div class="chips" id="bkWay"><button class="chip on" data-w="all">반 전체</button><button class="chip" data-w="teams">팀마다 동시에</button><button class="chip" data-w="seq">팀 차례로</button></div></div>
         <div class="small" id="bkTeamTip" style="color:var(--muted);font-size:13px;margin:-4px 0 6px" hidden></div>
         <div class="ch-set">시간 제한<div class="chips" id="bkDur"><button class="chip" data-d="0">없음</button><button class="chip on" data-d="60">1분</button><button class="chip" data-d="120">2분</button><button class="chip" data-d="180">3분</button></div></div>
+        <div class="ch-set">박 그림<div class="chips" id="bkLook"><button class="chip" data-l="photo">사진</button><button class="chip" data-l="draw">그림</button></div></div>
       </div>
       <div class="card ch-box ch-log bk-top"><h3>많이 넣은 친구</h3><div id="bkTop"></div></div>
     </div>
@@ -1462,7 +1466,9 @@ const runRows=()=>(S.rows||[]).filter(r=>S.lastRun&&r.pick&&r.pick.ctl===S.lastR
 
 /* ---------- 박 터트리기: 반 전체 합계가 목표에 닿으면 박이 터짐 (25%마다 금이 감) ---------- */
 const BK={ on:false, dur:60, auto:true, way:'all', phase:'idle', stage:0, tickT:0, res:null, sq:null };
-const BK_IMG=n=>'img/bak'+n+'.webp';
+const BK_LOOK=()=>store.get('jl_bklook')==='draw'?'draw':'photo';   // 박 그림: 사진(기본) · 그림(예전 만화풍)
+const BK_IMG=n=>BK_LOOK()==='draw'?'img/bak'+n+'.webp':'img/bakp'+n+'.webp';
+[0,1,2,3,4].forEach(n=>{ const im=new Image(); im.src='img/bakp'+n+'.webp'; });   // 터질 때 깜빡이지 않게 미리 받아 둠
 [0,1,2,3,4].forEach(n=>{ const im=new Image(); im.src=BK_IMG(n); });   // 미리 받아 둠
 const bkPer=()=>Math.max(10,Math.min(100,+$('bkPer').value||30));   // 한 사람당 횟수 (10~100)
 function bakGoal(){ if(BK.auto){ const n=(S.rows||[]).filter(here).length||(S.rows||[]).length; $('bkGoal').value=Math.max(10,n*bkPer()); } return Math.max(10,Math.round(+$('bkGoal').value)||500); }
@@ -1494,7 +1500,7 @@ function bakTeamsRender(st,running){
   const col=['#FF6B5B','#2BB3A3','#F2A33A','#6E5BEF','#13A6E8'];
   const cards=T.map((m,i)=>{ const [nm,c]=TEAM_C[i], w=winners.includes(i); let cf=''; if(w) for(let k=0;k<40;k++) cf+=`<i style="left:${(k*37)%100}%;top:${(k*53)%90}%;background:${col[k%5]};animation-delay:${(k%10)*60}ms"></i>`;
     return `<div class="bk-tc${w?' win':''}" style="border-color:${c}">${w?`<div class="ch-conf">${cf}</div><span class="wb">${BK.phase==='done'||BK.burst?'승리!':''}</span>`:''}<h3><i style="background:${c}"></i>${nm} 팀</h3>
-      <img class="bk-img${hits[i]?' hit':''}" src="${BK_IMG(stg[i])}" alt="박"><div class="bk-cnt" style="color:${c}">${sums[i]}<small>/ ${goals[i]}</small></div><div class="bk-g"><b style="width:${fr[i]*100}%;background:${c}"></b></div><div class="bk-tip">${m.length}명 · ${fr[i]>=1?'터졌다!':Math.max(0,goals[i]-sums[i])+'회 남음'}</div></div>`; }).join('');
+      <img class="bk-img${BK_LOOK()==='photo'?' photo':''}${hits[i]?' hit':''}" src="${BK_IMG(stg[i])}" alt="박"><div class="bk-cnt" style="color:${c}">${sums[i]}<small>/ ${goals[i]}</small></div><div class="bk-g"><b style="width:${fr[i]*100}%;background:${c}"></b></div><div class="bk-tip">${m.length}명 · ${fr[i]>=1?'터졌다!':Math.max(0,goals[i]-sums[i])+'회 남음'}</div></div>`; }).join('');
   const head=BK.phase==='idle'?'<div class="bk-tip" style="margin:0 0 10px">팀마다 박 하나 — 먼저 터뜨린 팀이 이겨요 · 위의 "시작"을 눌러요</div>':winners.length?`<div class="bk-banner" style="margin:0 0 10px;font-size:min(48px,6vh)">${winners.map(i=>TEAM_C[i][0]).join('·')} 팀 승리!</div>${BK.phase==='done'?cheer('team'):''}`:BK.res?'<div class="bk-tip" style="margin:0 0 10px;color:var(--amber);font-size:26px">아깝다! 아무 팀도 못 터뜨렸어요</div>'+cheer():`<div class="bk-tip" style="margin:0 0 10px">${modeTime()}</div>`;
   const body=head+`<div class="bk-teams" style="grid-template-columns:repeat(${n},minmax(0,1fr))">${cards}</div>`;
   if(st.dataset.k!==body){ st.innerHTML=body; st.dataset.k=body; }
@@ -1519,7 +1525,7 @@ function bakRender(){
   $('bkTop').innerHTML=top.length?top.map(r=>`<div class="ch-li"><span class="nm">${esc(r.name||r.n+'번')}</span><b>${r.cnt}회</b></div>`).join(''):'<div class="ch-left">시작하면 많이 넣은 친구가 보여요</div>';
   const done=stage===4||(BK.res&&BK.res.ok);
   let conf=''; if(done){ const col=['#FF6B5B','#2BB3A3','#F2A33A','#6E5BEF','#13A6E8']; for(let i=0;i<80;i++) conf+=`<i style="left:${(i*37)%100}%;top:${(i*53)%90}%;background:${col[i%5]};animation-delay:${(i%10)*60}ms"></i>`; }
-  const img=`<img class="bk-img${hit?' hit':''}" src="${BK_IMG(stage)}" alt="박">`;
+  const img=`<img class="bk-img${BK_LOOK()==='photo'?' photo':''}${hit?' hit':''}" src="${BK_IMG(stage)}" alt="박">`;
   let body;
   if(BK.phase==='idle') body=`${img}<div class="bk-cnt">0<small>/ ${goal.toLocaleString()}회</small></div><div class="bk-g"><b style="width:0"></b></div><div class="bk-tip">반 전체가 함께 뛴 횟수로 박을 터뜨려요 · 위의 "시작"을 눌러요</div>`;
   else if(done) body=`<div class="ch-conf">${conf}</div>${img}<div class="bk-banner">축 · ${esc(clsLabel(S.groups))} 성공!</div><div class="bk-cnt">${sum.toLocaleString()}<small>회 · ${Math.max(1,Math.round(((BK.burstAt||B.now())-S.lastRun.at)/1000))}초 만에</small></div><div class="bk-tip">다 같이 해냈어요!</div>${cheer()}`;
@@ -1621,6 +1627,8 @@ function teamDlgRender(){ const T=tmTeams(), ctl=`<b style="font-size:22px">팀 
 $('tdCtl').onclick=e=>{ const b=e.target.closest('button'); if(!b) return; if(b.dataset.n){ TM.n=+b.dataset.n; tmShuffle(); } else if(b.dataset.t==='mix') tmShuffle(); else if(b.dataset.t==='cls') tmByClass(); else if(b.dataset.t==='done') return teamDlgClose(); teamDlgRender(); };
 $('tdCols').onclick=e=>{ const sp=e.target.closest('[data-k]'); if(!sp) return; TM.map[sp.dataset.k]=((TM.map[sp.dataset.k]||0)+1)%TM.n; tmSave(); teamDlgRender(); };
 $('btnBak').onclick=bakOpen; $('bkBack').onclick=bakClose; $('bkGo').onclick=bakGo; $('bkEnd').onclick=()=>end();
+(()=>{ const sync=()=>Array.prototype.forEach.call($('bkLook').children,x=>x.classList.toggle('on',x.dataset.l===BK_LOOK())); sync();
+  $('bkLook').onclick=e=>{ const b=e.target.closest('[data-l]'); if(!b) return; store.set('jl_bklook',b.dataset.l); sync(); bakRender(); }; })();
 $('bkDur').onclick=e=>{ const b=e.target.closest('[data-d]'); if(!b) return; BK.dur=+b.dataset.d; Array.prototype.forEach.call($('bkDur').children,x=>x.classList.toggle('on',x===b)); };
 { const v=+store.get('jl_bkper'); if(v>=10&&v<=100) $('bkPer').value=String(Math.round(v/10)*10); }
 $('bkPer').onchange=()=>{ store.set('jl_bkper',$('bkPer').value); if(!BK.auto) $('bkAuto').querySelector('[data-a="1"]').click(); else if(BK.phase!=='run'){ BK.phase='idle'; bakRender(); } };
@@ -1887,13 +1895,13 @@ function bakSeqRender(st,running){
     const hit=stage>BK.stage; if(hit){ BK.stage=stage; if(stage<4) beep(220,.15,.25); }
     if(f>=1&&running&&!BK.burst){ BK.burst=id; BK.burstAt=B.now(); beep(1046,.15,.3); setTimeout(()=>beep(1568,.4,.3),200); setTimeout(()=>{ if(S.ctl.ph==='go') end(true); },1200); }
     const el=S.ctl.ph==='go'&&B.now()>=S.ctl.at?(BK.burst?BK.burstAt:B.now())-S.ctl.at:0;
-    body=`<div class="ch-eyebrow" style="color:${TEAM_C[i][1]};font-size:28px">${TEAM_C[i][0]} 팀 차례 · ${i+1}/${teams.length}</div><img class="bk-img${hit?' hit':''}" src="${BK_IMG(stage)}" alt="박" style="width:min(420px,40vh)"><div class="bk-cnt" style="color:${TEAM_C[i][1]}">${sum}<small>/ ${goal}회</small></div><div class="bk-g"><b style="width:${f*100}%;background:${TEAM_C[i][1]}"></b></div><div class="bk-tip" style="font-size:30px;color:var(--ink)">${S.ctl.ph==='go'&&B.now()<S.ctl.at?Math.ceil((S.ctl.at-B.now())/1000)+'초 뒤 시작':BK.burst?'깼다! '+secTxt(el):secTxt(el)}</div>`;
+    body=`<div class="ch-eyebrow" style="color:${TEAM_C[i][1]};font-size:28px">${TEAM_C[i][0]} 팀 차례 · ${i+1}/${teams.length}</div><img class="bk-img${BK_LOOK()==='photo'?' photo':''}${hit?' hit':''}" src="${BK_IMG(stage)}" alt="박" style="width:min(420px,40vh)"><div class="bk-cnt" style="color:${TEAM_C[i][1]}">${sum}<small>/ ${goal}회</small></div><div class="bk-g"><b style="width:${f*100}%;background:${TEAM_C[i][1]}"></b></div><div class="bk-tip" style="font-size:30px;color:var(--ink)">${S.ctl.ph==='go'&&B.now()<S.ctl.at?Math.ceil((S.ctl.at-B.now())/1000)+'초 뒤 시작':BK.burst?'깼다! '+secTxt(el):secTxt(el)}</div>`;
     $('bkTop').innerHTML=rows.slice().sort((a,b)=>b.cnt-a.cnt).slice(0,8).map(r=>`<div class="ch-li"><span class="nm">${esc(r.name||r.n+'번')}</span><b>${r.cnt}회</b></div>`).join(''); }
   else if(BK.phase==='sqbetween'){ const i=sq.i, prev=teams[i-1]||[], cur=teams[i];
     const hand=sq.ropes.length?`<div class="res" style="width:min(820px,96%);margin-top:10px"><table style="width:100%"><thead><tr><th>${devHead(sq.ropes)}</th><th>주는 친구</th><th></th><th>받는 친구 (${TEAM_C[i][0]} 팀)</th></tr></thead><tbody>${sq.ropes.map((n,j)=>cur[j]?`<tr><td style="font-weight:900;color:var(--accent-ink)">${devLbl(n)}</td><td>${esc(nm(prev[j]))||'<span style="color:var(--muted)">(바구니에서)</span>'}</td><td>→</td><td style="font-weight:800">${esc(nm(cur[j]))}</td></tr>`:'').join('')}</tbody></table></div>`:sq.manual?seqPick(sq,i):'';
     body=`<div class="ch-eyebrow">${TEAM_C[i-1][0]} 팀 ${sq.res[i-1].ok?secTxt(sq.res[i-1].ms)+' 만에 깼어요!':'못 깼어요 ('+sq.res[i-1].sum+'/'+sq.res[i-1].goal+')'}</div>${resTbl()}${hand}<div class="ch-btns" style="margin-top:12px"><button class="primary" data-bk="next" style="background:${TEAM_C[i][1]};border-color:${TEAM_C[i][1]}">${TEAM_C[i][0]} 팀 시작</button></div>`; }
   else { const rk=bakSeqRank(), w=rk[0]&&rk[0].r.ok?rk[0]:null; let cf=''; if(w){ const col=['#FF6B5B','#2BB3A3','#F2A33A','#6E5BEF','#13A6E8']; for(let k=0;k<70;k++) cf+=`<i style="left:${(k*37)%100}%;top:${(k*53)%90}%;background:${col[k%5]};animation-delay:${(k%10)*60}ms"></i>`; }
-    body=`<div class="ch-conf">${cf}</div><img class="bk-img" src="${BK_IMG(4)}" alt="박" style="width:min(320px,30vh)">${w?`<div class="bk-banner" style="margin-top:-20px">${TEAM_C[w.i][0]} 팀 승리! ${secTxt(w.r.ms)}</div>`:'<div class="bk-tip" style="font-size:30px;color:var(--amber)">아무 팀도 못 깼어요</div>'}${cheer(isClose(sq.res.map(r=>r&&r.ok?r.ms:0),true)?'close':'team')}${resTbl()}<div class="ch-btns" style="margin-top:12px"><button data-bk="again">처음부터 다시</button></div>`; }
+    body=`<div class="ch-conf">${cf}</div><img class="bk-img${BK_LOOK()==='photo'?' photo':''}" src="${BK_IMG(4)}" alt="박" style="width:min(320px,30vh)">${w?`<div class="bk-banner" style="margin-top:-20px">${TEAM_C[w.i][0]} 팀 승리! ${secTxt(w.r.ms)}</div>`:'<div class="bk-tip" style="font-size:30px;color:var(--amber)">아무 팀도 못 깼어요</div>'}${cheer(isClose(sq.res.map(r=>r&&r.ok?r.ms:0),true)?'close':'team')}${resTbl()}<div class="ch-btns" style="margin-top:12px"><button data-bk="again">처음부터 다시</button></div>`; }
   if(st.dataset.k!==body){ st.innerHTML=body; st.dataset.k=body; }
 }
 $('bkStage').onclick=e=>{ const b=e.target.closest('[data-bk]'); if(!b) return; if(b.dataset.bk==='next') bakSeqGo(); else if(b.dataset.bk==='again'){ BK.sq=null; BK.phase='idle'; bakRender(); } };
