@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>줄넘기 판정기 v1.3.5 · 카메라로 진짜 뛰는지 보기</title>
+<title>줄넘기 판정기 v1.3.6 · 카메라로 진짜 뛰는지 보기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
@@ -336,7 +336,7 @@
   <header>
     <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M8.5 10l3.5 2 3.5-2M10 20l2-7 2 7"/><path d="M5 13c0 7 14 7 14 0"/></svg></div>
     <div class="titles">
-      <h1>줄넘기 판정기<span class="ver">v1.3.5</span></h1>
+      <h1>줄넘기 판정기<span class="ver">v1.3.6</span></h1>
       <span class="sub">머리부터 발까지 보이게 서서, 몸이 뜨고 팔이 돌 때만 1회로 세요</span>
     </div>
     <div class="who" id="who"></div>
@@ -573,7 +573,7 @@ const $=id=>document.getElementById(id);
 const video=$('video'), cv=$('overlay'), cx=cv.getContext('2d');
 let landmarker=null, stream=null, facing='user', running=false, t0=0, raf=0, lastVideoT=-1, frames=0, fpsT=0;
 /* ---------- 앱 연동: 체육교사 보조 프로그램의 줄넘기 화면에서 열리면 ?app=앱주소&t=학생표&kind=종류 가 붙어 와요 ---------- */
-const VER='1.3.5';
+const VER='1.3.6';
 const Q=new URLSearchParams(location.search);
 const LINK={ app:Q.get('app')||'', t:Q.get('t')||'', kind:Q.get('kind')||'', sens:+(Q.get('sens')||0)||0, target:(Q.get('target')==='fit'?'fit':'rope'), who:null, saved:null,
   // mode=post : 오프라인판(파일로 여는 프로그램)이 연 창. 서버 대신 window.opener.postMessage 로 결과를 돌려준다.
@@ -605,7 +605,7 @@ async function linkInit(){
     const tag=LINK.target==='fit'?(d.대상||'건강체력교실 줄넘기'):(LINK.kind||'줄넘기');
     w.innerHTML=`<b>${d.학년}학년 ${d.반}반 ${d.번호}번 ${d.이름}</b><small>${tag} · 오늘 ${d.오늘}회 / ${LINK.target==='fit'?'기준':'목표'} ${d.하루목표}회${d.포인트안내?' · '+d.포인트안내:''}</small>`;
     $('btnStart').textContent='시작';
-    if(d.방&&LINK.target==='rope'&&!LIVE.on){ stuOffer(); if(DUEL) stuModal('1v1'); }
+    if(d.방&&LINK.target==='rope'&&!LIVE.on){ stuOffer(); if(JOIN){ stuModal(); $('stuCode').value=JOIN; $('stuJoin').click(); } else if(DUEL) stuModal('1v1'); }
     else if(DUEL&&LINK.target==='rope') w.innerHTML+='<small style="color:var(--red)"> · 각자 기기로 대결은 학교 껍데기 6판부터 돼요 (선생님께 말씀드려요) — 혼자 뛰기는 돼요</small>'; }
   catch(e){ w.innerHTML=`<span style="color:var(--red)">앱 연결 실패: ${e.message}</span><small>세어 보기만 돼요 (앱에서 다시 열어 주세요)</small>`; LINK.app=''; LINK.linked=false; }
 }
@@ -953,7 +953,9 @@ const LIVE={ room:'', on:false, ok:false, dev:'', me:null, T:null, sent:null, la
 // 점프 Live (Lite): &ls=학교 시트 스크립트 주소 가 있으면 Firebase 대신 그 학교 시트로 주고받음 (3초쯤마다)
 { const v=Q.get('ls')||''; LIVE.shell=/^https:\/\/script\.google(usercontent)?\.com\//.test(v)?v:''; }
 const CLUB=Q.get('club')==='1';
-const DUEL=Q.get('duel')==='1';   // 앱의 '각자 기기로 대결'로 열면 방 만들기·들어가기 창을 띄운 채로 (1.3.5)   // 클럽판(스포츠클럽·도장)에서 열면 '학교' 대신 '클럽'
+const DUEL=Q.get('duel')==='1';
+const JOIN=/^\d{4}$/.test(Q.get('join')||'')?Q.get('join'):'';   // 친구가 띄운 방 QR로 앱을 거쳐 들어오면 그 방 번호 (1.3.6)
+const HOME=/^https:\/\/musicalpe\.github\.io\/jumprope\/(beta\/|club\/)?$/.test(Q.get('home')||'')?Q.get('home'):'https://musicalpe.github.io/jumprope/'+(CLUB?'club/':'');   // 앱의 '각자 기기로 대결'로 열면 방 만들기·들어가기 창을 띄운 채로 (1.3.5)   // 클럽판(스포츠클럽·도장)에서 열면 '학교' 대신 '클럽'
 
 /* ---------- 학생 방: 친구들과 함께 뛰기 (점프 Live (Lite) · 껍데기 6판) ----------
    앱에서 "카메라로 뛰기"로 연 학생이 방을 만들면 4자리 방 번호가 생기고, 친구들이 그 번호로 들어옴.
@@ -1036,6 +1038,7 @@ function stuBarRender(){
   if(run) ctl=STU.host?`<button id="stuStop" style="${bs};background:#fff;border:2px solid var(--accent,#FF6B5B);color:var(--accent-ink,#E2513F)">중지</button>`:'<span style="color:var(--muted)">끝나면 함께 공개</span>';
   else if(STU.host) ctl=`${STU.mode==='2v2'&&!need?`<button id="stuMix" style="${bs}">팀 섞기</button>`:''}<select id="stuDur" style="font:inherit;font-size:15px;padding:5px 6px;border-radius:10px;border:1px solid var(--line)"><option value="30">30초</option><option value="60">1분</option><option value="120">2분</option></select><button class="primary" id="stuGo" style="${bs};padding:6px 18px"${need?' disabled':''}>${need?need+'명 더 기다려요':STU.lastRun?'한 번 더':'시작'}</button>`;
   else ctl=`<span style="color:var(--muted)">${esc(STU.hostName||'방장')} 친구가 시작해요</span>`;
+  if(!run) ctl=`<button id="stuQrB" style="${bs}" title="친구가 휴대폰 카메라로 찍으면 이 방으로 들어와요">QR</button>`+ctl;
   const keep=$('stuDur')?$('stuDur').value:String(STU.dur||60), dot=LIVE.conn?'var(--mint,#2BB3A3)':'var(--red,#E5484D)';
   const head=duel?`<span style="font-weight:800;color:var(--ink2)">${STU_NM[STU.mode]}</span><span style="color:var(--muted);font-weight:700">${need?pl.length+'/'+cap+'명':cap+'명 다 왔어요'}</span>`:`<span style="color:var(--muted);font-weight:700">${pl.length}명</span>`;
   bar.innerHTML=`<div style="display:flex;align-items:center;gap:8px 10px;white-space:nowrap;flex-wrap:wrap"><span title="${LIVE.conn?'연결됨':'연결하는 중'}" style="width:10px;height:10px;border-radius:50%;background:${dot};flex:none"></span><b style="font-size:18px">방</b><b style="font-size:32px;line-height:1;letter-spacing:.06em;color:var(--accent-ink,#E2513F)">${STU.code}</b>${head}<span style="flex:1"></span>${ctl}<button id="stuOut" style="font-size:14px;padding:6px 12px;min-height:36px">나가기</button></div><div style="display:flex;${STU.mode==='2v2'?'flex-direction:column;':'flex-wrap:wrap;'}gap:6px;max-height:${STU.mode==='2v2'?'120':'84'}px;overflow:auto">${names||'<span style="color:var(--muted)">친구들이 들어오면 이름이 떠요</span>'}</div>`;
@@ -1044,6 +1047,20 @@ function stuBarRender(){
   $('stuOut').onclick=()=>stuLeave(false);
   const g=$('stuGo'); if(g) g.onclick=stuGo;
   const mx=$('stuMix'); if(mx) mx.onclick=stuMix;
+  const qb=$('stuQrB'); if(qb) qb.onclick=stuQr;
+}
+// 방 QR (1.3.6): 친구 기기 카메라로 찍으면 앱이 열리고(방 번호가 붙은 채로) 이름을 고른 뒤 '방 ○○○○ 들어가기' 한 번 → 판정기가 그 방으로 바로 들어옴
+function stuQrUrl(){ return HOME+'?s='+encodeURIComponent(LINK.app)+'&join='+STU.code; }
+async function stuQr(){
+  let m=$('stuQrM'); if(!m){ m=document.createElement('div'); m.id='stuQrM'; m.className='modal'; document.body.appendChild(m); }
+  m.innerHTML=`<div class="box" style="max-width:420px;text-align:center"><h3 style="margin:0">방 <span style="color:var(--accent-ink)">${STU.code}</span> 들어오기</h3>
+    <div id="stuQrImg" style="background:#fff;border:1px solid var(--line);border-radius:16px;padding:10px;margin:4px auto;width:min(300px,70vw)">QR 만드는 중…</div>
+    <p style="margin:0;color:var(--ink2);line-height:1.6">친구 휴대폰 <b>카메라</b>로 찍으면 앱이 열려요.<br>이름을 고르고 <b>방 ${STU.code} 들어가기</b>를 누르면 끝!</p>
+    <button class="primary" id="stuQrX">닫기</button></div>`;
+  m.classList.add('on'); $('stuQrX').onclick=()=>m.classList.remove('on'); m.onclick=e=>{ if(e.target===m) m.classList.remove('on'); };
+  try{ if(typeof window.qrcode!=='function') await new Promise((ok,no)=>{ const sc=document.createElement('script'); sc.src='https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js'; sc.onload=ok; sc.onerror=no; document.head.appendChild(sc); });
+    const q=window.qrcode(0,'M'); q.addData(stuQrUrl()); q.make(); $('stuQrImg').innerHTML=q.createSvgTag({cellSize:8,margin:2,scalable:true}); }
+  catch(e){ $('stuQrImg').textContent='QR을 만들지 못했어요 — 방 번호 '+STU.code+'를 알려 주세요'; }
 }
 // 방장 '팀 섞기' (2대2): 네 명을 무작위로 두 명씩 — 같은 팀이 그대로 나오면 한 번 더 섞음
 async function stuMix(){
