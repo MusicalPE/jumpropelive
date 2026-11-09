@@ -2,6 +2,19 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
+<script>
+/* 카카오톡 안(인앱 브라우저)에서 열리면 기본 브라우저로 넘기기 · 안 넘어가면 위쪽 띠의 버튼으로 */
+(function(){ var u = navigator.userAgent || ''; if (!/KAKAOTALK/i.test(u)) return;
+  var go = function(){ location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(location.href); };
+  document.addEventListener('DOMContentLoaded', function(){ setTimeout(function(){ try { go(); } catch (e) {} }, 0); setTimeout(function(){
+    var b = document.createElement('div');
+    b.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:2147483000;background:#1E2733;color:#fff;padding:10px 14px;font:15px/1.4 sans-serif;display:flex;gap:10px;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.25)';
+    b.innerHTML = '<span>카카오톡에서는 카메라가 안 될 수 있어요</span><span style="display:flex;gap:6px;flex-shrink:0"><button type="button" style="border:0;border-radius:8px;padding:8px 12px;background:#E8634F;color:#fff;font-weight:700;font-size:14px">기본 브라우저로 열기</button><button type="button" aria-label="닫기" style="border:0;background:none;color:#C9D1DB;font-size:20px;padding:4px 6px">×</button></span>';
+    var bt = b.querySelectorAll('button'); bt[0].onclick = go; bt[1].onclick = function(){ b.remove(); };
+    document.body.appendChild(b);
+  }, 1200); });
+})();
+</script>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>줄넘기 판정기 v1.3.7 · 카메라로 진짜 뛰는지 보기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
