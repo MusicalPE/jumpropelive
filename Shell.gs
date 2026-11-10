@@ -10,7 +10,7 @@
  * 배포 설정: 다음 사용자로 실행 = 나, 액세스 권한 = 모든 사용자
  *************************************************************/
 
-const SHELL_VERSION = 8;                      // 껍데기 판 (화면이 확인함)  2: 새 학교는 승인 절차 기본 켜짐, 카메라 기록은 기본 바로 승인  3: 급수(Levels 시트)  4: 전국 현황판 비밀 키를 학생 화면에 내보내지 않음(오늘 기록은 이 껍데기가 직접 보냄)  5: 한 번에 최고 연속(스마트 줄넘기·카메라 판정기) 기록·전국 현황판 보고  6: 점프 Live (Lite) — 학교 시트만으로 수업 방(바깥 서버 없이) · 학생 방(친구들과 함께 뛰기, 기록은 승인 대기)  7: 나와의 대결 — 점프 Live 판 길이(Dur 열)·내 N분 최고, 기록을 넣을 때 하루 최고·연속 최고 갱신 알림  8: 각자 기기로 대결 — 학생 방 방식(다 같이·1대1·2대2)과 인원 제한, 나가면 명단에서 빠짐
+const SHELL_VERSION = 9;                      // 껍데기 판 (화면이 확인함)  2: 새 학교는 승인 절차 기본 켜짐, 카메라 기록은 기본 바로 승인  3: 급수(Levels 시트)  4: 전국 현황판 비밀 키를 학생 화면에 내보내지 않음(오늘 기록은 이 껍데기가 직접 보냄)  5: 한 번에 최고 연속(스마트 줄넘기·카메라 판정기) 기록·전국 현황판 보고  6: 점프 Live (Lite) — 학교 시트만으로 수업 방(바깥 서버 없이) · 학생 방(친구들과 함께 뛰기, 기록은 승인 대기)  7: 나와의 대결 — 점프 Live 판 길이(Dur 열)·내 N분 최고, 기록을 넣을 때 하루 최고·연속 최고 갱신 알림  8: 각자 기기로 대결 — 학생 방 방식(다 같이·1대1·2대2)과 인원 제한, 나가면 명단에서 빠짐  9: 스마트 줄넘기(내 줄넘기로 뛰기) 기록도 카메라처럼 기본으로 바로 승인 (기기가 센 기록 — 관리자 설정의 '바로 반영'을 끄면 승인 대기)
 const APP_URL = 'https://musicalpe.github.io/jumprope/';
 const BETA_URL = 'https://musicalpe.github.io/jumprope/beta/';
 
@@ -862,8 +862,10 @@ function addRecord(id, dateStr, count, timeStr, typeStr, best) {
   if (cnt > 5000) return { ok: false, message: '한 번에 5000회까지만 입력할 수 있어요.' };
   const bst = Math.min(Math.round(Number(best) || 0), Math.round(cnt));
   const rsh = getRecordsSheet_(), marks = studentMarks_(rsh.getDataRange().getValues(), target, String(dateStr).trim());   // 7판: 하루 최고·연속 최고 갱신 알림
-  rsh.appendRow([Utilities.getUuid(), new Date(), target, String(dateStr).trim(), Math.round(cnt), approvalOn_() ? 'pending' : 'approved', time, type, bst > 0 ? 'rope' : '', bst > 0 ? bst : '']);
-  return { ok: true, approval: approvalOn_(), pb: studentPB_(marks, Math.round(cnt), bst), message: approvalOn_() ? '입력되었습니다! 선생님 승인 후 그래프에 반영됩니다.' : '저장되었습니다! 그래프에 바로 반영됩니다.' };
+  // 9판: 스마트 줄넘기가 센 기록(bst > 0)은 카메라 기록처럼 기본으로 바로 승인. 손으로 넣은 기록은 그대로 승인 대기
+  const wait = approvalOn_() && !(bst > 0 && getCameraSettings_().autoApprove);
+  rsh.appendRow([Utilities.getUuid(), new Date(), target, String(dateStr).trim(), Math.round(cnt), wait ? 'pending' : 'approved', time, type, bst > 0 ? 'rope' : '', bst > 0 ? bst : '']);
+  return { ok: true, approval: wait, pb: studentPB_(marks, Math.round(cnt), bst), message: wait ? '입력되었습니다! 선생님 승인 후 그래프에 반영됩니다.' : '저장되었습니다! 그래프에 바로 반영됩니다.' };
 }
 
 // 누구나 볼 수 있는 승인 대기 목록 (학생이 자기 입력이 잘 접수됐는지 확인하는 용도)
