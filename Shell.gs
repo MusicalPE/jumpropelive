@@ -76,7 +76,7 @@ const RPC_ALLOW_ = [
   'updateRecordAdmin', 'deleteRecordAdmin', 'getTheme', 'setTheme', 'getCameraSettings', 'getCameraSettingsAdmin',
   'setCameraSettings', 'issueCameraToken', 'generateMotivationMessage', 'getGeminiModelList', 'getMotivationSettings',
   'saveGeminiApiKey', 'regenerateMotivationNow', 'getLevelsPublic', 'saveLevelPasses',
-  'getExtraSettingsAdmin', 'natReportToday', 'addLiveRecordsAdmin', 'getLiveBestsAdmin',
+  'getExtraSettingsAdmin', 'getSheetUrlAdmin', 'natReportToday', 'addLiveRecordsAdmin', 'getLiveBestsAdmin',
   'liteOpenRoom', 'liteSetControl', 'litePull', 'liteCloseRoom', 'liteInfo', 'liteSend', 'liteStuOpen', 'liteStuJoin', 'liteStuBoard', 'liteStuLeave'
 ];
 function doPost(e) {
@@ -94,6 +94,12 @@ function doPost(e) {
     out = { ok: false, error: String((err && err.message) || err) };
   }
   return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// 로그인한 선생님에게만 이 시트 주소를 알려 줌 (화면의 '껍데기 새 판으로 바꾸는 법' 안내에서 내 시트 열기)
+function getSheetUrlAdmin(token) {
+  if (!checkAdminToken_(token)) throw new Error('권한이 없습니다.');
+  return getSS_().getUrl();
 }
 
 function ping() {
@@ -1370,7 +1376,7 @@ function generateMotivationMessage() {
     if (apiKey) {
       const result = callGeminiForMotivation_(apiKey);
       if (result.ok) {
-        props.setProperties({ MOTIVATION_DATE: today, MOTIVATION_TEXT: result.text, MOTIVATION_SOURCE: 'ai', MOTIVATION_MODEL: result.model, MOTIVATION_ERROR: '' });
+        props.setProperties({ MOTIVATION_DATE: today, MOTIVATION_TEXT: result.text, MOTIVATION_SOURCE: 'ai', MOTIVATION_MODEL: result.model }); props.deleteProperty('MOTIVATION_ERROR');   // 빈 값으로 두면 스크립트 속성 화면에서 저장이 막힘
         return { text: result.text, source: 'ai', date: today };
       }
       // 실패: 하루 동안 계속 재시도하지 않도록 기본 문구를 오늘 값으로 저장하고, 오류는 관리자 화면에 표시
@@ -1530,7 +1536,7 @@ function regenerateMotivationNow(token) {
   const today = formatDate_(new Date());
   const result = callGeminiForMotivation_(apiKey);
   if (result.ok) {
-    p.setProperties({ MOTIVATION_DATE: today, MOTIVATION_TEXT: result.text, MOTIVATION_SOURCE: 'ai', MOTIVATION_MODEL: result.model, MOTIVATION_ERROR: '' });
+    p.setProperties({ MOTIVATION_DATE: today, MOTIVATION_TEXT: result.text, MOTIVATION_SOURCE: 'ai', MOTIVATION_MODEL: result.model }); p.deleteProperty('MOTIVATION_ERROR');
     return { ok: true, text: result.text, model: result.model };
   }
   p.setProperty('MOTIVATION_ERROR', result.error || '알 수 없는 오류');
