@@ -783,19 +783,20 @@ function twoPaint(sa,sb,A,B,t){
 let ac=null;
 function audioWarm(){ try{ ac=ac||new (window.AudioContext||window.webkitAudioContext)(); if(ac.state==='suspended') ac.resume(); const b=ac.createBuffer(1,1,22050), s=ac.createBufferSource(); s.buffer=b; s.connect(ac.destination); s.start(0); }catch(e){} }
 /* 1.4.0 자리 잡기: [시작]을 누르면 머리부터 발까지 보이게 1초 가만히 선 뒤 "삐!" 하고 세기 시작
-   (자리로 걸어가는 동안 잡힌 땅 높이·몸 크기 때문에 처음 몇 번을 놓치던 것을 막음). 4초 안에 가만히 서지 못하면 그냥 시작 */
-const SETTLE={on:false,t:0,since:0};
-function settleStart(){ SETTLE.on=true; SETTLE.t=performance.now(); SETTLE.since=0; const s=$('status'); s.textContent='가만히 서 있어요 — 자리 잡는 중'; s.className='status wait'; }
+   (자리로 걸어가는 동안 잡힌 땅 높이·몸 크기 때문에 처음 몇 번을 놓치던 것을 막음). 온몸이 화면에 보인 뒤 3초 안에 가만히 서지 못하면 그냥 시작 (뒤로 걸어가는 시간은 세지 않음) */
+const SETTLE={on:false,t:0,since:0,seen:0};
+function settleStart(){ SETTLE.on=true; SETTLE.t=performance.now(); SETTLE.since=0; SETTLE.seen=0; const s=$('status'); s.textContent='가만히 서 있어요 — 자리 잡는 중'; s.className='status wait'; }
 function settleDone(dets){ SETTLE.on=false; dets.forEach(d=>{ d.rebase(); d.zero(); }); lastCount=0; $('count').innerHTML='0<small>회</small>'; beep(990,0.22,0.3);
   const s=$('status'); s.textContent='삐! 이제 뛰어요!'; s.className='status jump'; }
 function settleTick(st,now){   // 1인: 온몸이 보이고 뜨지 않은 채 1초
   det.zero();
   const ok=st.visible&&st.full&&!st.tooClose&&Math.abs(st.lift)<st.amp*0.6;
+  if(st.visible&&st.full&&!st.tooClose){ if(!SETTLE.seen) SETTLE.seen=now; } else SETTLE.seen=0;
   if(!ok) SETTLE.since=0; else if(!SETTLE.since){ SETTLE.since=now; det.n=0; det.rebase(); }   // 가만히 서기 시작하면 몸 크기·땅 높이를 새로 빠르게 잡음
   const s=$('status');
   if(!st.visible) s.textContent='머리와 어깨가 보이게 서 주세요'; else if(st.tooClose) s.textContent='너무 가까워요 — 발까지 보이게 뒤로 물러서요'; else if(!st.full) s.textContent='머리부터 발까지 다 보이게 서 주세요'; else s.textContent='가만히 서 있어요 — 자리 잡는 중';
   s.className='status wait';
-  if((SETTLE.since&&now-SETTLE.since>=1000)||now-SETTLE.t>4000) settleDone([det]);
+  if((SETTLE.since&&now-SETTLE.since>=1000)||(SETTLE.seen&&now-SETTLE.seen>3000)) settleDone([det]);
 }
 function beep(f,d,vol){ if(!$('snd').checked) return; try{ ac=ac||new (window.AudioContext||window.webkitAudioContext)(); const o=ac.createOscillator(), g=ac.createGain(); o.type='triangle'; o.frequency.value=f; g.gain.setValueAtTime(vol||0.2,ac.currentTime); g.gain.exponentialRampToValueAtTime(0.0001,ac.currentTime+d); o.connect(g).connect(ac.destination); o.start(); o.stop(ac.currentTime+d); }catch(e){} }
 function log(s){ $('log').textContent=s; }
